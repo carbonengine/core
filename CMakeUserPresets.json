@@ -1,0 +1,14 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 31,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "local",
+      "inherits": "nmc-universal-osx-debug"
+    }
+  ]
+}

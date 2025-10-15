@@ -1,0 +1,24 @@
+{
+  "dependencies": [
+    {
+      "name": "tracy",
+      "version>=": "0.11.1",
+      "features": [
+        "fibers",
+        "on-demand",
+        "no-callstack",
+        "manual-lifetime",
+        "delayed-init"
+      ]
+    },
+    {
+      "name": "gtest",
+      "version>=": "1.16.0"
+    },
+    {
+      "name": "python3",
+      "version>=": "3.12.3#2",
+      "host": true
+    }
+  ]
+}
