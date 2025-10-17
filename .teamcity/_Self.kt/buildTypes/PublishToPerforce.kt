@@ -267,4 +267,4 @@ class Publish(perforce_publish_path: String) : BuildType({
     }
 })
 
-val PublishToPerforce = Publish("vendor/github.com/ccpgames/carbon-core")
+val PublishToPerforce = Publish("vendor/github.com/carbonengine/core")
