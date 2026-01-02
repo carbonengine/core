@@ -8,9 +8,10 @@ set(CCP_TOOLSET ${CMAKE_GENERATOR_TOOLSET})
 
 include(GenerateExportHeader)
 
-include(cmake/CcpGlobalSettings.cmake)
 include(cmake/CcpTargetConfigurations.cmake)
+include(cmake/CcpDocsGenerator.cmake)
 include(cmake/CcpPackageConfigHelpers.cmake)
+include(cmake/CcpBuildConfigurations.cmake)
 
 option(WITH_TELEMETRY "Enable profiler integration" ON)
 option(WITH_MEMORY_TRACKING "Enable tracking of memory allocations." ON)

@@ -19,6 +19,9 @@
       "name": "python3",
       "version>=": "3.12.3#2",
       "host": true
+    },
+    {
+      "name": "atl"
     }
   ]
 }

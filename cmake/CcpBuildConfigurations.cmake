@@ -1,8 +1,15 @@
 # Copyright © 2025 CCP ehf.
 #[[
 Defines our supported build configurations, also known as build flavors.
+
+This compliments the use of toolchain files, as only Carbon components should be configured with these extra types.
+Options placed in the toolchain files apply to both this top level project and it's dependencies, whether they be carbon-components or not.
+
+While it is desierable for all dependencies to share the same build flags and other settings provided by the toolchain,
+we do not want 3rd party dependencies to be configured with the settings provided by this file.
 ]]
 # this applies to multi-configuration build system, e.g. XCode, Visual Studio, Ninja Multi-Config
+
 set(CMAKE_CONFIGURATION_TYPES Debug TrinityDev Internal Release)
 
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
@@ -53,6 +60,10 @@ function(create_new_build_config config prototype)
         ${CMAKE_EXE_LINKER_FLAGS_${PROTOTYPE}} CACHE STRING
         "Flags used for linking binaries during ${config} builds."
         FORCE)
+    set(CMAKE_MODULE_LINKER_FLAGS_${CONFIG}
+        ${CMAKE_MODULE_LINKER_FLAGS_${PROTOTYPE}} CACHE STRING
+        "Flags used for linking modules during ${config} builds."
+        FORCE)
     set(CMAKE_SHARED_LINKER_FLAGS_${CONFIG}
         ${CMAKE_SHARED_LINKER_FLAGS_${PROTOTYPE}} CACHE STRING
         "Flags used by the shared libraries linker during ${config} builds."
@@ -83,22 +94,6 @@ function(add_trinity_dev_debug_flags target)
 endfunction()
 
 if (MSVC)
-    # https://docs.microsoft.com/en-us/cpp/build/reference/mp-build-with-multiple-processes?view=msvc-150
-    add_compile_options(/MP)
-
-    add_compile_options(/W3)
-    add_compile_options(/permissive-)
-    # Ignore missing PDB file for libraries
-    add_link_options(/IGNORE:4099)
-    # https://docs.microsoft.com/en-us/cpp/error-messages/tool-errors/linker-tools-warning-lnk4098?view=msvc-150
-    add_link_options(/NODEFAULTLIB:libcmt.lib)
-
-    # https://docs.microsoft.com/en-us/cpp/text/support-for-multibyte-character-sets-mbcss?view=msvc-150
-    # We don't want this, but we currently can't use /D UNICODE since this breaks all our legacy nonsense (which we should fix)
-    # Replace with -D_UNICODE once we have fixed this
-    # https://github.com/bluescarni/mppp/issues/177
-    add_definitions(-D_SBCS)
-
     # https://docs.microsoft.com/en-us/cpp/build/reference/z7-zi-zi-debug-information-format?view=msvc-150
     add_compile_options($<IF:$<OR:$<CONFIG:Release>,$<CONFIG:Internal>>,/Zi,>)
     # Generate Debug Info
@@ -113,36 +108,8 @@ if (MSVC)
 
     add_compile_options($<IF:$<CONFIG:Debug>,/ZI,>)
     add_compile_options($<IF:$<CONFIG:Debug>,/Od,>)
-    # Disable /GL for /ZI support
-    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_DEBUG OFF)
 
     # Default flags which we can override
     add_compile_options($<IF:$<CONFIG:TrinityDev>,/Zi,>)
     add_compile_options($<IF:$<CONFIG:TrinityDev>,/O2,>)
-
-    set(MATH_OPTIMIZE_FLAG "/fp:fast")
-elseif(APPLE)
-
-    # adjust warning settings for all our projects, but do not treat them as errors just yet.
-    add_compile_options(-Wall)
-    # we want to use the two ones below once we're good with -Wall
-    #    add_compile_options(-Wpedantic)
-    #    add_compile_options(-Wextra)
-
-    # We're using a lot of MSVC specific pragmas in our codebase, so we silence those warnings until we got around to
-    # cleaning them up
-    add_compile_options(-Wno-unknown-pragmas)
-    # There's a surprising amount of unused functions, we need to investigate this deeper at one point
-    add_compile_options(-Wno-unused-function)
-    # Ditto, much like the functions there are also a lot of unused variables it appears
-    add_compile_options(-Wno-unused-variable)
-    # We've not been very good at keeping order
-    add_compile_options(-Wno-reorder)
-    # -Wmissing-braces should only be used by C / ObjectiveC, but for some reason it shows up for our C++ code, too.
-    add_compile_options(-Wno-missing-braces)
-
-    # Manually add debug symbols to builds
-    add_compile_options(-g)
-
-    set(MATH_OPTIMIZE_FLAG -ffast-math -ffp-model=fast)
 endif()
