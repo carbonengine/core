@@ -2,14 +2,14 @@
 if (NOT _CCP_TOOLCHAIN_FILE_LOADED)
     set(_CCP_TOOLCHAIN_FILE_LOADED 1)
 
-    set (VCPKG_USE_HOST_TOOLS ON)
-    set (CMAKE_CXX_STANDARD 17)
-    set (CMAKE_CXX_STANDARD_REQUIRED ON)
-    set (CMAKE_CXX_EXTENSIONS OFF)
-    set (CMAKE_POSITION_INDEPENDENT_CODE ON)
-    set (CMAKE_CXX_VISIBILITY_PRESET hidden)
-    set (CMAKE_OBJCXX_VISIBILITY_PRESET hidden)
-    set (CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
+    set (VCPKG_USE_HOST_TOOLS ON CACHE STRING "")
+    set (CMAKE_CXX_STANDARD 17 CACHE STRING "")
+    set (CMAKE_CXX_STANDARD_REQUIRED ON CACHE STRING "")
+    set (CMAKE_CXX_EXTENSIONS OFF CACHE STRING "")
+    set (CMAKE_POSITION_INDEPENDENT_CODE ON CACHE STRING "")
+    set (CMAKE_CXX_VISIBILITY_PRESET hidden CACHE STRING "")
+    set (CMAKE_OBJCXX_VISIBILITY_PRESET hidden CACHE STRING "")
+    set (CMAKE_INTERPROCEDURAL_OPTIMIZATION ON CACHE STRING "")
 
     set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL CACHE STRING INTERNAL FORCE)
     set(CMAKE_SYSTEM_VERSION 10.0.17763.0 CACHE STRING INTERNAL FORCE)
@@ -31,9 +31,9 @@ if (NOT _CCP_TOOLCHAIN_FILE_LOADED)
         See Platform Agnostic Developement section of the wiki:
         https://ccpgames.atlassian.net/wiki/spaces/PAD/overview?homepageId=171868162
     ]]
-    set(CCP_PLATFORM Windows)
-    set(CCP_ARCHITECTURE x64)
-    set(CCP_TOOLSET v141)
+    set(CCP_PLATFORM Windows CACHE STRING "Target Platform")
+    set(CCP_ARCHITECTURE x64 CACHE STRING "Target Architecture")
+    set(CCP_TOOLSET v141 CACHE STRING "Target Toolset")
 
     # https://docs.microsoft.com/en-us/cpp/build/reference/mp-build-with-multiple-processes?view=msvc-150
     add_compile_options(/MP)
