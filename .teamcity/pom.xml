@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <project>
   <modelVersion>4.0.0</modelVersion>
-  <name>Carbon_Core_2 Config DSL Script</name>
-  <groupId>Carbon_Core_2</groupId>
-  <artifactId>Carbon_Core_2_dsl</artifactId>
+  <name>Carbon Template Config DSL Script</name>
+  <groupId>Carbon_Template</groupId>
+  <artifactId>Carbon_Template_dsl</artifactId>
   <version>1.0-SNAPSHOT</version>
 
   <parent>

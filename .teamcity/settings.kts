@@ -1,5 +1,3 @@
-// Copyright © 2025 CCP ehf.
-
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.Project
 

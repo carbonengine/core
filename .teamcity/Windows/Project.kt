@@ -1,7 +1,6 @@
-// Copyright © 2025 CCP ehf.
-
 package Windows
 
+import jetbrains.buildServer.configs.kotlin.DslContext
 import jetbrains.buildServer.configs.kotlin.Project
 import jetbrains.buildServer.configs.kotlin.*
 import jetbrains.buildServer.configs.kotlin.buildFeatures.PullRequests
@@ -21,10 +20,10 @@ import jetbrains.buildServer.configs.kotlin.triggers.vcs
 import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
 import jetbrains.buildServer.configs.kotlin.buildFeatures.provideAwsCredentials
 
-val Debug = CarbonBuildWindows("Debug Windows", "Debug", "nmc-x64-windows-debug")
-val Internal = CarbonBuildWindows("Internal Windows", "Internal", "nmc-x64-windows-internal")
-val TrinityDev = CarbonBuildWindows("TrinityDev Windows", "TrinityDev", "nmc-x64-windows-trinitydev")
-val Release = CarbonBuildWindows("Release Windows", "Release", "nmc-x64-windows-release")
+val Debug = CarbonBuildWindows("Debug Windows", "Debug", "x64-windows-debug")
+val Internal = CarbonBuildWindows("Internal Windows", "Internal", "x64-windows-internal")
+val TrinityDev = CarbonBuildWindows("TrinityDev Windows", "TrinityDev", "x64-windows-trinitydev")
+val Release = CarbonBuildWindows("Release Windows", "Release", "x64-windows-release")
 
 object Project : Project({
     id("Windows")
@@ -50,7 +49,6 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String) 
         select("env.VISUAL_STUDIO_PLATFORM_TOOLSET", "v141", label = "Visual Studio Platform Toolset", description = "Specify the toolset for the build. e.g. v141 or v143.",
                 options = listOf("v141 (2017)" to "v141", "v143 (2022)" to "v143"))
         param("env.CMAKE_BUILD_TARGETS", "all")
-        param("project", "eve-frontier")
         param("env.CMAKE_INSTALL_PREFIX", ".build-artifact")
         param("env.CMAKE_CONFIG_TYPE", configType)
         param("env.SENTRY_PROJECT", "exefile-crashes")
@@ -61,17 +59,24 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String) 
         param("teamcity.vcsTrigger.runBuildInNewEmptyBranch", "true")
         param("env.CMAKE_PRESET", preset)
         param("env.VCPKG_BINARY_SOURCES", "clear;x-aws,s3://vcpkg-binary-cache-static/cache/,readwrite")
+        param("env.X_VCPKG_REGISTRIES_CACHE", "%teamcity.build.checkoutDir%/%github_checkout_folder%/regcache")
         param("env.CMAKE_BUILD_PARALLEL_LEVEL", "8")
         param("env.CTEST_PARALLEL_LEVEL", "8")
     }
 
     vcs {
-        root(AbsoluteId("Carbon_Core_2_CoreFeatureKotlin"),"+:. => %github_checkout_folder%")
+        root(DslContext.settingsRootId, "+:. => %github_checkout_folder%")
         root(AbsoluteId("CarbonPipelineTools"), "+:. => carbon_pipeline_tools")
         cleanCheckout = true
     }
 
     steps {
+        exec {
+            name = "Create VCPKG registrycache location"
+            workingDir = "%teamcity.build.checkoutDir%/%github_checkout_folder%"
+            path = "mkdir"
+            arguments = "regcache"
+        }
         exec {
             name = "(Windows) Get Git Tag/Hash"
             workingDir = "%teamcity.build.checkoutDir%/%github_checkout_folder%"
@@ -94,7 +99,7 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String) 
         exec {
             name = "Configure"
             path = "cmake"
-            arguments = "--preset %env.CMAKE_PRESET% -S %teamcity.build.checkoutDir%/%github_checkout_folder% -B %env.CMAKE_BUILD_FOLDER% -DBUILD_DOCUMENTATION=ON -DINSTALL_TO_MONOLITH=ON -DCMAKE_INSTALL_PREFIX=%env.CMAKE_INSTALL_PREFIX%"
+            arguments = "--preset %env.CMAKE_PRESET% -S %teamcity.build.checkoutDir%/%github_checkout_folder% -B %env.CMAKE_BUILD_FOLDER% -DINSTALL_TO_MONOLITH=ON -DCMAKE_INSTALL_PREFIX=%env.CMAKE_INSTALL_PREFIX% -DVCPKG_INSTALL_OPTIONS=--x-buildtrees-root=%teamcity.build.checkoutDir%/%github_checkout_folder%/buildtrees"
         }
         exec {
             name = "Build"
@@ -188,25 +193,21 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String) 
 
     triggers {
         vcs {
-            triggerRules = "+:root=${AbsoluteId("Carbon_Core_2_CoreFeatureKotlin").id}:."
-
-            param("disabled", "true")
+            triggerRules = "+:root=${DslContext.settingsRootId.id}:."
+             branchFilter = """
+                            +:<default>
+                            +pr:*
+                        """.trimIndent()
         }
     }
 
     features {
         pullRequests {
-            vcsRootExtId = "${AbsoluteId("Carbon_Core_2_CoreFeatureKotlin")}"
+            vcsRootExtId = "${DslContext.settingsRootId.id}"
             provider = github {
                 authType = token {
-                    token = "credentialsJSON:06ae89f1-d5f2-4c8d-a91a-9712c233ce06"
+                    token = "%GITHUB_TEAMCITY_TOKEN%"
                 }
-               // Constrain PR triggers to compatible refs so as to avoid erroneous triggers
-                filterTargetBranch = """
-                    +:refs/heads/main
-                    +:refs/heads/release/*.x
-                    -:refs/heads/release/1.x
-                """.trimIndent()
                 filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
             }
         }
@@ -214,7 +215,7 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String) 
             publisher = github {
                 githubUrl = "https://api.github.com"
                 authType = personalToken {
-                    token = "credentialsJSON:a37ec416-c03b-4ac3-a92b-ecbd3a3d8c8e"
+                    token = "%GITHUB_TEAMCITY_TOKEN%"
                 }
             }
         }
