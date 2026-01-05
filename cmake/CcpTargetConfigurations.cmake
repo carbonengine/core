@@ -1,6 +1,4 @@
 # Copyright © 2025 CCP ehf.
-include(cmake/CcpVendorUtilities.cmake)
-
 macro(ensure_correct_target_type target)
     get_target_property(target_type ${target} TYPE)
     if(${target_type} STREQUAL "INTERFACE_LIBRARY")
@@ -19,7 +17,7 @@ endmacro()
 function(set_build_flavor target)
     ensure_correct_target_type(${target})
     set_target_properties(${target}
-        PROPERTIES
+            PROPERTIES
             DEBUG_POSTFIX "_debug"
             TRINITYDEV_POSTFIX "_trinitydev"
             INTERNAL_POSTFIX "_internal"
@@ -44,10 +42,10 @@ function(externalize_apple_debuginfo name)
     ensure_correct_target_type(${name})
 
     add_custom_command(TARGET ${name} POST_BUILD
-        # Extract symbols to flat dsym file
-        VERBATIM COMMAND $<$<CONFIG:Release>:dsymutil> "$<TARGET_FILE:${name}>" -f -o $<TARGET_FILE:${name}>.sym
-        # Remove symbols from binary
-        VERBATIM COMMAND $<$<CONFIG:Release>:strip> -Sxl $<TARGET_FILE:${name}>
+            # Extract symbols to flat dsym file
+            VERBATIM COMMAND $<$<CONFIG:Release>:dsymutil> "$<TARGET_FILE:${name}>" -f -o $<TARGET_FILE:${name}>.sym
+            # Remove symbols from binary
+            VERBATIM COMMAND $<$<CONFIG:Release>:strip> -Sxl $<TARGET_FILE:${name}>
     )
 endfunction()
 
@@ -55,20 +53,20 @@ function(set_prefix_and_suffix target)
     # Configure output directories, prefixes and suffixes
     ensure_correct_target_type(${target})
     set_target_properties(${target}
-        PROPERTIES
+            PROPERTIES
             PREFIX ""
     )
     if(target_type STREQUAL SHARED_LIBRARY)
         if(APPLE)
             # on macOS we like to still use the .so naming convention, without a prefix
             set_target_properties(${target}
-                PROPERTIES
+                    PROPERTIES
                     SUFFIX ".so"
             )
         elseif(WIN32)
             # Python3 requires suffix to be pyd on Windows
             set_target_properties(${target}
-                PROPERTIES
+                    PROPERTIES
                     SUFFIX ".pyd"
             )
         endif()

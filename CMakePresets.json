@@ -1,8 +1,8 @@
 {
-  "version": 6,
+  "version": 3,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 30,
+    "minor": 31,
     "patch": 0
   },
   "configurePresets": [
@@ -14,10 +14,14 @@
         "VCPKG_USE_HOST_TOOLS": "ON",
         "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets"
       },
+      "environment": {
+        "VCPKG_ROOT": "${sourceDir}/vendor/github.com/microsoft/vcpkg"
+      },
       "hidden": true
     },
     {
       "name": "windows",
+      "inherits": "common",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
@@ -27,34 +31,43 @@
     },
     {
       "name": "osx",
+      "inherits": "common",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Darwin"
       },
+      "hidden": true
+    },
+    {
+      "name": "x64-windows",
+      "inherits": "windows",
       "cacheVariables": {
-        "CMAKE_OSX_ARCHITECTURES":  "arm64;x86_64"
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/x64-carbon-windows.cmake"
       },
       "hidden": true
     },
     {
-      "name": "visual-studio",
-      "generator": "Visual Studio 17 2022",
-      "inherits": ["common", "windows"],
-      "toolset": {
-        "value": "v141"
+      "name": "arm64-osx",
+      "inherits": "osx",
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/arm64-carbon-osx.cmake"
       },
       "hidden": true
     },
     {
-      "name": "ninja-multi-config",
-      "generator": "Ninja Multi-Config",
-      "inherits": "common",
+      "name": "x64-osx",
+      "inherits": "osx",
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/cmake/toolchains/x64-carbon-osx.cmake"
+      },
       "hidden": true
     },
     {
-      "name": "vs-x64-windows-internal",
-      "inherits": "visual-studio",
+      "name": "x64-windows-internal",
+      "inherits": "x64-windows",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Internal",
         "VCPKG_TARGET_TRIPLET": "x64-windows-internal",
@@ -62,8 +75,8 @@
       }
     },
     {
-      "name": "vs-x64-windows-release",
-      "inherits": "visual-studio",
+      "name": "x64-windows-release",
+      "inherits": "x64-windows",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "VCPKG_TARGET_TRIPLET": "x64-windows-release",
@@ -71,8 +84,8 @@
       }
     },
     {
-      "name": "vs-x64-windows-debug",
-      "inherits": "visual-studio",
+      "name": "x64-windows-debug",
+      "inherits": "x64-windows",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "VCPKG_TARGET_TRIPLET": "x64-windows-debug",
@@ -80,8 +93,8 @@
       }
     },
     {
-      "name": "vs-x64-windows-trinitydev",
-      "inherits": "visual-studio",
+      "name": "x64-windows-trinitydev",
+      "inherits": "x64-windows",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "TrinityDev",
         "VCPKG_TARGET_TRIPLET": "x64-windows-trinitydev",
@@ -89,75 +102,75 @@
       }
     },
     {
-      "name": "nmc-x64-windows-internal",
-      "inherits": ["ninja-multi-config", "windows"],
+      "name": "arm64-osx-internal",
+      "inherits": "arm64-osx",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Internal",
-        "VCPKG_TARGET_TRIPLET": "x64-windows-internal",
-        "VCPKG_HOST_TRIPLET": "x64-windows-internal"
+        "VCPKG_TARGET_TRIPLET": "arm64-osx-internal",
+        "VCPKG_HOST_TRIPLET": "arm64-osx-internal"
       }
     },
     {
-      "name": "nmc-x64-windows-release",
-      "inherits": ["ninja-multi-config", "windows"],
+      "name": "arm64-osx-release",
+      "inherits": "arm64-osx",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "VCPKG_TARGET_TRIPLET": "x64-windows-release",
-        "VCPKG_HOST_TRIPLET": "x64-windows-release"
+        "VCPKG_TARGET_TRIPLET": "arm64-osx-release",
+        "VCPKG_HOST_TRIPLET": "arm64-osx-release"
       }
     },
     {
-      "name": "nmc-x64-windows-debug",
-      "inherits": ["ninja-multi-config", "windows"],
+      "name": "arm64-osx-debug",
+      "inherits": "arm64-osx",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "VCPKG_TARGET_TRIPLET": "x64-windows-debug",
-        "VCPKG_HOST_TRIPLET": "x64-windows-debug"
+        "VCPKG_TARGET_TRIPLET": "arm64-osx-debug",
+        "VCPKG_HOST_TRIPLET": "arm64-osx-debug"
       }
     },
     {
-      "name": "nmc-x64-windows-trinitydev",
-      "inherits": ["ninja-multi-config", "windows"],
+      "name": "arm64-osx-trinitydev",
+      "inherits": "arm64-osx",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "TrinityDev",
-        "VCPKG_TARGET_TRIPLET": "x64-windows-trinitydev",
-        "VCPKG_HOST_TRIPLET": "x64-windows-trinitydev"
+        "VCPKG_TARGET_TRIPLET": "arm64-osx-trinitydev",
+        "VCPKG_HOST_TRIPLET": "arm64-osx-trinitydev"
       }
     },
     {
-      "name": "nmc-universal-osx-internal",
-      "inherits": ["ninja-multi-config", "osx"],
+      "name": "x64-osx-internal",
+      "inherits": "x64-osx",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Internal",
-        "VCPKG_TARGET_TRIPLET": "universal-osx-internal",
-        "VCPKG_HOST_TRIPLET": "universal-osx-internal"
+        "VCPKG_TARGET_TRIPLET": "x64-osx-internal",
+        "VCPKG_HOST_TRIPLET": "x64-osx-internal"
       }
     },
     {
-      "name": "nmc-universal-osx-release",
-      "inherits": ["ninja-multi-config", "osx"],
+      "name": "x64-osx-release",
+      "inherits": "x64-osx",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "VCPKG_TARGET_TRIPLET": "universal-osx-release",
-        "VCPKG_HOST_TRIPLET": "universal-osx-release"
+        "VCPKG_TARGET_TRIPLET": "x64-osx-release",
+        "VCPKG_HOST_TRIPLET": "x64-osx-release"
       }
     },
     {
-      "name": "nmc-universal-osx-debug",
-      "inherits": ["ninja-multi-config", "osx"],
+      "name": "x64-osx-debug",
+      "inherits": "x64-osx",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "VCPKG_TARGET_TRIPLET": "universal-osx-debug",
-        "VCPKG_HOST_TRIPLET": "universal-osx-debug"
+        "VCPKG_TARGET_TRIPLET": "x64-osx-debug",
+        "VCPKG_HOST_TRIPLET": "x64-osx-debug"
       }
     },
     {
-      "name": "nmc-universal-osx-trinitydev",
-      "inherits": ["ninja-multi-config", "osx"],
+      "name": "x64-osx-trinitydev",
+      "inherits": "x64-osx",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "TrinityDev",
-        "VCPKG_TARGET_TRIPLET": "universal-osx-trinitydev",
-        "VCPKG_HOST_TRIPLET": "universal-osx-trinitydev"
+        "VCPKG_TARGET_TRIPLET": "x64-osx-trinitydev",
+        "VCPKG_HOST_TRIPLET": "x64-osx-trinitydev"
       }
     }
   ]
