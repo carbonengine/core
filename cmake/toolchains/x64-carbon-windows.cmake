@@ -31,9 +31,9 @@ if (NOT _CCP_TOOLCHAIN_FILE_LOADED)
         See Platform Agnostic Developement section of the wiki:
         https://ccpgames.atlassian.net/wiki/spaces/PAD/overview?homepageId=171868162
     ]]
-    set(CCP_PLATFORM Windows)
-    set(CCP_ARCHITECTURE x64)
-    set(CCP_TOOLSET v141)
+    set(CCP_PLATFORM Windows CACHE STRING "Target Platform")
+    set(CCP_ARCHITECTURE x64 CACHE STRING "Target Architecture")
+    set(CCP_TOOLSET v141 CACHE STRING "Target Toolset")
 
     # https://docs.microsoft.com/en-us/cpp/build/reference/mp-build-with-multiple-processes?view=msvc-150
     add_compile_options(/MP)
