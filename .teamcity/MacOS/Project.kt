@@ -34,7 +34,7 @@ object Project : Project({
     id("MacOS")
     name = "macOS"
 
-    buildType(CreateUniversalBuilds)
+    buildType(_Self.buildTypes.CreateUniversalBuilds)
 
     buildType(arm64_Debug)
     buildType(arm64_Internal)
