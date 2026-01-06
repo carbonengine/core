@@ -2,16 +2,16 @@
 if (NOT _CCP_TOOLCHAIN_FILE_LOADED)
     set(_CCP_TOOLCHAIN_FILE_LOADED 1)
 
-    set (VCPKG_USE_HOST_TOOLS ON)
-    set (CMAKE_CXX_STANDARD 17)
-    set (CMAKE_CXX_STANDARD_REQUIRED ON)
-    set (CMAKE_CXX_EXTENSIONS OFF)
-    set (CMAKE_POSITION_INDEPENDENT_CODE ON)
-    set (CMAKE_CXX_VISIBILITY_PRESET hidden)
-    set (CMAKE_OBJCXX_VISIBILITY_PRESET hidden)
-    set (CMAKE_XCODE_GENERATE_SCHEME ON)
-    set (CMAKE_INTERPROCEDURAL_OPTIMIZATION ON)
-    set (CMAKE_OSX_DEPLOYMENT_TARGET 10.14)
+    set (VCPKG_USE_HOST_TOOLS ON CACHE STRING "")
+    set (CMAKE_CXX_STANDARD 17 CACHE STRING "")
+    set (CMAKE_CXX_STANDARD_REQUIRED ON CACHE STRING "")
+    set (CMAKE_CXX_EXTENSIONS OFF CACHE STRING "")
+    set (CMAKE_POSITION_INDEPENDENT_CODE ON CACHE STRING "")
+    set (CMAKE_CXX_VISIBILITY_PRESET hidden CACHE STRING "")
+    set (CMAKE_OBJCXX_VISIBILITY_PRESET hidden CACHE STRING "")
+    set (CMAKE_XCODE_GENERATE_SCHEME ON CACHE STRING "")
+    set (CMAKE_INTERPROCEDURAL_OPTIMIZATION ON CACHE STRING "")
+    set (CMAKE_OSX_DEPLOYMENT_TARGET 10.14 CACHE STRING "")
 
     #[[
         - `CCP_PLATFORM` indicates the operating system a binary was built for
@@ -23,9 +23,9 @@ if (NOT _CCP_TOOLCHAIN_FILE_LOADED)
         See Platform Agnostic Developement section of the wiki:
         https://ccpgames.atlassian.net/wiki/spaces/PAD/overview?homepageId=171868162
     ]]
-    set(CCP_PLATFORM "macOS")
-    set(CCP_ARCHITECTURE "arm64")
-    set(CCP_TOOLSET "AppleClang")
+    set(CCP_PLATFORM "macOS" CACHE STRING "Target Platform")
+    set(CCP_ARCHITECTURE "arm64" CACHE STRING "Target Architecture")
+    set(CCP_TOOLSET "AppleClang" CACHE STRING "Target Toolset")
 
     # adjust warning settings for all our projects, but do not treat them as errors just yet.
     add_compile_options(-Wall)
