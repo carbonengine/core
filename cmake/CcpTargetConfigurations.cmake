@@ -56,7 +56,7 @@ function(set_prefix_and_suffix target)
             PROPERTIES
             PREFIX ""
     )
-    if(target_type STREQUAL SHARED_LIBRARY)
+    if(target_type STREQUAL SHARED_LIBRARY OR target_type STREQUAL MODULE_LIBRARY)
         if(APPLE)
             # on macOS we like to still use the .so naming convention, without a prefix
             set_target_properties(${target}

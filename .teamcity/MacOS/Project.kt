@@ -34,6 +34,8 @@ object Project : Project({
     id("MacOS")
     name = "macOS"
 
+    buildType(_Self.buildTypes.CreateUniversalBuilds)
+
     buildType(arm64_Debug)
     buildType(arm64_Internal)
     buildType(arm64_TrinityDev)
