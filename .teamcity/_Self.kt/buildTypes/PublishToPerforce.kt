@@ -27,7 +27,7 @@ class Publish(perforce_publish_path: String) : BuildType({
         param("env.TC_BUILD_URL", "%teamcity.serverUrl%/viewLog.html?buildId=%teamcity.build.id%")
         text("eve_branch_shortname", "", label = "Branch Name", description = """The name of the branch, for example MAINLINE""", display = ParameterDisplay.PROMPT, allowEmpty = false)
         param("env.TC_BUILDID", "%teamcity.build.id%")
-        param("env.TC_BUILD_NUMBER", "Carbon Template #%build.number%")
+        param("env.TC_BUILD_NUMBER", "Carbon Core #%build.number%")
         param("env.P4PORT", "p4is.ccp.ad.local:1666")
         param("env.TC_EVE_BRANCH_SHORTNAME", "%eve_branch_shortname%")
         param("env.TC_EVE_PROJECT", "%project%")
@@ -58,22 +58,20 @@ class Publish(perforce_publish_path: String) : BuildType({
             command = script {
                 content = """
                     tags = set([
-                        ${MacOS.arm64_Release.depParamRefs["env.GIT_TAG_HASH"]},
-                        ${MacOS.arm64_Debug.depParamRefs["env.GIT_TAG_HASH"]},
-                        ${MacOS.arm64_Internal.depParamRefs["env.GIT_TAG_HASH"]},
-                        ${MacOS.arm64_TrinityDev.depParamRefs["env.GIT_TAG_HASH"]},
-                        ${MacOS.x64_Release.depParamRefs["env.GIT_TAG_HASH"]},
-                        ${MacOS.x64_Debug.depParamRefs["env.GIT_TAG_HASH"]},
-                        ${MacOS.x64_Internal.depParamRefs["env.GIT_TAG_HASH"]},
-                        ${MacOS.x64_TrinityDev.depParamRefs["env.GIT_TAG_HASH"]},
-                        ${Windows.Release.depParamRefs["env.GIT_TAG_HASH"]},
-                        ${Windows.Debug.depParamRefs["env.GIT_TAG_HASH"]},
-                        ${Windows.Internal.depParamRefs["env.GIT_TAG_HASH"]},
-                        ${Windows.TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}
+                        "${MacOS.arm64_Release.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${MacOS.arm64_Debug.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${MacOS.arm64_Internal.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${MacOS.arm64_TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${MacOS.x64_Release.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${MacOS.x64_Debug.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${MacOS.x64_Internal.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${MacOS.x64_TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Windows.Release.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Windows.Debug.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Windows.Internal.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Windows.TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}"
                     ])
-                    if len(tags) == 1:
-                        print(f"all tags are the same: {tags[0]}")
-                    else:
+                    if len(tags) > 1:
                         raise ValueError(f"Multiple different build tags have been detected {tags}")
                 """.trimIndent()
             }
@@ -261,4 +259,4 @@ class Publish(perforce_publish_path: String) : BuildType({
     }
 })
 
-val PublishToPerforce = Publish("vendor/github.com/ccpgames/carbon-template")
+val PublishToPerforce = Publish("vendor/github.com/ccpgames/carbon-core")
