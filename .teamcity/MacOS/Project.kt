@@ -150,7 +150,7 @@ class CarbonBuildMacOS(buildName: String, configType: String, preset: String, ag
             vcsRootExtId = "${DslContext.settingsRootId.id}"
             provider = github {
                 authType = token {
-                    token = "%GITHUB_TEAMCITY_TOKEN%"
+                    token = "%GITHUB_CARBON_PAT%"
                 }
                 filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
             }
@@ -159,7 +159,7 @@ class CarbonBuildMacOS(buildName: String, configType: String, preset: String, ag
             publisher = github {
                 githubUrl = "https://api.github.com"
                 authType = personalToken {
-                    token = "%GITHUB_TEAMCITY_TOKEN%"
+                    token = "%GITHUB_CARBON_PAT%"
                 }
             }
         }
