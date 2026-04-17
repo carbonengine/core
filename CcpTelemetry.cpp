@@ -49,7 +49,7 @@ namespace
 {
 	uint32_t s_telemetryTick = 0;
 
-	CcpTelemetryConfig s_config;
+	CcpTelemetryConfig s_telemetryConfig;
 
 	MutexNameMap_t& GetMutexNameMap()
 	{
@@ -114,10 +114,10 @@ bool CcpStartTelemetry( const CcpTelemetryConfig& config )
 		return false;
 	}
 
-	s_config = config;
+	s_telemetryConfig = config;
 	s_telemetryTick = 1;
 	CcpTelemetrySetActiveFiber( "" ); // to ensure that all our look-ups are correctly initialized
-//	CCP_LOG_CH( s_ch, "Starting profiler - %s - Root fiber is [Fiber %p]", s_config.applicationName.c_str(), t_activeFiber->c_str() );
+//	CCP_LOG_CH( s_ch, "Starting profiler - %s - Root fiber is [Fiber %p]", s_telemetryConfig.applicationName.c_str(), t_activeFiber->c_str() );
 	s_profilerState.store( ProfilerState::StartRequested, std::memory_order_release );
 	return true;
 }
@@ -145,7 +145,7 @@ void CcpTelemetryTick()
 			if (TracyIsConnected)
 			{
 				CCP_LOG_CH( s_ch, "Telemetry server connected to Profiler" );
-				TracySetProgramName( s_config.applicationName.c_str() );
+				TracySetProgramName( s_telemetryConfig.applicationName.c_str() );
 				s_profilerState.store( ProfilerState::Started, std::memory_order_release );
 				s_profilerStartTime = std::chrono::steady_clock::now();
 
@@ -186,10 +186,10 @@ void CcpTelemetryTick()
 				}
 			}
 
-			if( s_config.captureDuration != std::chrono::milliseconds::zero() ) // Check if we have passed our timed sample time
+			if( s_telemetryConfig.captureDuration != std::chrono::milliseconds::zero() ) // Check if we have passed our timed sample time
 			{
 				auto timeSinceStart = std::chrono::steady_clock::now() - s_profilerStartTime;
-				if( timeSinceStart >= s_config.captureDuration )
+				if( timeSinceStart >= s_telemetryConfig.captureDuration )
 				{
 					CCP_LOG_CH( s_ch, "Finalizing timed profiler run" );
 					CcpStopTelemetry();

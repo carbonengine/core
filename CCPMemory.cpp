@@ -292,7 +292,7 @@ static inline void* CcpPlatformMalloc( size_t size )
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
 	if ( p && CcpTelemetryIsConnected() )
 	{
-//		TracySecureAlloc( p, size );
+		TracySecureAlloc( p, size );
 	}
 #endif
 	return p;
@@ -310,7 +310,7 @@ static inline void* CcpPlatformCalloc( size_t items, size_t size )
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
 	if ( p && CcpTelemetryIsConnected() )
 	{
-//		TracySecureAlloc( p, size );
+		TracySecureAlloc( p, size );
 	}
 #endif
 	return p;
@@ -318,6 +318,12 @@ static inline void* CcpPlatformCalloc( size_t items, size_t size )
 
 static inline void CcpPlatformFree( void* p )
 {
+#if ENABLE_TELEMETRY_MEMORY_TRACKING
+	if ( p && CcpTelemetryIsConnected() )
+	{
+		TracySecureFree( p );
+	}
+#endif
 	UpdateCount( p, false );
 	HeapFree( s_heap, 0, p );
 }
@@ -340,7 +346,7 @@ static inline void* CcpPlatformMalloc( size_t size )
 
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
 		if ( CcpTelemetryIsConnected() ) {
-//			TracySecureAlloc( p, realSize );
+			TracySecureAlloc( p, realSize );
 		}
 #endif
     }
@@ -365,7 +371,7 @@ static inline void* CcpPlatformCalloc( size_t items, size_t size )
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
 		if ( CcpTelemetryIsConnected() )
 		{
-//			TracySecureAlloc( p, realSize );
+			TracySecureAlloc( p, realSize );
 		}
 #endif
 	}
@@ -376,6 +382,12 @@ static inline void CcpPlatformFree( void* p )
 {
 #if defined(__ANDROID__)
 	p = reinterpret_cast<size_t*>( p ) - 1;
+#endif
+#if ENABLE_TELEMETRY_MEMORY_TRACKING
+	if ( p && CcpTelemetryIsConnected() )
+	{
+		TracySecureFree( p );
+	}
 #endif
     s_memuse -= CCPMSize( p );
 	free( p );
@@ -542,13 +554,6 @@ void CCPFree( void* p )
 {
 	if( p )
 	{
-#if ENABLE_TELEMETRY_MEMORY_TRACKING
-		if ( CcpTelemetryIsConnected() )
-		{
-//			TracySecureFree( p );
-		}
-#endif
-
 		if( s_guardAllocations )
 		{
 			CCPFreeWithGuard( p );
