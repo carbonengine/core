@@ -319,7 +319,7 @@ static inline void* CcpPlatformCalloc( size_t items, size_t size )
 static inline void CcpPlatformFree( void* p )
 {
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-	if ( p && CcpTelemetryIsConnected() )
+	if ( p && TracyIsStarted && TracyIsConnected )
 	{
 		TracySecureFree( p );
 	}
@@ -384,7 +384,7 @@ static inline void CcpPlatformFree( void* p )
 	p = reinterpret_cast<size_t*>( p ) - 1;
 #endif
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-	if ( p && CcpTelemetryIsConnected() )
+	if ( p && TracyIsStarted && TracyIsConnected )
 	{
 		TracySecureFree( p );
 	}
