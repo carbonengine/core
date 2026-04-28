@@ -229,6 +229,11 @@ uint32_t CcpTelemetryGetTickCount()
 	return s_telemetryTick;
 }
 
+const CcpTelemetryConfig& CcpTelemetryGetConfig()
+{
+	return s_telemetryConfig;
+}
+
 void CcpRegisterTelemetryEventHandler( CcpOnTelemetryEventHandler handler, void* userData )
 {
 	GetEventHandlers().push_back( std::make_pair( handler, userData ) );
@@ -440,6 +445,12 @@ void CcpTelemetryTick()
 uint32_t CcpTelemetryGetTickCount()
 {
 	return 0;
+}
+
+const CcpTelemetryConfig& CcpTelemetryGetConfig()
+{
+	static CcpTelemetryConfig empty;
+	return empty;
 }
 
 void CcpRegisterTelemetryEventHandler( CcpOnTelemetryEventHandler handler, void* userData )

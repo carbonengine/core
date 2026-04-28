@@ -44,6 +44,7 @@ struct CcpTelemetryConfig
 {
 	std::string applicationName;
 	std::chrono::milliseconds captureDuration{};
+	bool trackMemoryAllocations{false};
 };
 
 [[deprecated( "Use `CcpStartTelemetry( const CcpTelemetryConfig& config ) instead" )]] CARBON_CORE_API bool CcpStartTelemetry( const char* server, int connectionType, uint32_t maxThreadCount );
@@ -51,6 +52,8 @@ CARBON_CORE_API bool CcpStartTelemetry( const CcpTelemetryConfig& config );
 CARBON_CORE_API void CcpStopTelemetry();
 CARBON_CORE_API void CcpTelemetryTick();
 CARBON_CORE_API uint32_t CcpTelemetryGetTickCount();
+
+const CcpTelemetryConfig& CcpTelemetryGetConfig();
 
 enum CcpTelemetryEvent
 {
