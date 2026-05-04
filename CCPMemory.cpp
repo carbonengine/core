@@ -290,7 +290,7 @@ static inline void* CcpPlatformMalloc( size_t size )
 	void* p = HeapAlloc( s_heap, 0, size );
 	UpdateCount( size );
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-	if ( p && CcpTelemetryGetConfig().trackMemoryAllocations && CcpTelemetryIsConnected() )
+	if ( p && CcpTelemetryGetConfig().trackMemoryAllocations && TracyIsStarted && TracyIsConnected )
 	{
 		TracySecureAlloc( p, size );
 	}
@@ -308,7 +308,7 @@ static inline void* CcpPlatformCalloc( size_t items, size_t size )
 	void* p = HeapAlloc( s_heap, HEAP_ZERO_MEMORY, bytes );
 	UpdateCount( bytes );
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-	if ( p && CcpTelemetryGetConfig().trackMemoryAllocations && CcpTelemetryIsConnected() )
+	if ( p && CcpTelemetryGetConfig().trackMemoryAllocations && TracyIsStarted && TracyIsConnected )
 	{
 		TracySecureAlloc( p, size );
 	}
@@ -345,7 +345,7 @@ static inline void* CcpPlatformMalloc( size_t size )
         s_memuse += realSize;
 
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-		if ( CcpTelemetryGetConfig().trackMemoryAllocations && CcpTelemetryIsConnected() ) {
+		if ( CcpTelemetryGetConfig().trackMemoryAllocations && TracyIsStarted && TracyIsConnected ) {
 			TracySecureAlloc( p, realSize );
 		}
 #endif
@@ -369,7 +369,7 @@ static inline void* CcpPlatformCalloc( size_t items, size_t size )
 		s_memuse += realSize;
 
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-		if ( CcpTelemetryGetConfig().trackMemoryAllocations && CcpTelemetryIsConnected() )
+		if ( CcpTelemetryGetConfig().trackMemoryAllocations && TracyIsStarted && TracyIsConnected )
 		{
 			TracySecureAlloc( p, realSize );
 		}
