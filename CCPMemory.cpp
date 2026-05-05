@@ -290,7 +290,7 @@ static inline void* CcpPlatformMalloc( size_t size )
 	void* p = HeapAlloc( s_heap, 0, size );
 	UpdateCount( size );
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-	if ( p && CcpTelemetryGetConfig().trackMemoryAllocations && TracyIsStarted && TracyIsConnected )
+	if ( p && CcpMemoryProfilingIsEnabled() && CcpTelemetryIsStarted() )
 	{
 		TracySecureAlloc( p, size );
 	}
@@ -308,7 +308,7 @@ static inline void* CcpPlatformCalloc( size_t items, size_t size )
 	void* p = HeapAlloc( s_heap, HEAP_ZERO_MEMORY, bytes );
 	UpdateCount( bytes );
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-	if ( p && CcpTelemetryGetConfig().trackMemoryAllocations && TracyIsStarted && TracyIsConnected )
+	if ( p && CcpMemoryProfilingIsEnabled() && CcpTelemetryIsStarted() )
 	{
 		TracySecureAlloc( p, size );
 	}
@@ -319,7 +319,7 @@ static inline void* CcpPlatformCalloc( size_t items, size_t size )
 static inline void CcpPlatformFree( void* p )
 {
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-	if ( p && CcpTelemetryGetConfig().trackMemoryAllocations && TracyIsStarted && TracyIsConnected )
+	if ( p && CcpMemoryProfilingIsEnabled() && CcpTelemetryIsStarted() )
 	{
 		TracySecureFree( p );
 	}
@@ -345,7 +345,7 @@ static inline void* CcpPlatformMalloc( size_t size )
         s_memuse += realSize;
 
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-		if ( CcpTelemetryGetConfig().trackMemoryAllocations && TracyIsStarted && TracyIsConnected ) {
+		if ( CcpMemoryProfilingIsEnabled() && CcpTelemetryIsStarted() ) {
 			TracySecureAlloc( p, realSize );
 		}
 #endif
@@ -369,7 +369,7 @@ static inline void* CcpPlatformCalloc( size_t items, size_t size )
 		s_memuse += realSize;
 
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-		if ( CcpTelemetryGetConfig().trackMemoryAllocations && TracyIsStarted && TracyIsConnected )
+		if ( CcpMemoryProfilingIsEnabled() && CcpTelemetryIsStarted() )
 		{
 			TracySecureAlloc( p, realSize );
 		}
@@ -384,7 +384,7 @@ static inline void CcpPlatformFree( void* p )
 	p = reinterpret_cast<size_t*>( p ) - 1;
 #endif
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
-	if ( p && CcpTelemetryGetConfig().trackMemoryAllocations && TracyIsStarted && TracyIsConnected )
+	if ( p && CcpMemoryProfilingIsEnabled() && CcpTelemetryIsStarted() )
 	{
 		TracySecureFree( p );
 	}
