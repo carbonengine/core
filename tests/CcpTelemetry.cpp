@@ -6,6 +6,27 @@
 
 #include <CcpCore.h>
 
+// How can we test telemetry-related functionality to ensure our bookkeeping
+// there is sane?
+// The problem is that such tests need `ProfilerState::Started` in order to
+// create a valid zone context for testing. This, in turn, needs
+// `TracyIsConnected` to be true.
+//
+// A first thought may be to simply redefine the macro to always return true.
+// However, this is not possible because it is set inside the Tracy header.
+//
+// The next idea, then, would be to mock the `Profiler` class. However, this
+// also is not possible because the `Profiler` class is not virtual.
+//
+// This leads to the next idea of choosing the concrete `Profiler` class type
+// based on a template parameter. This is not possible either because the macros
+// exposed by Tracy would not honor any such template parameter.
+//
+// With all this in mind, there is another aspect to consider:
+// If we wanted to inspect more of the functionality, then we almost certainly
+// want to provide a test implementation of the tracy network protocol. Fortunately,
+// tracy itself already provides many of the building blocks for this. So this
+// includes the AI-written, but human-reviewed test client.
 #include "TracyTestClient.h"
 
 class CcpTelemetryTest : public ::testing::Test
@@ -85,4 +106,31 @@ TEST_F( CcpTelemetryTest, RemovingActiveFiberClearsIt )
 	CcpTelemetrySetActiveFiber( expectedFiberName );
 	CcpTelemetryRemoveFiber( expectedFiberName );
 	EXPECT_EQ( CcpTelemetryGetActiveFiber(), expectedNoFiber );
+}
+
+TEST_F( CcpTelemetryTest, SimpleZoneTest )
+{
+	static int key = 4711;
+	const std::string zoneName{ "TestZone" };
+	EXPECT_TRUE( CcpTelemetryIsConnected() );
+	CcpTelemetryEnterZone( &key, zoneName.c_str(), __FILE__, __LINE__ );
+
+	// Tracy's worker sleeps up to 10 ms between queue flushes, so give it
+	// time to process and send the zone event before asserting.
+	TickTelemetry();
+
+	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
+	auto tracyZones = m_tracyClient.GetZones();
+	// CcpTelemetryEnterZone passes the zone name as the Tracy "function" field
+	// (via the 6-param ___tracy_alloc_srcloc), so match against both fields.
+	auto pred = [&zoneName]( const TracyTestClient::ZoneInfo& elem ) -> bool {
+		return elem.function == zoneName;
+	};
+	EXPECT_NE( tracyZones.end(), std::find_if( tracyZones.begin(), tracyZones.end(), pred ) );
+
+	CcpTelemetryLeaveZone( &key );
+	TickTelemetry();
+	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
+	tracyZones = m_tracyClient.GetZones();
+	EXPECT_EQ( tracyZones.end(), std::find_if( tracyZones.begin(), tracyZones.end(), pred ) );
 }
