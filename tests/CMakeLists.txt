@@ -19,6 +19,7 @@ add_executable(CcpCoreTest
     StringConversions.cpp
     TempFile.cpp
     CCPLog.cpp
+    TracyTestClient.cpp
 )
 target_link_libraries(CcpCoreTest PRIVATE CcpCore GTest::gtest GTest::gtest_main)
 if(APPLE)
