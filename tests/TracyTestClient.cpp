@@ -105,7 +105,36 @@ bool TracyTestClient::IsConnected() const
 std::vector<TracyTestClient::ZoneInfo> TracyTestClient::GetZones() const
 {
     std::lock_guard<std::mutex> lock( m_dataMutex );
-    return m_zones;
+    std::vector<ZoneInfo> result;
+    for( const auto& [tid, stack] : m_threadZoneStacks )
+        result.insert( result.end(), stack.begin(), stack.end() );
+    for( const auto& [fptr, stack] : m_fiberZoneStacks )
+        result.insert( result.end(), stack.begin(), stack.end() );
+    return result;
+}
+
+TracyTestClient::ZoneStack TracyTestClient::GetZonesForThread( uint32_t threadId ) const
+{
+    std::lock_guard<std::mutex> lock( m_dataMutex );
+    auto it = m_threadZoneStacks.find( threadId );
+    if( it == m_threadZoneStacks.end() )
+        return {};
+    return it->second;
+}
+
+TracyTestClient::ZoneStack TracyTestClient::GetZonesForFiber( const std::string& fiberName ) const
+{
+    std::lock_guard<std::mutex> lock( m_dataMutex );
+    for( const auto& [ptr, name] : m_fiberNames )
+    {
+        if( name == fiberName )
+        {
+            auto it = m_fiberZoneStacks.find( ptr );
+            if( it != m_fiberZoneStacks.end() )
+                return it->second;
+        }
+    }
+    return {};
 }
 
 std::vector<std::string> TracyTestClient::GetFiberNames() const
@@ -173,6 +202,14 @@ void TracyTestClient::RecvLoop()
     }
 
     m_connected.store( false, std::memory_order_release );
+}
+
+TracyTestClient::ZoneStack& TracyTestClient::CurrentStack( uint32_t thread )
+{
+    auto fiberIt = m_threadCurrentFiber.find( thread );
+    if( fiberIt != m_threadCurrentFiber.end() && fiberIt->second != 0 )
+        return m_fiberZoneStacks[fiberIt->second];
+    return m_threadZoneStacks[thread];
 }
 
 // Parse the decompressed byte stream and update internal state.
@@ -284,14 +321,19 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
 
                 switch( item->hdr.type )
                 {
+                case tracy::QueueType::ThreadContext:
+                    m_currentThread = item->threadCtx.thread;
+                    break;
+
                 case tracy::QueueType::ZoneBeginAllocSrcLoc:
                 case tracy::QueueType::ZoneBeginAllocSrcLocCallstack:
                 {
                     m_zoneBeginCount.fetch_add( 1, std::memory_order_relaxed );
+                    const uint32_t thread = m_currentThread;
                     std::lock_guard<std::mutex> lock( m_dataMutex );
                     if( m_hasPendingZone )
                     {
-                        m_zones.push_back( m_pendingZone );
+                        CurrentStack( thread ).push_back( m_pendingZone );
                         m_hasPendingZone = false;
                     }
                     break;
@@ -302,19 +344,32 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     break;
 
                 case tracy::QueueType::ZoneEnd:
+                {
                     m_zoneEndCount.fetch_add( 1, std::memory_order_relaxed );
+                    const uint32_t thread = m_currentThread;
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    auto& stack = CurrentStack( thread );
+                    if( !stack.empty() )
+                        stack.pop_back();
                     break;
+                }
 
                 case tracy::QueueType::FiberEnter:
                 {
-                    // Query the fiber name if we haven't already.
                     const uint64_t fiberPtr = item->fiberEnter.fiber;
+                    const uint32_t thread = item->fiberEnter.thread;
                     std::lock_guard<std::mutex> lock( m_dataMutex );
+                    m_threadCurrentFiber[thread] = fiberPtr;
                     if( m_queriedFibers.insert( fiberPtr ).second )
-                    {
-                        SendQueryLocked(
-                            static_cast<uint8_t>( tracy::ServerQueryFiberName ), fiberPtr );
-                    }
+                        SendQueryLocked( static_cast<uint8_t>( tracy::ServerQueryFiberName ), fiberPtr );
+                    break;
+                }
+
+                case tracy::QueueType::FiberLeave:
+                {
+                    const uint32_t thread = item->fiberLeave.thread;
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    m_threadCurrentFiber[thread] = 0;
                     break;
                 }
 
