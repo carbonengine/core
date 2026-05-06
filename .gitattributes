@@ -1,0 +1,5 @@
+# Default behaviour, in case people haven't configured core.autocrlf
+* text=auto
+
+# Ensure that text files have \n line endings by default
+*.* text eol=lf
