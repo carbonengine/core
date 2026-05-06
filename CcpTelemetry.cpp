@@ -22,7 +22,7 @@ std::atomic<ProfilerState> s_profilerState{ProfilerState::Stopped};
 
 FiberNameStore s_fiberNameStore; // Persisted fiber name string store, including the empty "root" fiber name
 
-thread_local FiberNameStore::const_iterator t_activeFiber{ s_fiberNameStore.begin() }; // default to having no fiber
+thread_local FiberNameStore::const_iterator t_activeFiber{ s_fiberNameStore.end() }; // default to having no fiber
 
 template<>
 struct std::less<FiberNameStore::const_iterator>
@@ -35,7 +35,7 @@ struct std::less<FiberNameStore::const_iterator>
 
 typedef std::map<FiberNameStore::const_iterator, std::stack<TelemetryZone>> TaskletZoneStore;
 thread_local TaskletZoneStore t_taskletZoneStore; // Per-thread record of zones instrumented from python
-thread_local TaskletZoneStore::iterator t_activeTaskletZoneStore{ t_taskletZoneStore.begin() };
+thread_local TaskletZoneStore::iterator t_activeTaskletZoneStore{ t_taskletZoneStore.end() };
 thread_local std::set<void*> t_manuallyTrackedZones; // Keep track of zones created through `CcpTelemetryEnterZone` to ensure that we only pop off the zone store's stack when leaving a manually created zone
 
 constexpr std::chrono::milliseconds s_cleanupDelay{5000};
