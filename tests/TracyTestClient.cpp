@@ -1,50 +1,62 @@
 // Copyright © 2025 CCP ehf.
 #include "TracyTestClient.h"
 
-#include <arpa/inet.h>
 #include <cassert>
 #include <chrono>
 #include <cstring>
 #include <lz4.h>
-#include <netinet/in.h>
-#include <sys/select.h>
-#include <sys/socket.h>
 #include <thread>
-#include <unistd.h>
+
+#ifdef _WIN32
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+   using socket_t = SOCKET;
+   static constexpr socket_t kInvalidSocket = INVALID_SOCKET;
+#  define sock_close( s ) ::closesocket( s )
+#else
+#  include <arpa/inet.h>
+#  include <netinet/in.h>
+#  include <sys/select.h>
+#  include <sys/socket.h>
+#  include <unistd.h>
+   using socket_t = int;
+   static constexpr socket_t kInvalidSocket = -1;
+#  define sock_close( s ) ::close( s )
+#endif
 
 static constexpr int kReadTimeoutMs = 100;
 
 // ---------------------------------------------------------------------------
-// POSIX TCP socket
+// TCP socket (POSIX + Winsock)
 // ---------------------------------------------------------------------------
 
 namespace {
 
 struct TcpSocket
 {
-    int fd = -1;
+    socket_t fd = kInvalidSocket;
 
     bool ConnectBlocking( const char* addr, uint16_t port )
     {
         fd = ::socket( AF_INET, SOCK_STREAM, 0 );
-        if( fd < 0 ) return false;
+        if( fd == kInvalidSocket ) return false;
         struct sockaddr_in sa{};
         sa.sin_family = AF_INET;
         sa.sin_port   = htons( port );
         if( ::inet_pton( AF_INET, addr, &sa.sin_addr ) != 1 )
         {
-            ::close( fd ); fd = -1; return false;
+            sock_close( fd ); fd = kInvalidSocket; return false;
         }
         if( ::connect( fd, reinterpret_cast<struct sockaddr*>( &sa ), sizeof( sa ) ) != 0 )
         {
-            ::close( fd ); fd = -1; return false;
+            sock_close( fd ); fd = kInvalidSocket; return false;
         }
         return true;
     }
 
     void Send( const void* buf, int len )
     {
-        ::send( fd, buf, static_cast<size_t>( len ), 0 );
+        ::send( fd, static_cast<const char*>( buf ), len, 0 );
     }
 
     bool ReadRaw( void* buf, int len, int timeoutMs )
@@ -58,8 +70,13 @@ struct TcpSocket
             struct timeval tv{};
             tv.tv_sec  = timeoutMs / 1000;
             tv.tv_usec = ( timeoutMs % 1000 ) * 1000;
+            // nfds is ignored on Windows; on POSIX it must be fd + 1.
+#ifdef _WIN32
+            if( ::select( 0, &fds, nullptr, nullptr, &tv ) <= 0 ) return false;
+#else
             if( ::select( fd + 1, &fds, nullptr, nullptr, &tv ) <= 0 ) return false;
-            const int n = static_cast<int>( ::recv( fd, p, static_cast<size_t>( len ), 0 ) );
+#endif
+            const int n = static_cast<int>( ::recv( fd, p, len, 0 ) );
             if( n <= 0 ) return false;
             p   += n;
             len -= n;
@@ -69,10 +86,10 @@ struct TcpSocket
 
     void Close()
     {
-        if( fd >= 0 ) { ::close( fd ); fd = -1; }
+        if( fd != kInvalidSocket ) { sock_close( fd ); fd = kInvalidSocket; }
     }
 
-    bool IsValid() const { return fd >= 0; }
+    bool IsValid() const { return fd != kInvalidSocket; }
 };
 
 // ---------------------------------------------------------------------------
@@ -320,6 +337,10 @@ TracyTestClient::TracyTestClient()
     , m_lz4Stream( LZ4_createStreamDecode() )
     , m_ringBuffer( new char[kTargetFrameSize * 2] )
 {
+#ifdef _WIN32
+    WSADATA wsaData;
+    WSAStartup( MAKEWORD( 2, 2 ), &wsaData );
+#endif
 }
 
 TracyTestClient::~TracyTestClient()
@@ -328,6 +349,9 @@ TracyTestClient::~TracyTestClient()
     delete static_cast<TcpSocket*>( m_socket );
     LZ4_freeStreamDecode( static_cast<LZ4_streamDecode_t*>( m_lz4Stream ) );
     delete[] m_ringBuffer;
+#ifdef _WIN32
+    WSACleanup();
+#endif
 }
 
 bool TracyTestClient::Connect( const char* addr, uint16_t port, int timeoutMs )
