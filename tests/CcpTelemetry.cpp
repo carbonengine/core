@@ -134,3 +134,21 @@ TEST_F( CcpTelemetryTest, SimpleZoneTest )
 	tracyZones = m_tracyClient.GetZones();
 	EXPECT_EQ( tracyZones.end(), std::find_if( tracyZones.begin(), tracyZones.end(), pred ) );
 }
+
+TEST_F( CcpTelemetryTest, StackedZones )
+{
+	// A stacked zone is a zone that has the same key as a previously created zone.
+	static int key = 4711;
+	CcpTelemetryEnterZone( &key, "TestZone", __FILE__, __LINE__ );
+	CcpTelemetryEnterZone( &key, "TestZone2", __FILE__, __LINE__ );
+	TickTelemetry();
+	auto tracyZones = m_tracyClient.GetZones();
+	EXPECT_EQ( 2, tracyZones.size() );
+	CcpTelemetryLeaveZone( &key );
+	TickTelemetry();
+	tracyZones = m_tracyClient.GetZones();
+	EXPECT_EQ( 1, tracyZones.size() );
+	CcpTelemetryLeaveZone( &key );
+	TickTelemetry();
+	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
+}

@@ -388,7 +388,9 @@ void CcpTelemetryLeaveZone( void* key )
 		{
 			t_activeTaskletZoneStore->second.pop();
 		}
-		t_manuallyTrackedZones.erase( key );
+		if ( t_activeTaskletZoneStore->second.empty() ) {
+			t_manuallyTrackedZones.erase( key );
+		}
 	}
 }
 
