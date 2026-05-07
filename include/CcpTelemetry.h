@@ -53,8 +53,6 @@ CARBON_CORE_API void CcpStopTelemetry();
 CARBON_CORE_API void CcpTelemetryTick();
 CARBON_CORE_API uint32_t CcpTelemetryGetTickCount();
 
-const CcpTelemetryConfig& CcpTelemetryGetConfig();
-
 enum CcpTelemetryEvent
 {
 	CCP_TELEMETRY_STARTED,
@@ -69,6 +67,7 @@ CARBON_CORE_API void CcpUnregisterTelemetryEventHandler( CcpOnTelemetryEventHand
 CARBON_CORE_API bool CcpTelemetryIsConnectionRequested();
 CARBON_CORE_API bool CcpTelemetryIsConnected();
 CARBON_CORE_API bool CcpTelemetryIsStarted();
+CARBON_CORE_API bool CcpMemoryProfilingIsEnabled();
 
 CARBON_CORE_API void CcpTelemetrySetActiveFiber( const std::string& name );
 CARBON_CORE_API const std::string& CcpTelemetryGetActiveFiber();

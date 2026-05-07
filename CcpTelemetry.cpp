@@ -85,6 +85,11 @@ bool CcpTelemetryIsStarted()
 	return s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started;
 }
 
+bool CcpMemoryProfilingIsEnabled()
+{
+	return s_telemetryConfig.trackMemoryAllocations;
+}
+
 void CcpRegisterMutex( class CcpMutex& m, const char* owner, const char* name )
 {
 	// Store the name for future Telemetry sessions, even if we're already connected.
@@ -227,11 +232,6 @@ void CcpTelemetryTick()
 uint32_t CcpTelemetryGetTickCount()
 {
 	return s_telemetryTick;
-}
-
-const CcpTelemetryConfig& CcpTelemetryGetConfig()
-{
-	return s_telemetryConfig;
 }
 
 void CcpRegisterTelemetryEventHandler( CcpOnTelemetryEventHandler handler, void* userData )
@@ -422,6 +422,11 @@ bool CcpTelemetryIsStarted()
 	return false;
 }
 
+bool CcpMemoryProfilingIsEnabled()
+{
+	return false;
+}
+
 void CcpRegisterThread( CcpThreadId_t threadId, const char* name )
 {
 }
@@ -447,12 +452,6 @@ void CcpTelemetryTick()
 uint32_t CcpTelemetryGetTickCount()
 {
 	return 0;
-}
-
-const CcpTelemetryConfig& CcpTelemetryGetConfig()
-{
-	static CcpTelemetryConfig empty;
-	return empty;
 }
 
 void CcpRegisterTelemetryEventHandler( CcpOnTelemetryEventHandler handler, void* userData )
