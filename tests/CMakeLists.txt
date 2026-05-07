@@ -3,6 +3,7 @@
 enable_testing()
 
 find_package(GTest CONFIG REQUIRED)
+find_package(lz4 CONFIG REQUIRED)
 add_executable(CcpCoreTest
     CcpAtomic.cpp
     CCPCallstack.cpp
@@ -21,7 +22,7 @@ add_executable(CcpCoreTest
     CCPLog.cpp
     TracyTestClient.cpp
 )
-target_link_libraries(CcpCoreTest PRIVATE CcpCore GTest::gtest GTest::gtest_main)
+target_link_libraries(CcpCoreTest PRIVATE CcpCore GTest::gtest GTest::gtest_main lz4::lz4)
 if(APPLE)
     target_link_libraries(CcpCoreTest PRIVATE "-framework CoreFoundation")
 endif()

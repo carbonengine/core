@@ -16,6 +16,10 @@
       "version>=": "1.16.0"
     },
     {
+      "name": "lz4",
+      "version>=": "1.9.4"
+    },
+    {
       "name": "python3",
       "version>=": "3.12.9#1",
       "host": true
