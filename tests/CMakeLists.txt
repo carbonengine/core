@@ -23,6 +23,9 @@ add_executable(CcpCoreTest
     TracyTestClient.cpp
 )
 target_link_libraries(CcpCoreTest PRIVATE CcpCore GTest::gtest GTest::gtest_main lz4::lz4)
+if(WIN32)
+    target_link_libraries(CcpCoreTest PRIVATE ws2_32)
+endif()
 if(APPLE)
     target_link_libraries(CcpCoreTest PRIVATE "-framework CoreFoundation")
 endif()
