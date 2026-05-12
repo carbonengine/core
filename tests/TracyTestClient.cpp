@@ -529,6 +529,7 @@ void TracyTestClient::RecvLoop()
             m_bufferOffset = 0;
     }
 
+    fprintf( stderr, "TracyTestClient::RecvLoop() - ending, about to set m_connected = false\n" ); fflush( stderr );  // TODO: Debug info, remove this
     m_connected.store( false, std::memory_order_release );
 }
 

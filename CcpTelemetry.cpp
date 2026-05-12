@@ -113,6 +113,7 @@ bool CcpStartTelemetry( const char* serverOrDumpPath, int connectionType, uint32
 
 bool CcpStartTelemetry( const CcpTelemetryConfig& config )
 {
+	fprintf( stderr, "***** CcpStartTelemetry() - Begin\n" ); fflush( stderr );  // TODO: Debug info, remove this
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started || s_profilerState.load( std::memory_order_acquire ) == ProfilerState::StartRequested )
 	{
 		CCP_LOGERR_CH( s_ch, "Cannot start profiler - already started" );
@@ -124,11 +125,13 @@ bool CcpStartTelemetry( const CcpTelemetryConfig& config )
 	CcpTelemetrySetActiveFiber( "" ); // to ensure that all our look-ups are correctly initialized
 //	CCP_LOG_CH( s_ch, "Starting profiler - %s - Root fiber is [Fiber %p]", s_telemetryConfig.applicationName.c_str(), t_activeFiber->c_str() );
 	s_profilerState.store( ProfilerState::StartRequested, std::memory_order_release );
+	fprintf( stderr, "***** CcpStartTelemetry() - End\n" ); fflush( stderr );  // TODO: Debug info, remove this
 	return true;
 }
 
 void CcpStopTelemetry()
 {
+	fprintf( stderr, "***** CcpStopTelemetry() - Begin\n" ); fflush( stderr );  // TODO: Debug info, remove this
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Stopped || s_profilerState.load( std::memory_order_acquire ) == ProfilerState::StopRequested )
 	{
 		return;
@@ -136,6 +139,7 @@ void CcpStopTelemetry()
 
 	CCP_LOG_CH( s_ch, "Profiler stop requested" );
 	s_profilerState.store( ProfilerState::StopRequested, std::memory_order_release );
+	fprintf( stderr, "***** CcpStopTelemetry() - End\n" ); fflush( stderr );  // TODO: Debug info, remove this
 }
 
 void CcpTelemetryTick()
@@ -146,9 +150,11 @@ void CcpTelemetryTick()
 	{
 		if (TracyIsStarted)
 		{
+			fprintf( stderr, "***** CcpTelemetryTick() - StartRequested - if (TracyIsStarted)\n" ); fflush( stderr );  // TODO: Debug info, remove this
 //			CCP_LOG_CH( s_ch, "Telemetry server started, waiting for connection..." );
 			if (TracyIsConnected)
 			{
+				fprintf( stderr, "***** CcpTelemetryTick() - StartRequested - if (TracyIsConnected)\n" ); fflush( stderr );  // TODO: Debug info, remove this
 				CCP_LOG_CH( s_ch, "Telemetry server connected to Profiler" );
 				TracySetProgramName( s_telemetryConfig.applicationName.c_str() );
 				s_profilerState.store( ProfilerState::Started, std::memory_order_release );
@@ -165,6 +171,7 @@ void CcpTelemetryTick()
 		{
 			CCP_LOG_CH( s_ch, "Starting Telemetry Server" );
 #ifdef TRACY_MANUAL_LIFETIME
+			fprintf( stderr, "***** CcpTelemetryTick() - StartRequested - tracy::StartupProfiler()\n" ); fflush( stderr );  // TODO: Debug info, remove this
 			tracy::StartupProfiler();
 #endif // TRACY_MANUAL_LIFETIME
 		}
@@ -181,6 +188,7 @@ void CcpTelemetryTick()
 			// the underlying string
 			if ( !s_fiberEraseMap.empty() )
 			{
+				fprintf( stderr, "***** CcpTelemetryTick() - Started - if ( !s_fiberEraseMap.empty() )\n" ); fflush( stderr );  // TODO: Debug info, remove this
 				auto now = std::chrono::steady_clock::now();
 				auto elem = s_fiberEraseMap.front();
 				while ( !s_fiberEraseMap.empty() && elem.second >= now )
@@ -204,12 +212,14 @@ void CcpTelemetryTick()
 		else
 		{
 			CCP_LOG_CH( s_ch, "Disconnected from profiler" );
+			fprintf( stderr, "***** CcpTelemetryTick() - Started - CcpStopTelemetry()\n" ); fflush( stderr );  // TODO: Debug info, remove this
 			CcpStopTelemetry();
 		}
 		break;
 	}
 	case ProfilerState::StopRequested:
 	{
+		fprintf( stderr, "***** CcpTelemetryTick() - StopRequested - Begin\n" ); fflush( stderr );  // TODO: Debug info, remove this
 		CCP_LOG_CH( s_ch, "Stopping Telemetry Server" );
 		FrameMark;
 		++s_telemetryTick;
@@ -219,6 +229,7 @@ void CcpTelemetryTick()
 		{
 			( *handler.first )( CCP_TELEMETRY_STOPPED, handler.second );
 		}
+		fprintf( stderr, "***** CcpTelemetryTick() - StopRequested - End\n" ); fflush( stderr );  // TODO: Debug info, remove this
 	}
 	case ProfilerState::Stopped:
 		// Nothing to do
