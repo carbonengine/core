@@ -97,6 +97,7 @@ CcpSemaphore::~CcpSemaphore()
 }
 
 #include <errno.h>
+#include <time.h>
 
 bool CcpSemaphore::Wait()
 {
@@ -110,8 +111,19 @@ bool CcpSemaphore::Wait()
 bool CcpSemaphore::TimedWait( uint32_t timeoutInMs )
 {
     timespec ts;
-    ts.tv_sec = timeoutInMs / 1000;
-    ts.tv_nsec = (timeoutInMs % 1000) * 1000000;
+    if( clock_gettime( CLOCK_REALTIME, &ts ) != 0 )
+    {
+        return false;
+    }
+
+    ts.tv_sec += timeoutInMs / 1000;
+    ts.tv_nsec += static_cast<long>( timeoutInMs % 1000 ) * 1000000L;
+    if( ts.tv_nsec >= 1000000000L )
+    {
+        ts.tv_sec += ts.tv_nsec / 1000000000L;
+        ts.tv_nsec %= 1000000000L;
+    }
+
     if( sem_timedwait( &m_semaphore, &ts ) == 0 )
     {
         return true;
