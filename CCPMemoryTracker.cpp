@@ -6,6 +6,7 @@
 #include "include/CcpMutex.h"
 
 #include <map>
+#include <cstddef>
 
 // #define CCP_UNIT_TEST 1
 
@@ -161,12 +162,12 @@ bool StringTable::Find( unsigned int id, unsigned int& ix )
 		const TableEntry& te = At( ix );
 		if( te.m_id < id )
 		{
-			hi = ix;
+			++ix;
+			lo = ix;
 		}
 		else if( te.m_id > id )
 		{
-			++ix;
-			lo = ix;
+			hi = ix;
 		}
 		else
 		{
@@ -174,6 +175,7 @@ bool StringTable::Find( unsigned int id, unsigned int& ix )
 		}
 	}
 
+	ix = lo;
 	return false;
 }
 
@@ -182,7 +184,7 @@ bool StringTable::AddString( unsigned int ix, unsigned int id, const char* szStr
 	CCP_ASSERT( m_pMemory );
 
 	/// First check to see if we have room for this string
-	size_t size = strlen( szString ) + sizeof( TableEntry ) + 1;
+	size_t size = strlen( szString ) + offsetof( StringEntry, m_string ) + 1;
 	size = (size + 3) & ~3;
 
 	char* pNewStringEntryBottom = (char*)m_pFirstStringEntry;
@@ -217,7 +219,7 @@ bool StringTable::AddString( unsigned int ix, unsigned int id, const char* szStr
 	pSE->m_size = size;
 	pSE->m_refCount = 1;
 	char* dst = &pSE->m_string[0];
-	strcpy_s( dst, size - sizeof( TableEntry ), szString );
+	strcpy_s( dst, size - offsetof( StringEntry, m_string ), szString );
 
 	/// Adjust the pointer for first string entry
 	m_pFirstStringEntry = pSE;
