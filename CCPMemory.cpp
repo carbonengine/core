@@ -46,6 +46,7 @@ const int CCP_MEMORY_GUARD_SIZE_BACK = 64;
 const int CCP_MEMORY_GUARD_SIZE = CCP_MEMORY_GUARD_SIZE_FRONT + CCP_MEMORY_GUARD_SIZE_BACK + sizeof( size_t );
 const uint8_t CCP_MEMORY_GUARD_VALUE_FRONT = 0xee;
 const uint8_t CCP_MEMORY_GUARD_VALUE_BACK = 0xef;
+const size_t CCP_MEMORY_FREED_PATTERN = static_cast<size_t>( 0xddddddddddddddddULL );
 
 // Should memory tracking in Telemetry be enabled? Defaults to yes. This can skew results of
 // timing analysis of functions that do a lot of allocations, such as the yaml parser.
@@ -494,7 +495,7 @@ void CCPFreeWithGuard( void* p )
 	// Get the size
 	size_t orgSize = *(size_t*)p0;
 
-	if( orgSize == 0xdddddddd )
+	if( orgSize == CCP_MEMORY_FREED_PATTERN )
 	{
 		CCP_LOGERR( "Freeing a block that was already freed at 0x%p", p );
 		CCP_DEBUG_BREAK();
@@ -596,7 +597,7 @@ void CCPAlignedFree( void* p )
 
 		if( s_guardAllocations )
 		{
-			if( (uintptr_t)allocatedPtr == 0xdddddddd )
+			if( (uintptr_t)allocatedPtr == CCP_MEMORY_FREED_PATTERN )
 			{
 				CCP_LOGERR( "Freeing an aligned block that was already freed at 0x%p", p );
 				CCP_DEBUG_BREAK();
