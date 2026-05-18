@@ -192,6 +192,7 @@ static constexpr uint8_t kQueueZoneBeginCallstack            =  16;
 static constexpr uint8_t kQueueZoneEnd                       =  17;
 static constexpr uint8_t kQueueFiberEnter                    =  58;
 static constexpr uint8_t kQueueFiberLeave                    =  59;
+static constexpr uint8_t kQueueTerminate                     =  60;
 static constexpr uint8_t kQueueThreadContext                 =  62;
 static constexpr uint8_t kQueueSingleStringData              =  99;
 static constexpr uint8_t kQueueSecondStringData              = 100;
@@ -411,16 +412,25 @@ bool TracyTestClient::Connect( const char* addr, uint16_t port, int timeoutMs )
 
 void TracyTestClient::Disconnect()
 {
+    fprintf( stderr, "TracyTestClient::Disconnect() - Begin\n" ); fflush( stderr );  // TODO: Debug info, remove this
     if( !m_connected.load( std::memory_order_acquire ) && !m_recvThread.joinable() )
+    {
+        fprintf( stderr, "TracyTestClient::Disconnect() - #0\n" ); fflush( stderr );  // TODO: Debug info, remove this
         return;
+    }
 
+    fprintf( stderr, "TracyTestClient::Disconnect() - #1\n" ); fflush( stderr );  // TODO: Debug info, remove this
     m_shutdown.store( true, std::memory_order_release );
     static_cast<TcpSocket*>( m_socket )->Close();
 
     if( m_recvThread.joinable() )
+    {
+        fprintf( stderr, "TracyTestClient::Disconnect() - #2\n" ); fflush( stderr );  // TODO: Debug info, remove this
         m_recvThread.join();
+    }
 
     m_connected.store( false, std::memory_order_release );
+    fprintf( stderr, "TracyTestClient::Disconnect() - End\n" ); fflush( stderr );  // TODO: Debug info, remove this
 }
 
 bool TracyTestClient::IsConnected() const
@@ -690,6 +700,12 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     const uint32_t thread = item->fiberLeave.thread;
                     std::lock_guard<std::mutex> lock( m_dataMutex );
                     m_threadCurrentFiber[thread] = 0;
+                    break;
+                }
+
+                case kQueueTerminate:
+                {
+                    m_shutdown.store( true, std::memory_order_release );
                     break;
                 }
 
