@@ -8,7 +8,8 @@
         "on-demand",
         "no-callstack",
         "manual-lifetime",
-        "delayed-init"
+        "delayed-init",
+        "no-crash-handler"
       ]
     },
     {
