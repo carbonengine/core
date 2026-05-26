@@ -2,13 +2,14 @@
   "dependencies": [
     {
       "name": "tracy",
-      "version>=": "0.13.1",
+      "version>=": "0.13.1#1",
       "features": [
         "fibers",
         "on-demand",
         "no-callstack",
         "manual-lifetime",
-        "delayed-init"
+        "delayed-init",
+        "no-crash-handler"
       ]
     },
     {
