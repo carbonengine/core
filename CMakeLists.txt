@@ -103,7 +103,7 @@ target_link_libraries(CcpCore PUBLIC $<$<PLATFORM_ID:Darwin>:-framework\ AppKit>
 if(WITH_TELEMETRY)
     message(STATUS "Enabling profiler integration")
     find_package(Tracy CONFIG REQUIRED)
-    target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=1 TRACY_IMPORTS TRACY_ENABLE TRACY_FIBERS TRACY_ON_DEMAND TRACY_NO_CALLSTACK TRACY_MANUAL_LIFETIME TRACY_DELAYED_INIT TRACY_NO_CRASH_HANDLER)
+    target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=1)
     target_link_libraries(CcpCore PUBLIC Tracy::TracyClient)
     # Tracy's vcpkg package is always built as Release (with NDEBUG). CcpTelemetry.cpp
     # must also be compiled with NDEBUG to match Tracy's struct layout: in 0.13.1 the
