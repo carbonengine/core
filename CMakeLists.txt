@@ -103,7 +103,7 @@ target_link_libraries(CcpCore PUBLIC $<$<PLATFORM_ID:Darwin>:-framework\ AppKit>
 if(WITH_TELEMETRY)
     message(STATUS "Enabling profiler integration")
     find_package(Tracy CONFIG REQUIRED)
-    target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=1 TRACY_IMPORTS TRACY_ENABLE TRACY_FIBERS TRACY_ON_DEMAND TRACY_DELAYED_INIT TRACY_MANUAL_LIFETIME)
+    target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=1)
     target_link_libraries(CcpCore PUBLIC Tracy::TracyClient)
 else()
     target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=0)
