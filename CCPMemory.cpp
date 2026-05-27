@@ -310,7 +310,7 @@ static inline void* CcpPlatformCalloc( size_t items, size_t size )
 #if ENABLE_TELEMETRY_MEMORY_TRACKING
 	if ( p && CcpMemoryProfilingIsEnabled() && CcpTelemetryIsConnected() )
 	{
-		TracySecureAlloc( p, size );
+		TracySecureAlloc( p, bytes );
 	}
 #endif
 	return p;
