@@ -229,41 +229,10 @@ void CcpTelemetryTick()
 		{
 			( *handler.first )( CCP_TELEMETRY_STOPPED, handler.second );
 		}
-
-		// Signal to the Tracy client (GUI or TracyTestClient) that we want to stop and close the connection to the Profiling application (server)
-		if ( TracyIsStarted )
-		{
-			CCP_LOG_CH( s_ch, "Tracy profiler shutdown requested, waiting for completion..." );
-			fprintf( stderr, "     ***** CcpTelemetryTick() - StopRequested - Before tracy::GetProfiler().RequestShutdown()\n" ); fflush( stderr );  // TODO: Debug info, remove this
-			tracy::GetProfiler().RequestShutdown();
-			fprintf( stderr, "     ***** CcpTelemetryTick() - StopRequested - After tracy::GetProfiler().RequestShutdown()\n" ); fflush( stderr );  // TODO: Debug info, remove this
-		}
-
-		// Clear any pending tasklet zones to prevent stale zone-end events from bleeding into the next profiling session
-		t_taskletZoneStore.clear();
-		t_activeTaskletZoneStore = t_taskletZoneStore.end();   // TODO: Discuss with Thomas: I should probably set this to .end (as that's the initial state of it) instead of using .begin()
-		t_manuallyTrackedZones.clear();
-
-		// Also clear both the fiberEraseQueue and the fiberNamesStore as they should be empty in case we start again
-		while ( !s_fiberEraseMap.empty() )
-		{
-			s_fiberEraseMap.pop();
-		}
-		s_fiberNameStore.clear();
-
-		fprintf( stderr, "     ***** CcpTelemetryTick() - StopRequested - End\n" ); fflush( stderr );  // TODO: Debug info, remove this
 		break;
 	}
 	case ProfilerState::Stopped:
-#ifdef TRACY_MANUAL_LIFETIME
-		if ( TracyIsStarted && tracy::GetProfiler().HasShutdownFinished() )
-		{
-			CCP_LOG_CH( s_ch, "Shutting down Tracy profiler" );
-			fprintf( stderr, "     ***** CcpTelemetryTick() - Stopped - Before tracy::ShutdownProfiler()\n" ); fflush( stderr );  // TODO: Debug info, remove this
-			tracy::ShutdownProfiler();
-			fprintf( stderr, "     ***** CcpTelemetryTick() - Stopped - After tracy::ShutdownProfiler()\n" ); fflush( stderr );  // TODO: Debug info, remove this
-		}
-#endif
+		// Nothing to do
 		break;
 	default:
 		CCP_LOGERR_CH( s_ch, "Unhandled profiler state %d", s_profilerState.load(std::memory_order_acquire));
@@ -393,13 +362,6 @@ TelemetryZone::~TelemetryZone()
 	// Notify Tracy of all zones ended with a valid context, regardless of profiler state
 	if( !m_telemetryContext )
 	{
-		return;
-	}
-
-	// Only emit zone-end if Tracy is still started AND we're in an active profiling session
-	if( !CcpTelemetryIsConnected() )
-	{
-		m_telemetryContext.reset();
 		return;
 	}
 
