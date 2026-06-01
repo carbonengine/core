@@ -412,25 +412,15 @@ bool TracyTestClient::Connect( const char* addr, uint16_t port, int timeoutMs )
 
 void TracyTestClient::Disconnect()
 {
-    fprintf( stderr, "TracyTestClient::Disconnect() - Begin\n" ); fflush( stderr );  // TODO: Debug info, remove this
     if( !m_connected.load( std::memory_order_acquire ) && !m_recvThread.joinable() )
-    {
-        fprintf( stderr, "TracyTestClient::Disconnect() - #0\n" ); fflush( stderr );  // TODO: Debug info, remove this
         return;
-    }
 
-    fprintf( stderr, "TracyTestClient::Disconnect() - #1\n" ); fflush( stderr );  // TODO: Debug info, remove this
     m_shutdown.store( true, std::memory_order_release );
-    static_cast<TcpSocket*>( m_socket )->Close();
 
     if( m_recvThread.joinable() )
-    {
-        fprintf( stderr, "TracyTestClient::Disconnect() - #2\n" ); fflush( stderr );  // TODO: Debug info, remove this
         m_recvThread.join();
-    }
 
     m_connected.store( false, std::memory_order_release );
-    fprintf( stderr, "TracyTestClient::Disconnect() - End\n" ); fflush( stderr );  // TODO: Debug info, remove this
 }
 
 bool TracyTestClient::IsConnected() const
@@ -539,7 +529,11 @@ void TracyTestClient::RecvLoop()
             m_bufferOffset = 0;
     }
 
-    fprintf( stderr, "TracyTestClient::RecvLoop() - ending, about to set m_connected = false\n" ); fflush( stderr );  // TODO: Debug info, remove this
+    // Close the socket so Tracy's worker thread sees the connection drop and
+    // can finish its own shutdown sequence. This is necessary whether we exit
+    // because kQueueTerminate was received or because Disconnect() set m_shutdown.
+    // TcpSocket::Close() is idempotent, so a double-close from Disconnect() is safe.
+    sock.Close();
     m_connected.store( false, std::memory_order_release );
 }
 
