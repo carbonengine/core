@@ -97,4 +97,6 @@ CARBON_CORE_API void CcpTelemetryEnterZone( void* key, const char* name, const c
 CARBON_CORE_API void CcpTelemetryLeaveZone( void* key );
 CARBON_CORE_API void CcpTelemetryZoneAddText( void* key, const char* text );
 
+void CcpTelemetryTrackAllocation( void*, size_t );
+void CcpTelemetryTrackDeallocation( void* );
 #endif

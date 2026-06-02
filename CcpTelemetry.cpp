@@ -230,6 +230,21 @@ void CcpTelemetryTick()
 	}
 }
 
+void CcpTelemetryTrackAllocation( void* p, size_t size )
+{
+	if ( CcpMemoryProfilingIsEnabled() && CcpTelemetryIsConnected() ) {
+		TracySecureAlloc( p, size );
+	}
+}
+
+void CcpTelemetryTrackDeallocation( void* p )
+{
+	if ( p && CcpMemoryProfilingIsEnabled() && CcpTelemetryIsConnected() )
+	{
+		TracySecureFree( p );
+	}
+}
+
 uint32_t CcpTelemetryGetTickCount()
 {
 	return s_telemetryTick;
