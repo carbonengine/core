@@ -87,31 +87,37 @@ protected:
 	}
 
 	const std::string expectedNoFiber;
-	const std::string expectedFiberName{ "TestFiber" };
-	const std::string expectedFiberName2{ "TestFiber" };
+	const std::string expectedFiberName1{ "TestFiber1" };
+	const std::string expectedFiberName2{ "TestFiber2" };
 
 	TracyTestClient m_tracyClient;
 };
 
 TEST_F( CcpTelemetryTest, TestFiberSwitching )
 {
-	CcpTelemetrySetActiveFiber( expectedFiberName );
+	CcpTelemetrySetActiveFiber( expectedFiberName1 );
 	const auto& observedFiberName1 = CcpTelemetryGetActiveFiber();
-	EXPECT_EQ( observedFiberName1, expectedFiberName );
+	EXPECT_EQ( observedFiberName1, expectedFiberName1 );
+
+	// Switching to a new name
 	CcpTelemetrySetActiveFiber( expectedFiberName2 );
 	const auto& observedFiberName2 = CcpTelemetryGetActiveFiber();
 	EXPECT_EQ( observedFiberName2, expectedFiberName2 );
+
+	// Switching back to the original name
+	CcpTelemetrySetActiveFiber( expectedFiberName1 );
 	const auto& observedFiberName3 = CcpTelemetryGetActiveFiber();
-	CcpTelemetrySetActiveFiber( expectedFiberName );
 	EXPECT_EQ( observedFiberName1.c_str(), observedFiberName3.c_str() );
+
+	// Switching to the "Root name" (no name)
 	CcpTelemetrySetActiveFiber( "" );
 	EXPECT_EQ( CcpTelemetryGetActiveFiber(), expectedNoFiber );
 }
 
 TEST_F( CcpTelemetryTest, RemovingActiveFiberClearsIt )
 {
-	CcpTelemetrySetActiveFiber( expectedFiberName );
-	CcpTelemetryRemoveFiber( expectedFiberName );
+	CcpTelemetrySetActiveFiber( expectedFiberName1 );
+	CcpTelemetryRemoveFiber( expectedFiberName1 );
 	EXPECT_EQ( CcpTelemetryGetActiveFiber(), expectedNoFiber );
 }
 
