@@ -37,7 +37,12 @@ protected:
 
 	void SetUp() override
 	{
-		fprintf( stderr, "CcpTelemetryTest::SetUp() - Begin\n" ); fflush( stderr );  // TODO: Debug info, remove this
+		SetUp(true);
+	}
+
+	void SetUp(bool doTestClientConnect)
+	{
+		fprintf( stderr, "CcpTelemetryTest::SetUp(%s) - Begin\n", doTestClientConnect ? "true" : "false" ); fflush( stderr );
 		CcpTelemetryConfig conf{ "Telemetry Tests" };
 		EXPECT_EQ( conf.captureDuration, std::chrono::milliseconds::zero() );
 		CcpStartTelemetry( conf );
@@ -45,34 +50,34 @@ protected:
 		// Tick until the profiler's listen socket is up.
 		while( !TracyIsStarted )
 		{
-			fprintf( stderr, "CcpTelemetryTest::SetUp() - while( !TracyIsStarted ) - TickTelemetry()\n" ); fflush( stderr );  // TODO: Debug info, remove this
+			fprintf( stderr, "CcpTelemetryTest::SetUp(%s) - while( !TracyIsStarted ) - TickTelemetry()\n", doTestClientConnect ? "true" : "false" ); fflush( stderr );
 			TickTelemetry();
 		}
 
 		// Connect on a background thread so this thread can keep ticking Tracy.
 		// The handshake requires both sides to run concurrently: Tracy's worker
 		// sends data and may block on Send() until the client reads it.
-		auto connectFuture = std::async( std::launch::async, [this] {
-			return m_tracyClient.Connect();
-		} );
+		auto connectFuture = doTestClientConnect
+			? std::async( std::launch::async, [this] { return m_tracyClient.Connect(); } )
+			: std::async( std::launch::deferred, [] { return true; } );
 
 		// Tick until CcpTelemetry recognises the connection and enters Started state.
 		while( !CcpTelemetryIsConnected() )
 		{
-			fprintf( stderr, "CcpTelemetryTest::SetUp() - while( !CcpTelemetryIsConnected ) - TickTelemetry()\n" ); fflush( stderr );  // TODO: Debug info, remove this
+			fprintf( stderr, "CcpTelemetryTest::SetUp(%s) - while( !CcpTelemetryIsConnected ) - TickTelemetry()\n", doTestClientConnect ? "true" : "false" ); fflush( stderr );
 			TickTelemetry();
 		}
 
 		ASSERT_TRUE( connectFuture.get() ) << "Could not connect to Tracy profiler";
-		fprintf( stderr, "CcpTelemetryTest::SetUp() - End\n" ); fflush( stderr );  // TODO: Debug info, remove this
+		fprintf( stderr, "CcpTelemetryTest::SetUp(%s) - End\n", doTestClientConnect ? "true" : "false" ); fflush( stderr );
 	}
 
 	void TearDown() override
 	{
-		fprintf( stderr, "CcpTelemetryTest::TearDown() - Begin\n" ); fflush( stderr );  // TODO: Debug info, remove this
-		// m_tracyClient.Disconnect();  // TODO: Removed the explicit call to Disconnect.
+		fprintf( stderr, "CcpTelemetryTest::TearDown() - Begin\n" ); fflush( stderr );
+		// m_tracyClient.Disconnect();  // Remove explicit call to Disconnect() because current implementation does NOT call tracy::ShutdownProfiler().
 		CcpStopTelemetry();
-		fprintf( stderr, "CcpTelemetryTest::TearDown() - End\n" ); fflush( stderr );  // TODO: Debug info, remove this
+		fprintf( stderr, "CcpTelemetryTest::TearDown() - End\n" ); fflush( stderr );
 	}
 
 	void TickTelemetry( std::chrono::milliseconds duration = std::chrono::milliseconds( 500 ) )
@@ -159,7 +164,7 @@ TEST_F( CcpTelemetryTest, StackedZones )
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 }
 
-TEST_F( CcpTelemetryTest, StartConnectStopDisconnectProfiling )
+TEST_F( CcpTelemetryTest, ReStartAfterStop )
 {
 	// Setup takes care of connecting to the TracyTestClient
 	EXPECT_TRUE( m_tracyClient.IsConnected() );
@@ -183,122 +188,42 @@ TEST_F( CcpTelemetryTest, StartConnectStopDisconnectProfiling )
 	TickTelemetry();
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
-	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
 	EXPECT_TRUE( CcpTelemetryIsConnected() );
 	EXPECT_TRUE( m_tracyClient.IsConnected() );
 
-	// Now simulate "Stop Telemetry" operation. NOTE we're not disconnecting the TracyTestClient, only signaling the profiler to Stop
+	// Now simulate "Stop Telemetry" operation and Tick until we're in "Stopped" state
 	CcpStopTelemetry();
+	TickTelemetry(); // This processes the "StopRequested" state.
+	TickTelemetry(); // This processes the "Stopped" state.
 	EXPECT_TRUE( m_tracyClient.IsConnected() ) << "Connection should still be true at this point because the TracyTestClient hasn't been disconnected";
-	EXPECT_TRUE( TracyIsStarted ) << "Until we Tick TWICE, this should still be true (first for StopRequested, then for Stopped)";
-	EXPECT_TRUE( TracyNoop ) << "Tracy should have a profiler available";
-	EXPECT_TRUE( TracyIsConnected ) << "TracyTestClient should still be connected at this point";
-	EXPECT_FALSE( CcpTelemetryIsStarted() ) << "Internal profiler state should no longer be: Started, it should be StopRequested";
+	EXPECT_FALSE( CcpTelemetryIsStarted() ) << "Internal profiler state should have changed: Started->StopRequested->Stopped";
 
-	TickTelemetry(); // This should process the "StopRequested" state.
-	EXPECT_FALSE( m_tracyClient.IsConnected() ) << "Now that the TracyTestClient is handling the 'kQueueTerminate' and setting m_shutdown=true, this should be FALSE";  //"Connection should still be true at this point because the TracyTestClient hasn't been disconnected";
-	EXPECT_TRUE( TracyIsStarted ) << "Until we Tick ONE MORE TIME, this should still be true (this is for StopRequested, next Tick is for Stopped)";
-	EXPECT_TRUE( TracyNoop ) << "Tracy should have a profiler available";
-	EXPECT_TRUE( TracyIsConnected ) << "TracyTestClient should still be connected at this point";
-	EXPECT_FALSE( CcpTelemetryIsStarted() ) << "Internal profiler state should no longer be: StopRequested, it should have transitioned to Stopped";
+	// Simulate a new call to StartTelemetry
+	SetUp( false );
+	EXPECT_TRUE( m_tracyClient.IsConnected() ) << "Connection should still be true because the TracyTestClient hasn't never been disconnected";
+	EXPECT_TRUE( CcpTelemetryIsStarted() ) << "Internal profiler state should have changed: Started->StopRequested->Stopped";
 
-	// TODO: Figure out why TracyIsStarted only becomes FALSE if m_tracyClient.Disconnect() is called, but NOT just because we called tracy::ShutdownProfiler()
-
-	m_tracyClient.Disconnect(); // Disconnect the TracyTestClient, meaning TracyNoop should return FALSE (and TracyIsConnected a segfault because tracy::GetProfiler() is invalid)
-
-	fprintf( stderr, "CC0\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	TickTelemetry(); // This should process the "Stopped" state (2nd part of calling Stop Telemetry)
-	fprintf( stderr, "CcpTelemetryTest::ReconnectAfterStop() - After TickTelemetry() #4\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	EXPECT_FALSE( m_tracyClient.IsConnected() ) << "By disconnecting the TracyTestClient, this should return false";
-	fprintf( stderr, "CC1\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	EXPECT_FALSE( TracyNoop ) << "TracyNoop is returning false here, NOT because we called tracy::ShutdownProfiler(), but because we called m_tracyClient.Disconnect(). This is a bit surprising. <<<====";
-	fprintf( stderr, "CC2\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	EXPECT_FALSE( TracyIsStarted ) << "Tracy should have fully stopped by now WHICH SHOULD have happened because of a call to tracy::ShutdownProfiler(), BUT is probably because of m_tracyClient.Disconnect() <<<====";
-	fprintf( stderr, "CC3\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	//EXPECT_FALSE( TracyIsConnected ) << "Tracy should NOT be connected, because we've called m_tracyClient.Disconnect()";
-	fprintf( stderr, "CC4 - We can't call TracyIsConnected here, because it will end up with a SEH exception\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	EXPECT_FALSE( CcpTelemetryIsStarted() ) << "Internal profiler state should no longer be: Started";
-	fprintf( stderr, "CC5\n" ); fflush( stderr );  // TODO: Debug info, remove this
-
-}
-
-TEST_F( CcpTelemetryTest, StartConnectStopProfiling )
-{
-	// Setup takes care of connecting to the TracyTestClient
-	EXPECT_TRUE( m_tracyClient.IsConnected() );
-
-	static int key1 = 1001;
-	const std::string zoneName1{ "FirstZone" };
-	CcpTelemetryEnterZone( &key1, zoneName1.c_str(), __FILE__, __LINE__ );
+	// Emit a new Zone, on the 2nd Start and validate
+	static int key2 = 1002;
+	const std::string zoneName2{ "SecondZone" };
+	CcpTelemetryEnterZone( &key2, zoneName2.c_str(), __FILE__, __LINE__ );
 
 	TickTelemetry();
-	auto tracyZones = m_tracyClient.GetZones();
-	auto pred = [&zoneName1]( const TracyTestClient::ZoneInfo& elem ) -> bool {
-		return elem.function == zoneName1;
+	auto tracyZones2ndStart = m_tracyClient.GetZones();
+	auto pred2nd = [&zoneName2]( const TracyTestClient::ZoneInfo& elem ) -> bool {
+		return elem.function == zoneName2;
 	};
-	EXPECT_NE( tracyZones.end(), std::find_if( tracyZones.begin(), tracyZones.end(), pred ) );
-	EXPECT_EQ( 1, tracyZones.size() );
-	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
-	EXPECT_EQ( 0, m_tracyClient.GetZoneEndCount() );
+	EXPECT_NE( tracyZones2ndStart.end(), std::find_if( tracyZones2ndStart.begin(), tracyZones2ndStart.end(), pred2nd ) );
+	EXPECT_EQ( 1, tracyZones2ndStart.size() );
+	EXPECT_EQ( 2, m_tracyClient.GetZoneBeginCount() ) << "The total Begin Zone count should be 2, even after Stop/Start";
+	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() ) << "The total End Zone count should be 1 at this point, because of the FirstZone has ended";
 
-	CcpTelemetryLeaveZone( &key1 );
+	CcpTelemetryLeaveZone( &key2 );
 
 	TickTelemetry();
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
-	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
-	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
+	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() ) << "The total End Zone count should be 2, FirstZone (before the Stop) and SecondZone from after the Stop/Start";;
 	EXPECT_TRUE( CcpTelemetryIsConnected() );
 	EXPECT_TRUE( m_tracyClient.IsConnected() );
-
-	// Now simulate "Stop Telemetry" operation. NOTE we're not disconnecting the TracyTestClient, only signaling the profiler to Stop
-	CcpStopTelemetry();
-	EXPECT_TRUE( m_tracyClient.IsConnected() ) << "Connection should still be true at this point because the TracyTestClient hasn't been disconnected";
-	EXPECT_TRUE( TracyIsStarted ) << "Until we Tick TWICE, this should still be true (first for StopRequested, then for Stopped)";
-	EXPECT_TRUE( TracyNoop ) << "Tracy should have a profiler available";
-	EXPECT_TRUE( TracyIsConnected ) << "TracyTestClient should still be connected at this point";
-	EXPECT_FALSE( CcpTelemetryIsStarted() ) << "Internal profiler state should no longer be: Started, it should be StopRequested";
-
-	TickTelemetry(); // This should process the "StopRequested" state.
-	EXPECT_FALSE( m_tracyClient.IsConnected() ) << "Now that the TracyTestClient is handling the 'kQueueTerminate' and setting m_shutdown=true, this should be FALSE";  //"Connection should still be true at this point because the TracyTestClient hasn't been disconnected";
-	EXPECT_TRUE( TracyIsStarted ) << "Until we Tick ONE MORE TIME, this should still be true (this is for StopRequested, next Tick is for Stopped)";
-	EXPECT_TRUE( TracyNoop ) << "Tracy should have a profiler available";
-	EXPECT_TRUE( TracyIsConnected ) << "TracyTestClient should still be connected at this point";
-	EXPECT_FALSE( CcpTelemetryIsStarted() ) << "Internal profiler state should no longer be: StopRequested, it should have transitioned to Stopped";
-
-	// TODO: Figure out why TracyIsStarted only becomes FALSE if m_tracyClient.Disconnect() is called, but NOT just because we called tracy::ShutdownProfiler()
-
-	// m_tracyClient.Disconnect(); // NOT calling m_tracyClient.Disconnect() here on purpose in the TracyTestClient.
-	// We should be able to Stop Profiling, by calling tracy::ShutdownProfiler(), without having to disconnect the Tracy GUI or TracyTestClient first
-
-	fprintf( stderr, "CC0\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	TickTelemetry(std::chrono::milliseconds(1000)); // This should process the "Stopped" state (2nd part of calling Stop Telemetry)
-	TickTelemetry(std::chrono::milliseconds(1000)); // Giving it more time to flush the queue.
-	fprintf( stderr, "CcpTelemetryTest::ReconnectAfterStop() - After TickTelemetry() #4\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	EXPECT_FALSE( m_tracyClient.IsConnected() ) << "By disconnecting the TracyTestClient (because of the 'kQueueTerminate' handling setting m_shutdown=true), this should return false";
-	fprintf( stderr, "CC1\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	EXPECT_TRUE( TracyNoop ) << "For some reason, even though we've Stopped Telemetry, Tracy is still available, this is ODD.  <<<====";
-	fprintf( stderr, "CC2\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	EXPECT_FALSE( TracyIsStarted ) << "I would have thought that this should be FALSE here, because we've called tracy::GetProfiler().RequestShutdown() -> which in turn should on the next tick process Stopped state and call ShutdownProfiler(). BUT this never becomes true [TracyIsStarted && tracy::GetProfiler().HasShutdownFinished()]  <<<=====";
-	fprintf( stderr, "CC3\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	EXPECT_FALSE( TracyIsConnected ) << "Tracy should NOT be connected, because the TracyTestClient should have been disconnected because of kQueueTerminate";
-	fprintf( stderr, "CC4\n" ); fflush( stderr );  // TODO: Debug info, remove this
-	EXPECT_FALSE( CcpTelemetryIsStarted() ) << "Internal profiler state should no longer be: Started";
-	fprintf( stderr, "CC5\n" ); fflush( stderr );  // TODO: Debug info, remove this
 }
 
-TEST_F( CcpTelemetryTest, StartConnectDisconnectProfiling )
-{
-
-}
-
-TEST_F( CcpTelemetryTest, StartConnectDisconnectStopProfiling )
-{
-
-}
-
-TEST_F( CcpTelemetryTest, ReconnectAfterStop )
-{
-	// Now simulate "Start Telemetry" operation again...
-
-	// Enter and Leave a different zone...
-}
