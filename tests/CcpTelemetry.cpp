@@ -37,6 +37,7 @@ protected:
 
 	void SetUp() override
 	{
+		::testing::Test::SetUp();
 		SetUp(true);
 	}
 
@@ -72,6 +73,7 @@ protected:
 	{
 		// m_tracyClient.Disconnect();  // Remove explicit call to Disconnect() because current implementation does NOT call tracy::ShutdownProfiler().
 		CcpStopTelemetry();
+		::testing::Test::TearDown();
 	}
 
 	void TickTelemetry( std::chrono::milliseconds duration = std::chrono::milliseconds( 500 ) )
