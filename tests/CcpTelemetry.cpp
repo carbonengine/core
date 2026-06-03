@@ -42,7 +42,6 @@ protected:
 
 	void SetUp(bool doTestClientConnect)
 	{
-		fprintf( stderr, "CcpTelemetryTest::SetUp(%s) - Begin\n", doTestClientConnect ? "true" : "false" ); fflush( stderr );
 		CcpTelemetryConfig conf{ "Telemetry Tests" };
 		EXPECT_EQ( conf.captureDuration, std::chrono::milliseconds::zero() );
 		CcpStartTelemetry( conf );
@@ -50,7 +49,6 @@ protected:
 		// Tick until the profiler's listen socket is up.
 		while( !TracyIsStarted )
 		{
-			fprintf( stderr, "CcpTelemetryTest::SetUp(%s) - while( !TracyIsStarted ) - TickTelemetry()\n", doTestClientConnect ? "true" : "false" ); fflush( stderr );
 			TickTelemetry();
 		}
 
@@ -64,20 +62,16 @@ protected:
 		// Tick until CcpTelemetry recognises the connection and enters Started state.
 		while( !CcpTelemetryIsConnected() )
 		{
-			fprintf( stderr, "CcpTelemetryTest::SetUp(%s) - while( !CcpTelemetryIsConnected ) - TickTelemetry()\n", doTestClientConnect ? "true" : "false" ); fflush( stderr );
 			TickTelemetry();
 		}
 
 		ASSERT_TRUE( connectFuture.get() ) << "Could not connect to Tracy profiler";
-		fprintf( stderr, "CcpTelemetryTest::SetUp(%s) - End\n", doTestClientConnect ? "true" : "false" ); fflush( stderr );
 	}
 
 	void TearDown() override
 	{
-		fprintf( stderr, "CcpTelemetryTest::TearDown() - Begin\n" ); fflush( stderr );
 		// m_tracyClient.Disconnect();  // Remove explicit call to Disconnect() because current implementation does NOT call tracy::ShutdownProfiler().
 		CcpStopTelemetry();
-		fprintf( stderr, "CcpTelemetryTest::TearDown() - End\n" ); fflush( stderr );
 	}
 
 	void TickTelemetry( std::chrono::milliseconds duration = std::chrono::milliseconds( 500 ) )
