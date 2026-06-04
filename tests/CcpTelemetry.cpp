@@ -104,6 +104,19 @@ protected:
 		ASSERT_TRUE( connectFuture.get() ) << "Could not connect to Tracy profiler";
 	}
 
+	bool ZoneExists( const std::string& zoneName )
+	{
+		auto tracyZones = m_tracyClient.GetZones();
+		// CcpTelemetryEnterZone passes the zone name as the Tracy "function" field
+		// (via the 6-param ___tracy_alloc_srcloc), so match against both fields.
+		auto pred = [&zoneName]( const TracyTestClient::ZoneInfo& elem ) -> bool {
+			return elem.function == zoneName;
+		};
+
+		// Check if the Zone exists in the list of Zones
+		return tracyZones.end() != std::find_if( tracyZones.begin(), tracyZones.end(), pred );
+	}
+
 	const std::string expectedNoFiber;
 	const std::string expectedFiberName1{ "TestFiber1" };
 	const std::string expectedFiberName2{ "TestFiber2" };
@@ -141,29 +154,21 @@ TEST_F( CcpTelemetryTest, RemovingActiveFiberClearsIt )
 
 TEST_F( CcpTelemetryTest, SimpleZoneTest )
 {
+	EXPECT_TRUE( CcpTelemetryIsConnected() );
+
 	static int key = 4711;
 	const std::string zoneName{ "TestZone" };
-	EXPECT_TRUE( CcpTelemetryIsConnected() );
 	CcpTelemetryEnterZone( &key, zoneName.c_str(), __FILE__, __LINE__ );
-
 	// Tracy's worker sleeps up to 10 ms between queue flushes, so give it
 	// time to process and send the zone event before asserting.
 	TickTelemetry();
-
 	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
-	auto tracyZones = m_tracyClient.GetZones();
-	// CcpTelemetryEnterZone passes the zone name as the Tracy "function" field
-	// (via the 6-param ___tracy_alloc_srcloc), so match against both fields.
-	auto pred = [&zoneName]( const TracyTestClient::ZoneInfo& elem ) -> bool {
-		return elem.function == zoneName;
-	};
-	EXPECT_NE( tracyZones.end(), std::find_if( tracyZones.begin(), tracyZones.end(), pred ) );
+	EXPECT_TRUE( ZoneExists( zoneName ) );
 
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry();
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
-	tracyZones = m_tracyClient.GetZones();
-	EXPECT_EQ( tracyZones.end(), std::find_if( tracyZones.begin(), tracyZones.end(), pred ) );
+	EXPECT_FALSE( ZoneExists( zoneName ) );
 }
 
 TEST_F( CcpTelemetryTest, StackedZones )
@@ -173,12 +178,16 @@ TEST_F( CcpTelemetryTest, StackedZones )
 	CcpTelemetryEnterZone( &key, "TestZone", __FILE__, __LINE__ );
 	CcpTelemetryEnterZone( &key, "TestZone2", __FILE__, __LINE__ );
 	TickTelemetry();
-	auto tracyZones = m_tracyClient.GetZones();
-	EXPECT_EQ( 2, tracyZones.size() );
+	EXPECT_EQ( 2, m_tracyClient.GetZones().size() );
+	EXPECT_TRUE( ZoneExists( "TestZone" ) );
+	EXPECT_TRUE( ZoneExists( "TestZone2" ) );
+
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry();
-	tracyZones = m_tracyClient.GetZones();
-	EXPECT_EQ( 1, tracyZones.size() );
+	EXPECT_EQ( 1, m_tracyClient.GetZones().size() );
+	EXPECT_TRUE( ZoneExists( "TestZone" ) );
+	EXPECT_FALSE( ZoneExists( "TestZone2" ) ) << "TestZone2 should be gone";
+
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry();
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
@@ -186,56 +195,40 @@ TEST_F( CcpTelemetryTest, StackedZones )
 
 TEST_F( CcpTelemetryTest, ReStartAfterStop )
 {
-	// Setup takes care of connecting to the TracyTestClient
-	EXPECT_TRUE( m_tracyClient.IsConnected() );
-
 	static int key1 = 1001;
 	const std::string zoneName1{ "FirstZone" };
 	CcpTelemetryEnterZone( &key1, zoneName1.c_str(), __FILE__, __LINE__ );
-
 	TickTelemetry();
-	auto tracyZones = m_tracyClient.GetZones();
-	auto pred = [&zoneName1]( const TracyTestClient::ZoneInfo& elem ) -> bool {
-		return elem.function == zoneName1;
-	};
-	EXPECT_NE( tracyZones.end(), std::find_if( tracyZones.begin(), tracyZones.end(), pred ) );
-	EXPECT_EQ( 1, tracyZones.size() );
+	EXPECT_TRUE( ZoneExists( zoneName1 ) );
+	EXPECT_EQ( 1, m_tracyClient.GetZones().size() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_EQ( 0, m_tracyClient.GetZoneEndCount() );
 
 	CcpTelemetryLeaveZone( &key1 );
-
 	TickTelemetry();
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
-	EXPECT_TRUE( CcpTelemetryIsConnected() );
-	EXPECT_TRUE( m_tracyClient.IsConnected() );
 
 	// Now simulate "Stop and Start Telemetry" operation
 	StopTelemetry();
+	EXPECT_TRUE( CcpTelemetryIsStopped() );
 	StartTelemetry( "Telemetry Tests - 2nd Start" );
+	EXPECT_TRUE( CcpTelemetryIsStarted() );
 
 	// Emit a new Zone, on the 2nd Start and validate
 	static int key2 = 1002;
 	const std::string zoneName2{ "SecondZone" };
 	CcpTelemetryEnterZone( &key2, zoneName2.c_str(), __FILE__, __LINE__ );
-
 	TickTelemetry();
-	auto tracyZones2ndStart = m_tracyClient.GetZones();
-	auto pred2nd = [&zoneName2]( const TracyTestClient::ZoneInfo& elem ) -> bool {
-		return elem.function == zoneName2;
-	};
-	EXPECT_NE( tracyZones2ndStart.end(), std::find_if( tracyZones2ndStart.begin(), tracyZones2ndStart.end(), pred2nd ) );
-	EXPECT_EQ( 1, tracyZones2ndStart.size() );
-	EXPECT_EQ( 2, m_tracyClient.GetZoneBeginCount() ) << "The total Begin Zone count should be 2, even after Stop/Start";
-	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() ) << "The total End Zone count should be 1 at this point, because of the FirstZone has ended";
+	EXPECT_TRUE( ZoneExists( zoneName2 ) );
+	EXPECT_FALSE( ZoneExists( zoneName1 ) ) << "FirstZone should not exist";
+	EXPECT_EQ( 1, m_tracyClient.GetZones().size() );
+	EXPECT_EQ( 2, m_tracyClient.GetZoneBeginCount() );
+	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
 
 	CcpTelemetryLeaveZone( &key2 );
-
 	TickTelemetry();
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
-	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() ) << "The total End Zone count should be 2, FirstZone (before the Stop) and SecondZone from after the Stop/Start";;
-	EXPECT_TRUE( CcpTelemetryIsConnected() );
-	EXPECT_TRUE( m_tracyClient.IsConnected() );
+	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() );
 }
 
