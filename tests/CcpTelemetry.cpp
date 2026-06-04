@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <functional>
 #include <future>
 
 #include <CcpCore.h>
@@ -39,55 +40,55 @@ protected:
 	{
 		::testing::Test::SetUp();
 		StartTelemetry();
-		ConnectTelemetry();
+		ConnectProfilerClient();
 	}
 
 	void TearDown() override
 	{
-		// Do NOT explicit call m_tracyClient.Disconnect(), unless we change actual implementation to call tracy::ShutdownProfiler().
+		DisconnectProfilerClient();
 		StopTelemetry();
 		::testing::Test::TearDown();
 	}
 
-	void TickTelemetry( std::chrono::milliseconds duration = std::chrono::milliseconds( 500 ) )
+	void TickTelemetry( std::function<bool()> predicate = nullptr, std::chrono::milliseconds timeout = std::chrono::milliseconds( 500 ) )
 	{
-		const auto deadline = std::chrono::steady_clock::now() + duration;
-		while( std::chrono::steady_clock::now() < deadline )
+		const auto deadline = std::chrono::steady_clock::now() + timeout;
+		while( std::chrono::steady_clock::now() < deadline && !( predicate && predicate() ) )
 		{
 			CcpTelemetryTick();
 			std::this_thread::sleep_for( std::chrono::milliseconds( 5 ) );
 		}
 	}
 
-	void StartTelemetry(std::string appName = "Telemetry Tests",
-	                    std::chrono::milliseconds duration = std::chrono::milliseconds::zero(),
-	                    bool trackMemory = false)
+	void StartTelemetry( std::string appName = "Telemetry Tests",
+						 std::chrono::milliseconds duration = std::chrono::milliseconds::zero(),
+						 bool trackMemory = false )
 	{
-		CcpTelemetryConfig conf{appName};
+		CcpTelemetryConfig conf{ appName };
 		conf.captureDuration = duration;
 		conf.trackMemoryAllocations = trackMemory;
-		CcpStartTelemetry(conf);
-
-		// Tick at least once or until the profiler's listen socket is up.
-		do
-		{
-			TickTelemetry();
-		}
-		while (!TracyIsStarted);
+		CcpStartTelemetry( conf );
+		// It may appear weird that this checks `TracyIsStarted`, but the reason is that the internal state machine
+		// in CcpTelemetry only advances to `CcpTelemetryIsStarted` once it _also_ has established a connection to
+		// a profiler client.
+		// So a logical next question is: Why not use `CcpTelemetryIsConnectionRequested` as predicate? The answer
+		// there is that this is flaky when performing a reconnect in a test: the brief sleep window may be enough
+		// to fully re-establish the connection between telemetry integration and profiler client. In that scenario,
+		// the internal state machine would completely skip that state.
+		// As such, we really only wait for the listen socket to be open, which is more or less what `TracyIsStarted`
+		// represents.
+		TickTelemetry( [] { return TracyIsStarted; }, std::chrono::seconds( 5 ) );
+		EXPECT_TRUE( TracyIsStarted ) << "Could not start the telemetry integration";
 	}
 
 	void StopTelemetry()
 	{
 		CcpStopTelemetry();
-		// Tick at least once or until we're stopped
-		do
-		{
-			TickTelemetry();
-		}
-		while (!CcpTelemetryIsStopped());
+		TickTelemetry( CcpTelemetryIsStopped, std::chrono::seconds( 5 ) );
+		EXPECT_TRUE( CcpTelemetryIsStopped() ) << "Could not stop the telemetry integration";
 	}
 
-	void ConnectTelemetry()
+	void ConnectProfilerClient()
 	{
 		// Connect on a background thread so this thread can keep ticking Tracy.
 		// The handshake requires both sides to run concurrently: Tracy's worker
@@ -96,12 +97,22 @@ protected:
 			return m_tracyClient.Connect();
 		} );
 
-		// Tick until CcpTelemetry recognises the connection and enters Started state.
-		while( !CcpTelemetryIsConnected() )
-		{
-			TickTelemetry();
-		}
-		ASSERT_TRUE( connectFuture.get() ) << "Could not connect to Tracy profiler";
+		// Tick until CcpTelemetry recognises the connection and the client handshake completes.
+		// Both must be true: if we stop ticking the moment CcpTelemetryIsConnected fires,
+		// connectFuture.get() may block while Tracy still needs CcpTelemetryTick() to
+		// finish the protocol exchange on our side.
+		TickTelemetry( [&] {
+			return CcpTelemetryIsConnected() &&
+				connectFuture.wait_for( std::chrono::milliseconds( 0 ) ) == std::future_status::ready;
+		},
+					   std::chrono::seconds( 5 ) );
+		EXPECT_TRUE( connectFuture.get() ) << "Could not establish a connection between telemetry integration and profiler client";
+	}
+
+	void DisconnectProfilerClient()
+	{
+		m_tracyClient.Disconnect();
+		TickTelemetry( [this]{return !m_tracyClient.IsConnected();} );
 	}
 
 	bool ZoneExists( const std::string& zoneName )
@@ -158,12 +169,12 @@ TEST_F( CcpTelemetryTest, SimpleZoneTest )
 	CcpTelemetryEnterZone( &key, zoneName.c_str(), __FILE__, __LINE__ );
 	// Tracy's worker sleeps up to 10 ms between queue flushes, so give it
 	// time to process and send the zone event before asserting.
-	TickTelemetry();
+	TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_TRUE( ZoneExists( zoneName ) );
 
 	CcpTelemetryLeaveZone( &key );
-	TickTelemetry();
+	TickTelemetry( [this] { return m_tracyClient.GetZoneEndCount() == 1; } );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
 	EXPECT_FALSE( ZoneExists( zoneName ) );
 }
@@ -174,19 +185,19 @@ TEST_F( CcpTelemetryTest, StackedZones )
 	static int key = 4711;
 	CcpTelemetryEnterZone( &key, "TestZone", __FILE__, __LINE__ );
 	CcpTelemetryEnterZone( &key, "TestZone2", __FILE__, __LINE__ );
-	TickTelemetry();
+	TickTelemetry( [this] { return m_tracyClient.GetZones().size() == 2; } );
 	EXPECT_EQ( 2, m_tracyClient.GetZones().size() );
 	EXPECT_TRUE( ZoneExists( "TestZone" ) );
 	EXPECT_TRUE( ZoneExists( "TestZone2" ) );
 
 	CcpTelemetryLeaveZone( &key );
-	TickTelemetry();
+	TickTelemetry( [this] { return m_tracyClient.GetZones().size() == 1; } );
 	EXPECT_EQ( 1, m_tracyClient.GetZones().size() );
 	EXPECT_TRUE( ZoneExists( "TestZone" ) );
 	EXPECT_FALSE( ZoneExists( "TestZone2" ) ) << "TestZone2 should be gone";
 
 	CcpTelemetryLeaveZone( &key );
-	TickTelemetry();
+	TickTelemetry([this] { return m_tracyClient.GetZones().empty(); });
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 }
 
@@ -195,14 +206,14 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	static int key1 = 1001;
 	const std::string zoneName1{ "FirstZone" };
 	CcpTelemetryEnterZone( &key1, zoneName1.c_str(), __FILE__, __LINE__ );
-	TickTelemetry();
+	TickTelemetry( [this, zoneName1] { return ZoneExists( zoneName1 );});
 	EXPECT_TRUE( ZoneExists( zoneName1 ) );
 	EXPECT_EQ( 1, m_tracyClient.GetZones().size() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_EQ( 0, m_tracyClient.GetZoneEndCount() );
 
 	CcpTelemetryLeaveZone( &key1 );
-	TickTelemetry();
+	TickTelemetry( [this]{return m_tracyClient.GetZones().empty(); });
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
 
@@ -210,13 +221,16 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	StopTelemetry();
 	EXPECT_TRUE( CcpTelemetryIsStopped() );
 	StartTelemetry( "Telemetry Tests - 2nd Start" );
+	// StartTelemetry only checks whether the profiler integration is started, but the running client also needs to reconnect.
+	// Thus, wait until that has happened, which should be fast in this scenario.
+	TickTelemetry( CcpTelemetryIsConnected );
 	EXPECT_TRUE( CcpTelemetryIsStarted() );
 
 	// Emit a new Zone, on the 2nd Start and validate
 	static int key2 = 1002;
 	const std::string zoneName2{ "SecondZone" };
 	CcpTelemetryEnterZone( &key2, zoneName2.c_str(), __FILE__, __LINE__ );
-	TickTelemetry();
+	TickTelemetry([this, zoneName2]{return ZoneExists( zoneName2 );});
 	EXPECT_TRUE( ZoneExists( zoneName2 ) );
 	EXPECT_FALSE( ZoneExists( zoneName1 ) ) << "FirstZone should not exist";
 	EXPECT_EQ( 1, m_tracyClient.GetZones().size() );
@@ -228,4 +242,3 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() );
 }
-
