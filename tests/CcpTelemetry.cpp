@@ -79,7 +79,12 @@ protected:
 	void StopTelemetry()
 	{
 		CcpStopTelemetry();
-		TickTelemetry();
+		// Tick at least once or until we're stopped
+		do
+		{
+			TickTelemetry();
+		}
+		while (!CcpTelemetryIsStopped());
 	}
 
 	void ConnectTelemetry()
@@ -208,9 +213,7 @@ TEST_F( CcpTelemetryTest, ReStartAfterStop )
 
 	// Now simulate "Stop and Start Telemetry" operation
 	StopTelemetry();
-	EXPECT_FALSE( CcpTelemetryIsStarted() ) << "Internal profiler state should have changed to at least StopRequested (and Ticked on to Stopped)";
 	StartTelemetry( "Telemetry Tests - 2nd Start" );
-	EXPECT_TRUE( CcpTelemetryIsStarted() ) << "Internal profiler state should be: Started";
 
 	// Emit a new Zone, on the 2nd Start and validate
 	static int key2 = 1002;

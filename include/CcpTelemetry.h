@@ -67,6 +67,7 @@ CARBON_CORE_API void CcpUnregisterTelemetryEventHandler( CcpOnTelemetryEventHand
 CARBON_CORE_API bool CcpTelemetryIsConnectionRequested();
 CARBON_CORE_API bool CcpTelemetryIsConnected();
 CARBON_CORE_API bool CcpTelemetryIsStarted();
+CARBON_CORE_API bool CcpTelemetryIsStopped();
 CARBON_CORE_API bool CcpMemoryProfilingIsEnabled();
 
 CARBON_CORE_API void CcpTelemetrySetActiveFiber( const std::string& name );

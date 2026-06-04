@@ -85,6 +85,11 @@ bool CcpTelemetryIsStarted()
 	return s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started;
 }
 
+bool CcpTelemetryIsStopped()
+{
+	return s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Stopped;
+}
+
 bool CcpMemoryProfilingIsEnabled()
 {
 	return s_config.trackMemoryAllocations;
