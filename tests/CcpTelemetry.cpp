@@ -38,41 +38,14 @@ protected:
 	void SetUp() override
 	{
 		::testing::Test::SetUp();
-		SetUp(true);
-	}
-
-	void SetUp(bool doTestClientConnect)
-	{
-		CcpTelemetryConfig conf{ "Telemetry Tests" };
-		EXPECT_EQ( conf.captureDuration, std::chrono::milliseconds::zero() );
-		CcpStartTelemetry( conf );
-
-		// Tick until the profiler's listen socket is up.
-		while( !TracyIsStarted )
-		{
-			TickTelemetry();
-		}
-
-		// Connect on a background thread so this thread can keep ticking Tracy.
-		// The handshake requires both sides to run concurrently: Tracy's worker
-		// sends data and may block on Send() until the client reads it.
-		auto connectFuture = doTestClientConnect
-			? std::async( std::launch::async, [this] { return m_tracyClient.Connect(); } )
-			: std::async( std::launch::deferred, [] { return true; } );
-
-		// Tick until CcpTelemetry recognises the connection and enters Started state.
-		while( !CcpTelemetryIsConnected() )
-		{
-			TickTelemetry();
-		}
-
-		ASSERT_TRUE( connectFuture.get() ) << "Could not connect to Tracy profiler";
+		StartTelemetry();
+		ConnectTelemetry();
 	}
 
 	void TearDown() override
 	{
-		// m_tracyClient.Disconnect();  // Remove explicit call to Disconnect() because current implementation does NOT call tracy::ShutdownProfiler().
-		CcpStopTelemetry();
+		// Do NOT explicit call m_tracyClient.Disconnect(), unless we change actual implementation to call tracy::ShutdownProfiler().
+		StopTelemetry();
 		::testing::Test::TearDown();
 	}
 
@@ -84,6 +57,46 @@ protected:
 			CcpTelemetryTick();
 			std::this_thread::sleep_for( std::chrono::milliseconds( 5 ) );
 		}
+	}
+
+	void StartTelemetry(std::string appName = "Telemetry Tests",
+	                    std::chrono::milliseconds duration = std::chrono::milliseconds::zero(),
+	                    bool trackMemory = false)
+	{
+		CcpTelemetryConfig conf{appName};
+		conf.captureDuration = duration;
+		conf.trackMemoryAllocations = trackMemory;
+		CcpStartTelemetry(conf);
+
+		// Tick at least once or until the profiler's listen socket is up.
+		do
+		{
+			TickTelemetry();
+		}
+		while (!TracyIsStarted);
+	}
+
+	void StopTelemetry()
+	{
+		CcpStopTelemetry();
+		TickTelemetry();
+	}
+
+	void ConnectTelemetry()
+	{
+		// Connect on a background thread so this thread can keep ticking Tracy.
+		// The handshake requires both sides to run concurrently: Tracy's worker
+		// sends data and may block on Send() until the client reads it.
+		auto connectFuture = std::async( std::launch::async, [this] {
+			return m_tracyClient.Connect();
+		} );
+
+		// Tick until CcpTelemetry recognises the connection and enters Started state.
+		while( !CcpTelemetryIsConnected() )
+		{
+			TickTelemetry();
+		}
+		ASSERT_TRUE( connectFuture.get() ) << "Could not connect to Tracy profiler";
 	}
 
 	const std::string expectedNoFiber;
@@ -193,17 +206,11 @@ TEST_F( CcpTelemetryTest, ReStartAfterStop )
 	EXPECT_TRUE( CcpTelemetryIsConnected() );
 	EXPECT_TRUE( m_tracyClient.IsConnected() );
 
-	// Now simulate "Stop Telemetry" operation and Tick until we're in "Stopped" state
-	CcpStopTelemetry();
-	TickTelemetry(); // This processes the "StopRequested" state.
-	TickTelemetry(); // This processes the "Stopped" state.
-	EXPECT_TRUE( m_tracyClient.IsConnected() ) << "Connection should still be true at this point because the TracyTestClient hasn't been disconnected";
-	EXPECT_FALSE( CcpTelemetryIsStarted() ) << "Internal profiler state should have changed: Started->StopRequested->Stopped";
-
-	// Simulate a new call to StartTelemetry
-	SetUp( false );
-	EXPECT_TRUE( m_tracyClient.IsConnected() ) << "Connection should still be true because the TracyTestClient hasn't never been disconnected";
-	EXPECT_TRUE( CcpTelemetryIsStarted() ) << "Internal profiler state should have changed: Started->StopRequested->Stopped";
+	// Now simulate "Stop and Start Telemetry" operation
+	StopTelemetry();
+	EXPECT_FALSE( CcpTelemetryIsStarted() ) << "Internal profiler state should have changed to at least StopRequested (and Ticked on to Stopped)";
+	StartTelemetry( "Telemetry Tests - 2nd Start" );
+	EXPECT_TRUE( CcpTelemetryIsStarted() ) << "Internal profiler state should be: Started";
 
 	// Emit a new Zone, on the 2nd Start and validate
 	static int key2 = 1002;
