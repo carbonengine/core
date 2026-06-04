@@ -90,7 +90,7 @@ bool CcpTelemetryIsStopped()
 	return s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Stopped;
 }
 
-bool CcpMemoryProfilingIsEnabled()
+bool CcpTelemetryMemoryTrackingIsEnabled()
 {
 	return s_config.trackMemoryAllocations;
 }
@@ -237,14 +237,14 @@ void CcpTelemetryTick()
 
 void CcpTelemetryTrackAllocation( void* p, size_t size )
 {
-	if ( CcpMemoryProfilingIsEnabled() && CcpTelemetryIsConnected() ) {
+	if ( CcpTelemetryMemoryTrackingIsEnabled() && CcpTelemetryIsConnected() ) {
 		TracySecureAlloc( p, size );
 	}
 }
 
 void CcpTelemetryTrackDeallocation( void* p )
 {
-	if ( p && CcpMemoryProfilingIsEnabled() && CcpTelemetryIsConnected() )
+	if ( p && CcpTelemetryMemoryTrackingIsEnabled() && CcpTelemetryIsConnected() )
 	{
 		TracySecureFree( p );
 	}
@@ -445,7 +445,7 @@ bool CcpTelemetryIsStarted()
 	return false;
 }
 
-bool CcpMemoryProfilingIsEnabled()
+bool CcpTelemetryMemoryTrackingIsEnabled()
 {
 	return false;
 }
