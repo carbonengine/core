@@ -130,17 +130,14 @@ TEST_F( CcpTelemetryTest, TestFiberSwitching )
 	const auto& observedFiberName1 = CcpTelemetryGetActiveFiber();
 	EXPECT_EQ( observedFiberName1, expectedFiberName1 );
 
-	// Switching to a new name
 	CcpTelemetrySetActiveFiber( expectedFiberName2 );
 	const auto& observedFiberName2 = CcpTelemetryGetActiveFiber();
 	EXPECT_EQ( observedFiberName2, expectedFiberName2 );
 
-	// Switching back to the original name
 	CcpTelemetrySetActiveFiber( expectedFiberName1 );
 	const auto& observedFiberName3 = CcpTelemetryGetActiveFiber();
 	EXPECT_EQ( observedFiberName1.c_str(), observedFiberName3.c_str() );
 
-	// Switching to the "Root name" (no name)
 	CcpTelemetrySetActiveFiber( "" );
 	EXPECT_EQ( CcpTelemetryGetActiveFiber(), expectedNoFiber );
 }
@@ -193,7 +190,7 @@ TEST_F( CcpTelemetryTest, StackedZones )
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 }
 
-TEST_F( CcpTelemetryTest, ReStartAfterStop )
+TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 {
 	static int key1 = 1001;
 	const std::string zoneName1{ "FirstZone" };
