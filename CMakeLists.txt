@@ -105,6 +105,14 @@ if(WITH_TELEMETRY)
     find_package(Tracy CONFIG REQUIRED)
     target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=1)
     target_link_libraries(CcpCore PUBLIC Tracy::TracyClient)
+    # Tracy's vcpkg package is always built as Release (with NDEBUG). CcpTelemetry.cpp
+    # must also be compiled with NDEBUG to match Tracy's struct layout: in 0.13.1 the
+    # Profiler class has a debug-only member (std::atomic_bool m_inUse, #ifndef NDEBUG)
+    # that shifts m_programNameLock and other trailing fields by 8 bytes, causing
+    # SetProgramName() — inlined from TracyProfiler.hpp — to lock the wrong memory
+    # address and fail with EINVAL. CCP_ASSERT_ENABLED is set explicitly via CMake so
+    # CCP_ASSERT macros are unaffected by this NDEBUG definition.
+    set_source_files_properties(CcpTelemetry.cpp PROPERTIES COMPILE_DEFINITIONS NDEBUG)
 else()
     target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=0)
 endif()

@@ -187,7 +187,7 @@ CARBON_CORE_API const char* GetLastErrorMessage();
 // Throws a std exception with string 'message' and logs out the 'message'
 inline void Throw( const char* message )
 {
-	CCP_LOGERR( message );
+	CCP_LOGERR( "%s", message );
 	CCP_LOGWARN( "Exception thrown" );
 	throw std::runtime_error( message );
 }

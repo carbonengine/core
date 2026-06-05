@@ -22,7 +22,7 @@ std::atomic<ProfilerState> s_profilerState{ProfilerState::Stopped};
 
 FiberNameStore s_fiberNameStore; // Persisted fiber name string store, including the empty "root" fiber name
 
-thread_local FiberNameStore::const_iterator t_activeFiber{ s_fiberNameStore.begin() }; // default to having no fiber
+thread_local FiberNameStore::const_iterator t_activeFiber{ s_fiberNameStore.end() }; // default to having no fiber
 
 template<>
 struct std::less<FiberNameStore::const_iterator>
@@ -35,7 +35,7 @@ struct std::less<FiberNameStore::const_iterator>
 
 typedef std::map<FiberNameStore::const_iterator, std::stack<TelemetryZone>> TaskletZoneStore;
 thread_local TaskletZoneStore t_taskletZoneStore; // Per-thread record of zones instrumented from python
-thread_local TaskletZoneStore::iterator t_activeTaskletZoneStore{ t_taskletZoneStore.begin() };
+thread_local TaskletZoneStore::iterator t_activeTaskletZoneStore{ t_taskletZoneStore.end() };
 thread_local std::set<void*> t_manuallyTrackedZones; // Keep track of zones created through `CcpTelemetryEnterZone` to ensure that we only pop off the zone store's stack when leaving a manually created zone
 
 constexpr std::chrono::milliseconds s_cleanupDelay{5000};
@@ -83,6 +83,16 @@ bool CcpTelemetryIsConnectionRequested()
 bool CcpTelemetryIsStarted()
 {
 	return s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started;
+}
+
+bool CcpTelemetryIsStopped()
+{
+	return s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Stopped;
+}
+
+bool CcpTelemetryMemoryTrackingIsEnabled()
+{
+	return s_config.trackMemoryAllocations;
 }
 
 void CcpRegisterMutex( class CcpMutex& m, const char* owner, const char* name )
@@ -214,6 +224,7 @@ void CcpTelemetryTick()
 		{
 			( *handler.first )( CCP_TELEMETRY_STOPPED, handler.second );
 		}
+		break;
 	}
 	case ProfilerState::Stopped:
 		// Nothing to do
@@ -221,6 +232,21 @@ void CcpTelemetryTick()
 	default:
 		CCP_LOGERR_CH( s_ch, "Unhandled profiler state %d", s_profilerState.load(std::memory_order_acquire));
 		break;
+	}
+}
+
+void CcpTelemetryTrackAllocation( void* p, size_t size )
+{
+	if ( CcpTelemetryMemoryTrackingIsEnabled() && CcpTelemetryIsConnected() ) {
+		TracySecureAlloc( p, size );
+	}
+}
+
+void CcpTelemetryTrackDeallocation( void* p )
+{
+	if ( p && CcpTelemetryMemoryTrackingIsEnabled() && CcpTelemetryIsConnected() )
+	{
+		TracySecureFree( p );
 	}
 }
 
@@ -274,7 +300,9 @@ void CcpTelemetrySetActiveFiber( FiberNameStore::const_iterator elem )
 	if ( existing != t_taskletZoneStore.end() && ! ( t_taskletZoneStore.key_comp()( t_activeFiber, existing->first ) ) )
 	{
 		t_activeTaskletZoneStore = existing;
-	} else {
+	}
+	else
+	{
 		t_activeTaskletZoneStore = t_taskletZoneStore.emplace_hint( existing, t_activeFiber, std::stack<TelemetryZone>() );
 	}
 //	CCP_LOG_CH( s_ch, "[Fiber %p] [Store %p] Setting active tasklet zone store", t_activeFiber, t_activeTaskletZoneStore );
@@ -383,7 +411,9 @@ void CcpTelemetryLeaveZone( void* key )
 		{
 			t_activeTaskletZoneStore->second.pop();
 		}
-		t_manuallyTrackedZones.erase( key );
+		if ( t_activeTaskletZoneStore->second.empty() ) {
+			t_manuallyTrackedZones.erase( key );
+		}
 	}
 }
 
@@ -411,6 +441,11 @@ bool CcpTelemetryIsConnected()
 }
 
 bool CcpTelemetryIsStarted()
+{
+	return false;
+}
+
+bool CcpTelemetryMemoryTrackingIsEnabled()
 {
 	return false;
 }

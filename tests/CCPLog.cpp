@@ -42,7 +42,7 @@ class CCPLog : public ::testing::Test
 TEST_F ( CCPLog, TestCanLogSingleLine )
 {
 	CCP::RegisterLogEcho( LogTracker, CCP::LOGTYPE_INFO, true );
-	const char *s = "One line";
+	constexpr const char *s = "One line";
 	CCP_LOG(s);
 
 	EXPECT_EQ( 1, logstack.size() );
@@ -52,7 +52,7 @@ TEST_F ( CCPLog, TestCanLogSingleLine )
 TEST_F ( CCPLog, TestDefaultLogLevelIsInfo )
 {
 	CCP::RegisterLogEcho( LogTracker, CCP::LOGTYPE_INFO, true );
-	const char *s = "One line";
+	constexpr const char *s = "One line";
 	CCP_LOG(s);
 
 	EXPECT_EQ( 1, logstack.size() );
@@ -116,15 +116,15 @@ TEST_F ( CCPLog, CanUnregisterCallbackHandler )
 
 TEST_F ( CCPLog, GetLastErrorMessageReturnsLastError )
 {
-	const char* expected = "Something has gone horribly wrong.";
-	CCP_LOGERR(expected);
+	constexpr const char* expected = "Something has gone horribly wrong.";
+	CCP_LOGERR( expected );
 	const char* actual = CCP::GetLastErrorMessage();
 	EXPECT_STREQ( expected, actual );
 }
 
 TEST_F ( CCPLog, ThrowLastErrorThrowsAnError )
 {
-	const char* error_str = "Something has gone horribly wrong.";
+	constexpr const char* error_str = "Something has gone horribly wrong.";
 	CCP_LOGERR( error_str );
 	EXPECT_ANY_THROW( {CCP::ThrowLastError();} );	
 }
@@ -133,7 +133,7 @@ TEST_F ( CCPLog, LogEnormousLine )
 {
 	CCP::RegisterLogEcho( LogTracker, CCP::LOGTYPE_INFO, true );
 	CCP::SetLogMainThreadId();
-	const char* enormous_line = 
+	constexpr const char* enormous_line =
 		"Testing a really long log line. The log server can't handle log lines\n"
 		"that are longer than 253 characters, so we need a test case for it.\n"
 		"Somewhere along the line we need to split the log message into several\n"
