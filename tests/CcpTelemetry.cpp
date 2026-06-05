@@ -101,18 +101,18 @@ protected:
 		// Both must be true: if we stop ticking the moment CcpTelemetryIsConnected fires,
 		// connectFuture.get() may block while Tracy still needs CcpTelemetryTick() to
 		// finish the protocol exchange on our side.
-		TickTelemetry( [&] {
+		auto isConnected = [&] {
 			return CcpTelemetryIsConnected() &&
 				connectFuture.wait_for( std::chrono::milliseconds( 0 ) ) == std::future_status::ready;
-		},
-					   std::chrono::seconds( 5 ) );
+		};
+		TickTelemetry( isConnected, std::chrono::seconds( 5 ) );
 		EXPECT_TRUE( connectFuture.get() ) << "Could not establish a connection between telemetry integration and profiler client";
 	}
 
 	void DisconnectProfilerClient()
 	{
 		m_tracyClient.Disconnect();
-		TickTelemetry( [this]{return !m_tracyClient.IsConnected();} );
+		TickTelemetry( [this] { return !m_tracyClient.IsConnected(); } );
 	}
 
 	bool ZoneExists( const std::string& zoneName )
@@ -197,7 +197,7 @@ TEST_F( CcpTelemetryTest, StackedZones )
 	EXPECT_FALSE( ZoneExists( "TestZone2" ) ) << "TestZone2 should be gone";
 
 	CcpTelemetryLeaveZone( &key );
-	TickTelemetry([this] { return m_tracyClient.GetZones().empty(); });
+	TickTelemetry( [this] { return m_tracyClient.GetZones().empty(); } );
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 }
 
@@ -206,14 +206,14 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	static int key1 = 1001;
 	const std::string zoneName1{ "FirstZone" };
 	CcpTelemetryEnterZone( &key1, zoneName1.c_str(), __FILE__, __LINE__ );
-	TickTelemetry( [this, zoneName1] { return ZoneExists( zoneName1 );});
+	TickTelemetry( [this, zoneName1] { return ZoneExists( zoneName1 ); } );
 	EXPECT_TRUE( ZoneExists( zoneName1 ) );
 	EXPECT_EQ( 1, m_tracyClient.GetZones().size() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_EQ( 0, m_tracyClient.GetZoneEndCount() );
 
 	CcpTelemetryLeaveZone( &key1 );
-	TickTelemetry( [this]{return m_tracyClient.GetZones().empty(); });
+	TickTelemetry( [this] { return m_tracyClient.GetZones().empty(); } );
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
 
@@ -230,7 +230,7 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	static int key2 = 1002;
 	const std::string zoneName2{ "SecondZone" };
 	CcpTelemetryEnterZone( &key2, zoneName2.c_str(), __FILE__, __LINE__ );
-	TickTelemetry([this, zoneName2]{return ZoneExists( zoneName2 );});
+	TickTelemetry( [this, zoneName2] { return ZoneExists( zoneName2 ); } );
 	EXPECT_TRUE( ZoneExists( zoneName2 ) );
 	EXPECT_FALSE( ZoneExists( zoneName1 ) ) << "FirstZone should not exist";
 	EXPECT_EQ( 1, m_tracyClient.GetZones().size() );
