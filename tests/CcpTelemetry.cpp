@@ -112,7 +112,8 @@ protected:
 	void DisconnectProfilerClient()
 	{
 		m_tracyClient.Disconnect();
-		TickTelemetry( [this] { return !m_tracyClient.IsConnected(); } );
+		TickTelemetry( [this] { return !m_tracyClient.IsConnected() && !TracyIsConnected; } );
+		EXPECT_FALSE( TracyIsConnected );
 	}
 
 	bool ZoneExists( const std::string& zoneName )
