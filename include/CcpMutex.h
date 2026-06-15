@@ -6,6 +6,8 @@
 #include "CcpTelemetry.h"
 #include "CcpAtomic.h"
 
+#include <string>
+
 #ifdef _WIN32
 
 class CcpMutex
@@ -22,6 +24,9 @@ public:
 		if ( CcpTelemetryIsConnected() )
 		{
 			TracyCLockAnnounce( m_tracyLockContext );
+			// Tracy copies the name, so passing a temporary is fine.
+			const std::string tracyLockName = std::string( owner ? owner : "" ) + "-" + ( name ? name : "" );
+			TracyCLockCustomName( m_tracyLockContext, tracyLockName.c_str(), tracyLockName.size() );
 		}
 #endif
 
@@ -42,14 +47,14 @@ public:
     {
 #if CCP_TELEMETRY_ENABLED
 		bool notifyTracy{false};
-		if ( CcpTelemetryIsConnected() && m_tracyLockContext )
+		if ( CcpTelemetryIsConnected() && m_tracyLockContext )     // TODO: Can this be changed to CcpTelemetryIsStarted(), should be quicker
 		{
 			notifyTracy = TracyCLockBeforeLock( m_tracyLockContext );
 		}
 #endif
         EnterCriticalSection( &m_mutex);
 #if CCP_TELEMETRY_ENABLED
-		if ( notifyTracy )
+		if ( CcpTelemetryIsConnected() && m_tracyLockContext )     // TODO: Can this be changed to CcpTelemetryIsStarted(), should be quicker
 		{
 			TracyCLockAfterLock( m_tracyLockContext );
 		}
@@ -115,6 +120,9 @@ public:
 		if ( CcpTelemetryIsConnected() )
 		{
 			TracyCLockAnnounce( m_tracyLockContext );
+			// Tracy copies the name, so passing a temporary is fine.
+			const std::string tracyLockName = std::string( owner ? owner : "" ) + "-" + ( name ? name : "" );
+			TracyCLockCustomName( m_tracyLockContext, tracyLockName.c_str(), tracyLockName.size() );
 		}
 #endif
 
@@ -135,14 +143,14 @@ public:
 	{
 #if CCP_TELEMETRY_ENABLED
 		bool notifyTracy{false};
-		if ( CcpTelemetryIsConnected() && m_tracyLockContext )
+		if ( CcpTelemetryIsConnected() && m_tracyLockContext )     // TODO: Can this be changed to CcpTelemetryIsStarted(), should be quicker
 		{
 			notifyTracy = TracyCLockBeforeLock( m_tracyLockContext );
 		}
 #endif
 		pthread_mutex_lock( &m_mutex);
 #if CCP_TELEMETRY_ENABLED
-		if ( notifyTracy )
+		if ( CcpTelemetryIsConnected() && m_tracyLockContext )     // TODO: Can this be changed to CcpTelemetryIsStarted(), should be quicker
 		{
 			TracyCLockAfterLock( m_tracyLockContext );
 		}

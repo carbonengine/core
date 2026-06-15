@@ -1,6 +1,7 @@
 // Copyright © 2025 CCP ehf.
 #include "TracyTestClient.h"
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstring>
@@ -138,8 +139,10 @@ struct OnDemandPayloadMessage
     uint64_t currentTime;
 };
 
-// Only the server-query value we actually emit.
-static constexpr uint8_t kServerQueryFiberName = 7;
+// Only the server-query values we actually emit (ServerQuery enum from TracyProtocol.hpp).
+static constexpr uint8_t kServerQueryString         = 1;
+static constexpr uint8_t kServerQuerySourceLocation = 3;
+static constexpr uint8_t kServerQueryFiberName      = 7;
 
 struct ServerQueryPacket
 {
@@ -168,6 +171,57 @@ struct QueueFiberLeave
 
 struct QueueStringTransfer { uint64_t ptr; };
 
+struct QueueLockAnnounce
+{
+    uint32_t id;
+    int64_t  time;
+    uint64_t lckloc;  // ptr to ___tracy_source_location_data
+    uint8_t  type;    // LockType
+};
+
+struct QueueLockTerminate
+{
+    uint32_t id;
+    int64_t  time;
+};
+
+struct QueueLockWait
+{
+    uint32_t thread;
+    uint32_t id;
+    int64_t  time;
+};
+
+struct QueueLockObtain
+{
+    uint32_t thread;
+    uint32_t id;
+    int64_t  time;
+};
+
+struct QueueLockRelease
+{
+    uint32_t id;
+    int64_t  time;
+};
+
+// Set via TracyCLockCustomName; the name itself arrives in the
+// SingleStringData event immediately preceding this item.
+struct QueueLockName
+{
+    uint32_t id;
+};
+
+// Reply to a ServerQuerySourceLocation query; name/function/file are string ptrs.
+struct QueueSourceLocation
+{
+    uint64_t name;
+    uint64_t function;
+    uint64_t file;
+    uint32_t line;
+    uint8_t  r, g, b;
+};
+
 // QueueItem matches Tracy's 32-byte packed union layout.
 struct QueueItem
 {
@@ -177,6 +231,13 @@ struct QueueItem
         QueueFiberEnter     fiberEnter;
         QueueFiberLeave     fiberLeave;
         QueueStringTransfer stringTransfer;
+        QueueLockAnnounce   lockAnnounce;
+        QueueLockTerminate  lockTerminate;
+        QueueLockWait       lockWait;
+        QueueLockObtain     lockObtain;
+        QueueLockRelease    lockRelease;
+        QueueLockName       lockName;
+        QueueSourceLocation srcloc;
         char                _pad[31];
     };
 };
@@ -190,13 +251,21 @@ static constexpr uint8_t kQueueZoneBeginAllocSrcLocCallstack =   8;
 static constexpr uint8_t kQueueZoneBegin                     =  15;
 static constexpr uint8_t kQueueZoneBeginCallstack            =  16;
 static constexpr uint8_t kQueueZoneEnd                       =  17;
+static constexpr uint8_t kQueueLockWait                      =  18;
+static constexpr uint8_t kQueueLockObtain                    =  19;
+static constexpr uint8_t kQueueLockRelease                   =  20;
+static constexpr uint8_t kQueueLockName                      =  24;
 static constexpr uint8_t kQueueFiberEnter                    =  58;
 static constexpr uint8_t kQueueFiberLeave                    =  59;
 static constexpr uint8_t kQueueTerminate                     =  60;
 static constexpr uint8_t kQueueThreadContext                 =  62;
+static constexpr uint8_t kQueueSourceLocation                =  74;
+static constexpr uint8_t kQueueLockAnnounce                  =  75;
+static constexpr uint8_t kQueueLockTerminate                 =  76;
 static constexpr uint8_t kQueueSingleStringData              =  99;
 static constexpr uint8_t kQueueSecondStringData              = 100;
 static constexpr uint8_t kQueueStringDataFirst               = 104; // indices >= this carry QueueStringTransfer
+static constexpr uint8_t kQueueStringData                    = 104;
 static constexpr uint8_t kQueueSourceLocationPayload         = 107;
 static constexpr uint8_t kQueueFrameImageData                = 111;
 static constexpr uint8_t kQueueSymbolCode                    = 114;
@@ -473,6 +542,38 @@ std::vector<std::string> TracyTestClient::GetFiberNames() const
     return names;
 }
 
+std::vector<TracyTestClient::LockInfo> TracyTestClient::GetLocks() const
+{
+    std::lock_guard<std::mutex> lock( m_dataMutex );
+    std::vector<LockInfo> result;
+    result.reserve( m_locks.size() );
+    for( const auto& [id, info] : m_locks )
+        result.push_back( info );
+    return result;
+}
+
+std::vector<TracyTestClient::LockInfo> TracyTestClient::GetActiveLocks() const
+{
+    std::lock_guard<std::mutex> lock( m_dataMutex );
+    std::vector<LockInfo> result;
+    for( const auto& [id, info] : m_locks )
+    {
+        if( !info.terminated )
+            result.push_back( info );
+    }
+    return result;
+}
+
+bool TracyTestClient::TryGetLock( uint32_t id, LockInfo& outLock ) const
+{
+    std::lock_guard<std::mutex> lock( m_dataMutex );
+    auto it = m_locks.find( id );
+    if( it == m_locks.end() )
+        return false;
+    outLock = it->second;
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // Private helpers
 // ---------------------------------------------------------------------------
@@ -543,6 +644,24 @@ TracyTestClient::ZoneStack& TracyTestClient::CurrentStack( uint32_t thread )
     if( fiberIt != m_threadCurrentFiber.end() && fiberIt->second != 0 )
         return m_fiberZoneStacks[fiberIt->second];
     return m_threadZoneStacks[thread];
+}
+
+TracyTestClient::LockInfo& TracyTestClient::LockById( uint32_t id )
+{
+    auto& info = m_locks[id];
+    info.id = id;
+    return info;
+}
+
+void TracyTestClient::RequestLockString( uint64_t ptr, uint32_t lockId, int field )
+{
+    auto& pending = m_pendingLockStrings[ptr];
+    // Several locks can share a string pointer (e.g. the source file); query the
+    // profiler only once per pointer while a reply is outstanding.
+    const bool alreadyQueried = !pending.empty();
+    pending.push_back( { lockId, field } );
+    if( !alreadyQueried )
+        SendQueryLocked( kServerQueryString, ptr );
 }
 
 // Parse the decompressed byte stream and update internal state.
@@ -619,6 +738,29 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     std::lock_guard<std::mutex> lock( m_dataMutex );
                     m_fiberNames[strPtr] = std::move( name );
                 }
+                else if( idx == kQueueStringData )
+                {
+                    // Reply to a ServerQueryString we sent while resolving a
+                    // lock source location; strPtr echoes the queried pointer.
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    auto pendingIt = m_pendingLockStrings.find( strPtr );
+                    if( pendingIt != m_pendingLockStrings.end() )
+                    {
+                        const std::string value( ptr, strSz );
+                        for( const auto& target : pendingIt->second )
+                        {
+                            auto& info = LockById( target.lockId );
+                            switch( target.field )
+                            {
+                            case 0: info.name = value; break;
+                            case 1: info.function = value; break;
+                            case 2: info.source = value; break;
+                            default: break;
+                            }
+                        }
+                        m_pendingLockStrings.erase( pendingIt );
+                    }
+                }
 
                 ptr += strSz;
             }
@@ -634,6 +776,10 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                 std::memcpy( &strSz, ptr, sizeof( strSz ) );
                 ptr += sizeof( strSz );
                 if( ptr + strSz > end ) return;
+                // Remember the payload: fat-pointer items (e.g. LockName) are
+                // preceded by a SingleStringData event carrying their string.
+                if( idx == kQueueSingleStringData )
+                    m_pendingSingleString.assign( ptr, strSz );
                 ptr += strSz;
             }
             else
@@ -675,6 +821,88 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     auto& stack = CurrentStack( thread );
                     if( !stack.empty() )
                         stack.pop_back();
+                    break;
+                }
+
+                case kQueueLockAnnounce:
+                {
+                    m_lockAnnounceCount.fetch_add( 1, std::memory_order_relaxed );
+                    const uint32_t lockId = item->lockAnnounce.id;
+                    const uint64_t srcloc = item->lockAnnounce.lckloc;
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    LockById( lockId );
+                    // Resolve the announce call site. The reply carries no request
+                    // pointer, so remember which lock the next reply belongs to.
+                    m_pendingLockSrcLocs.push_back( lockId );
+                    SendQueryLocked( kServerQuerySourceLocation, srcloc );
+                    break;
+                }
+
+                case kQueueLockTerminate:
+                {
+                    m_lockTerminateCount.fetch_add( 1, std::memory_order_relaxed );
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    LockById( item->lockTerminate.id ).terminated = true;
+                    break;
+                }
+
+                case kQueueLockWait:
+                {
+                    m_lockWaitCount.fetch_add( 1, std::memory_order_relaxed );
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    auto& info = LockById( item->lockWait.id );
+                    ++info.waitCount;
+                    info.waitingThreads.push_back( item->lockWait.thread );
+                    break;
+                }
+
+                case kQueueLockObtain:
+                {
+                    m_lockObtainCount.fetch_add( 1, std::memory_order_relaxed );
+                    const uint32_t thread = item->lockObtain.thread;
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    auto& info = LockById( item->lockObtain.id );
+                    ++info.obtainCount;
+                    info.holderThread = thread;
+                    auto& waiting = info.waitingThreads;
+                    auto waitIt = std::find( waiting.begin(), waiting.end(), thread );
+                    if( waitIt != waiting.end() )
+                        waiting.erase( waitIt );
+                    break;
+                }
+
+                case kQueueLockRelease:
+                {
+                    m_lockReleaseCount.fetch_add( 1, std::memory_order_relaxed );
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    auto& info = LockById( item->lockRelease.id );
+                    ++info.releaseCount;
+                    info.holderThread = 0;
+                    break;
+                }
+
+                case kQueueLockName:
+                {
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    LockById( item->lockName.id ).name = m_pendingSingleString;
+                    break;
+                }
+
+                case kQueueSourceLocation:
+                {
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    if( !m_pendingLockSrcLocs.empty() )
+                    {
+                        const uint32_t lockId = m_pendingLockSrcLocs.front();
+                        m_pendingLockSrcLocs.pop_front();
+                        LockById( lockId ).line = item->srcloc.line;
+                        if( item->srcloc.name != 0 )
+                            RequestLockString( item->srcloc.name, lockId, 0 );
+                        if( item->srcloc.function != 0 )
+                            RequestLockString( item->srcloc.function, lockId, 1 );
+                        if( item->srcloc.file != 0 )
+                            RequestLockString( item->srcloc.file, lockId, 2 );
+                    }
                     break;
                 }
 
