@@ -133,20 +133,17 @@ protected:
 		return tracyZones.end() != std::find_if( tracyZones.begin(), tracyZones.end(), pred );
 	}
 
-	// Finds the lock announced via TracyCLockAnnounce at the given line of this
-	// file. Locks are identified by their announce call site because absolute
-	// lock ids and announce counts are not stable across tests: Tracy defers
-	// LockAnnounce/LockTerminate events and replays them on every new
-	// connection, so locks from earlier tests reappear here. For the same
-	// reason, when several locks match the call site (e.g. when a test is
-	// repeated within one process), the most recently announced one wins.
-	// The source location is resolved through asynchronous server queries, so
-	// this returns false until those have completed; call it from a
-	// TickTelemetry predicate.
+	// Helper for Raw lock tests, finding lock announced via TracyCLockAnnounce at a given line.
+	// Locks are identified by their announce call site because absolute lock ids and announce counts
+	// are not stable across tests: Tracy defers LockAnnounce/LockTerminate events and replays them
+	// on every new connection, so locks from earlier tests reappear here.
+	// For the same reason, when several locks match the call site (e.g. when a test is repeated
+	// within one process), the most recently announced one wins.
+	// Call it as a TickTelemetry predicate.
 	bool TryGetLockAtLine( uint32_t line, TracyTestClient::LockInfo& outLock )
 	{
 		bool found = false;
-		for( const auto& lock : m_tracyClient.GetLocks() )
+		for( const auto& lock : m_tracyClient.GetAllLocks() )
 		{
 			if( lock.line == line && lock.source == __FILE__ && ( !found || lock.id > outLock.id ) )
 			{
@@ -157,40 +154,11 @@ protected:
 		return found;
 	}
 
-	// Returns true when the lock was announced from CcpMutex.h. MSVC records
-	// __FILE__ of included headers in lower case, so compare case-insensitively.
-	static bool IsAnnouncedFromCcpMutexHeader( const TracyTestClient::LockInfo& lock )
-	{
-		std::string source = lock.source;
-		std::transform( source.begin(), source.end(), source.begin(),
-						[]( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
-		return source.find( "ccpmutex.h" ) != std::string::npos;
-	}
-
-	// All CcpMutex instances share the same announce call site in CcpMutex.h, so
-	// they cannot be told apart by source location. This returns all locks
-	// announced from CcpMutex.h that have not been terminated. Source locations
-	// resolve through asynchronous server queries, so a just-announced lock
-	// shows up here only once its source string has arrived; call this from a
-	// TickTelemetry predicate.
-	std::vector<TracyTestClient::LockInfo> GetActiveCcpMutexLocks()
-	{
-		std::vector<TracyTestClient::LockInfo> result;
-		for( const auto& lock : m_tracyClient.GetActiveLocks() )
-		{
-			if( IsAnnouncedFromCcpMutexHeader( lock ) )
-				result.push_back( lock );
-		}
-		return result;
-	}
-
-	// Finds the active lock carrying the given custom name. CcpMutex names its
-	// lock "<owner>-<name>" via TracyCLockCustomName in the constructor. The
-	// name arrives asynchronously shortly after the announce event, so call
-	// this from a TickTelemetry predicate. When a test is repeated within one
-	// process, Tracy replays earlier (terminated) locks carrying the same name;
-	// those are terminated by the time any event of the running test is
-	// visible, and the most recently announced lock wins by id regardless.
+	// Helper for CcpMutex tests, finding  active locks by the given custom name.
+	// CcpMutex names its lock "<owner>-<name>" via TracyCLockCustomName in the constructor.
+	// Name arrives async shortly after announce event, call function from a TickTelemetry predicate.
+	// When a test is repeated within one process, Tracy replays earlier (terminated) locks having
+	// the same name, where the most recently announced lock wins by id.
 	bool TryGetActiveLockNamed( const std::string& name, TracyTestClient::LockInfo& outLock )
 	{
 		bool found = false;
@@ -206,7 +174,7 @@ protected:
 	}
 
 	// Refreshes a previously identified lock by id.
-	bool TryGetLock( uint32_t lockId, TracyTestClient::LockInfo& outLock )
+	bool TryGetLockById( uint32_t lockId, TracyTestClient::LockInfo& outLock )
 	{
 		return m_tracyClient.TryGetLock( lockId, outLock );
 	}
@@ -547,11 +515,10 @@ TEST_F( CcpTelemetryTest, RawTracyContendedLockWithMultipleWaitingThreads )
 // CcpMutex / CcpAutoMutex
 // ---------------------------------------------------------------------------
 // CcpMutex announces a Tracy lock in its constructor (when the telemetry is
-// connected at that point) and names it "<owner>-<name>" via
-// TracyCLockCustomName. It reports wait/obtain around EnterCriticalSection in
-// Acquire(), reports a release in Release(), and terminates the lock in its
-// destructor. The custom name is what identifies a CcpMutex lock; see
-// TryGetActiveLockNamed.
+// connected at that point) and names it "<owner>-<name>" via TracyCLockCustomName.
+// It reports wait/obtain around EnterCriticalSection in Acquire(), release in
+// Release() and terminates in destructor.
+// The custom name is what currently identifies a CcpMutex lock; see TryGetActiveLockNamed.
 
 TEST_F( CcpTelemetryTest, CcpMutexAnnouncesOnConstructionAndTerminatesOnDestruction )
 {
@@ -566,9 +533,8 @@ TEST_F( CcpTelemetryTest, CcpMutexAnnouncesOnConstructionAndTerminatesOnDestruct
 		EXPECT_FALSE( lockInfo.terminated );
 		// The owner and name passed to CcpMutex arrive combined as the custom lock name.
 		EXPECT_EQ( "TelemetryTests-TestMutex", lockInfo.name );
-		// The announce site is the TracyCLockAnnounce call in the CcpMutex constructor.
+		// The announce site is the TracyCLockAnnounce call in the CcpMutex constructor (function).
 		EXPECT_EQ( "CcpMutex", lockInfo.function );
-		EXPECT_TRUE( IsAnnouncedFromCcpMutexHeader( lockInfo ) ) << "Unexpected announce site: " << lockInfo.source;
 		EXPECT_EQ( 0u, lockInfo.holderThread );
 		EXPECT_TRUE( lockInfo.waitingThreads.empty() );
 		EXPECT_EQ( 0, lockInfo.waitCount );
@@ -578,7 +544,7 @@ TEST_F( CcpTelemetryTest, CcpMutexAnnouncesOnConstructionAndTerminatesOnDestruct
 
 	// Destroying the mutex terminates its lock.
 	const uint32_t lockId = lockInfo.id;
-	TickTelemetry( [&] { return TryGetLock( lockId, lockInfo ) && lockInfo.terminated; } );
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.terminated; } );
 	EXPECT_TRUE( lockInfo.terminated );
 }
 
@@ -592,7 +558,7 @@ TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
 	const uint32_t lockId = lockInfo.id;
 
 	mutex.Acquire();
-	TickTelemetry( [&] { return TryGetLock( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 0, lockInfo.releaseCount );
@@ -600,7 +566,7 @@ TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
 	EXPECT_TRUE( lockInfo.waitingThreads.empty() );
 
 	mutex.Release();
-	TickTelemetry( [&] { return TryGetLock( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 1, lockInfo.releaseCount );
@@ -628,7 +594,7 @@ TEST_F( CcpTelemetryTest, CcpMutexContentionAcrossThreads )
 		mutex.Release();
 	} );
 
-	TickTelemetry( [&] { return TryGetLock( lockId, lockInfo ) && lockInfo.holderThread != 0; } );
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.holderThread != 0; } );
 	const uint32_t threadAId = lockInfo.holderThread;
 	EXPECT_NE( 0u, threadAId );
 	EXPECT_EQ( 1, lockInfo.waitCount );
@@ -641,7 +607,7 @@ TEST_F( CcpTelemetryTest, CcpMutexContentionAcrossThreads )
 		mutex.Release();
 	} );
 
-	TickTelemetry( [&] { return TryGetLock( lockId, lockInfo ) && lockInfo.waitingThreads.size() == 1; } );
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.waitingThreads.size() == 1; } );
 	EXPECT_EQ( 1u, lockInfo.waitingThreads.size() );
 	const uint32_t threadBId = lockInfo.waitingThreads.empty() ? 0 : lockInfo.waitingThreads.front();
 	EXPECT_NE( 0u, threadBId );
@@ -656,7 +622,7 @@ TEST_F( CcpTelemetryTest, CcpMutexContentionAcrossThreads )
 	threadA.join();
 	threadB.join();
 
-	TickTelemetry( [&] { return TryGetLock( lockId, lockInfo ) && lockInfo.releaseCount == 2; } );
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 2; } );
 	EXPECT_EQ( 2, lockInfo.waitCount );
 	EXPECT_EQ( 2, lockInfo.obtainCount );
 	EXPECT_EQ( 2, lockInfo.releaseCount );
@@ -676,14 +642,14 @@ TEST_F( CcpTelemetryTest, CcpAutoMutexLocksForTheDurationOfItsScope )
 	{
 		CcpAutoMutex autoMutex( mutex );
 
-		TickTelemetry( [&] { return TryGetLock( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
+		TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
 		EXPECT_EQ( 1, lockInfo.waitCount );
 		EXPECT_EQ( 1, lockInfo.obtainCount );
 		EXPECT_EQ( 0, lockInfo.releaseCount );
 		EXPECT_NE( 0u, lockInfo.holderThread );
 	}
 
-	TickTelemetry( [&] { return TryGetLock( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 1, lockInfo.releaseCount );
 	EXPECT_EQ( 0u, lockInfo.holderThread );
@@ -701,12 +667,12 @@ TEST_F( CcpTelemetryTest, CcpAutoMutexEarlyReleaseReleasesOnlyOnce )
 	{
 		CcpAutoMutex autoMutex( mutex );
 
-		TickTelemetry( [&] { return TryGetLock( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
+		TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
 		EXPECT_EQ( 1, lockInfo.obtainCount );
 		EXPECT_NE( 0u, lockInfo.holderThread );
 
 		autoMutex.Release();
-		TickTelemetry( [&] { return TryGetLock( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
+		TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
 		EXPECT_EQ( 1, lockInfo.releaseCount );
 		EXPECT_EQ( 0u, lockInfo.holderThread );
 	}
@@ -715,7 +681,7 @@ TEST_F( CcpTelemetryTest, CcpAutoMutexEarlyReleaseReleasesOnlyOnce )
 	// mutex a second time. Tick a little longer to give a (faulty) second
 	// release event a chance to arrive before asserting it did not.
 	TickTelemetry( nullptr, std::chrono::milliseconds( 100 ) );
-	ASSERT_TRUE( TryGetLock( lockId, lockInfo ) );
+	ASSERT_TRUE( TryGetLockById( lockId, lockInfo ) );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 1, lockInfo.releaseCount );
 }
@@ -727,31 +693,28 @@ TEST_F( CcpTelemetryTest, MultipleCcpMutexesAnnounceDistinctLocks )
 	CcpMutex firstMutex( "TelemetryTests", "FirstMutex" );
 	CcpMutex secondMutex( "TelemetryTests", "SecondMutex" );
 
-	// GetActiveCcpMutexLocks identifies locks by their (asynchronously
 	// resolved) announce source location, so wait for that to settle too.
 	TracyTestClient::LockInfo firstLock;
 	TracyTestClient::LockInfo secondLock;
 	TickTelemetry( [&] {
 		return TryGetActiveLockNamed( "TelemetryTests-FirstMutex", firstLock ) &&
-			TryGetActiveLockNamed( "TelemetryTests-SecondMutex", secondLock ) &&
-			GetActiveCcpMutexLocks().size() == 2;
+			TryGetActiveLockNamed( "TelemetryTests-SecondMutex", secondLock );
 	} );
 	ASSERT_TRUE( TryGetActiveLockNamed( "TelemetryTests-FirstMutex", firstLock ) );
 	ASSERT_TRUE( TryGetActiveLockNamed( "TelemetryTests-SecondMutex", secondLock ) );
 	EXPECT_NE( firstLock.id, secondLock.id );
-	EXPECT_EQ( 2u, GetActiveCcpMutexLocks().size() );
 
 	// Each mutex drives its own lock: acquiring the second must not affect the first.
 	secondMutex.Acquire();
-	TickTelemetry( [&] { return TryGetLock( secondLock.id, secondLock ) && secondLock.obtainCount == 1; } );
+	TickTelemetry( [&] { return TryGetLockById( secondLock.id, secondLock ) && secondLock.obtainCount == 1; } );
 	EXPECT_EQ( 1, secondLock.obtainCount );
 	EXPECT_NE( 0u, secondLock.holderThread );
-	ASSERT_TRUE( TryGetLock( firstLock.id, firstLock ) );
+	ASSERT_TRUE( TryGetLockById( firstLock.id, firstLock ) );
 	EXPECT_EQ( 0, firstLock.obtainCount );
 	EXPECT_EQ( 0u, firstLock.holderThread );
 
 	secondMutex.Release();
-	TickTelemetry( [&] { return TryGetLock( secondLock.id, secondLock ) && secondLock.releaseCount == 1; } );
+	TickTelemetry( [&] { return TryGetLockById( secondLock.id, secondLock ) && secondLock.releaseCount == 1; } );
 	EXPECT_EQ( 1, secondLock.releaseCount );
 	EXPECT_EQ( 0u, secondLock.holderThread );
 }

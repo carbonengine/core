@@ -27,22 +27,15 @@ public:
 
     using ZoneStack = std::vector<ZoneInfo>;
 
-    // State of a lockable announced via TracyCLockAnnounce, accumulated from
-    // LockAnnounce / LockTerminate / LockWait / LockObtain / LockRelease events.
-    // The source location (function/source/line) identifies the TracyCLockAnnounce
-    // call site and is resolved asynchronously through server queries, so it may
-    // be empty briefly after the announce event arrives.
     struct LockInfo
     {
         uint32_t id = 0;
-        // Custom name set via TracyCLockCustomName (LockName event); falls back
-        // to the srcloc name, which is empty for locks announced via the C API.
-        std::string name;
+        std::string name;  // TracyCLockCustomName() or source location (function/source/line) from TracyCLockAnnounce()
         std::string function;
         std::string source;
         uint32_t line = 0;
-        bool terminated = false;            // a LockTerminate event was received
-        uint32_t holderThread = 0;          // thread currently holding the lock, 0 = none
+        bool terminated = false;   // LockTerminate event was received
+        uint32_t holderThread = 0; // thread currently holding the lock, 0 = none
         std::vector<uint32_t> waitingThreads; // threads between LockWait and LockObtain
         int waitCount = 0;    // LockWait events    (TracyCLockBeforeLock)
         int obtainCount = 0;  // LockObtain events  (TracyCLockAfterLock)
@@ -58,6 +51,7 @@ public:
     void Disconnect();
     bool IsConnected() const;
 
+	// Global counters for ZoneBegin/End states
     int GetZoneBeginCount() const { return m_zoneBeginCount.load( std::memory_order_relaxed ); }
     int GetZoneEndCount() const { return m_zoneEndCount.load( std::memory_order_relaxed ); }
 
@@ -70,11 +64,10 @@ public:
 
     std::vector<std::string> GetFiberNames() const;
 
-    // Global event counters for each lock state transition.
-    // Note: LockAnnounce/LockTerminate are deferred items in Tracy, so they are
-    // replayed for previously announced locks on every new connection. Within a
-    // process that runs several tests, these two counters therefore also include
-    // locks announced before this client connected.
+    // Global counters for different internal Lock states (Announce, Wait, Obtain, Release, Terminate).
+    // Note: LockAnnounce/LockTerminate are deferred items in Tracy, so they are replayed for previously
+    // announced locks on every new connection. Within a process that runs several tests, these two counters
+    // therefore also include locks announced before this client connected.
     int GetLockAnnounceCount() const { return m_lockAnnounceCount.load( std::memory_order_relaxed ); }
     int GetLockTerminateCount() const { return m_lockTerminateCount.load( std::memory_order_relaxed ); }
     int GetLockWaitCount() const { return m_lockWaitCount.load( std::memory_order_relaxed ); }
@@ -82,7 +75,7 @@ public:
     int GetLockReleaseCount() const { return m_lockReleaseCount.load( std::memory_order_relaxed ); }
 
     // Returns all locks this client has seen (including terminated ones).
-    std::vector<LockInfo> GetLocks() const;
+    std::vector<LockInfo> GetAllLocks() const;
     // Returns all announced locks that have not been terminated yet.
     std::vector<LockInfo> GetActiveLocks() const;
     // Looks up a single lock by its Tracy lock id.
@@ -102,7 +95,7 @@ private:
 
     // Returns the LockInfo for the given lock id, creating it if necessary.
     // Must be called with m_dataMutex held.
-    LockInfo& LockById( uint32_t id );
+    LockInfo& GetOrCreateLockById( uint32_t id );
 
     // Queries the string behind ptr from the profiler and routes the reply into
     // the given LockInfo field. Must be called with m_dataMutex held.
@@ -149,7 +142,7 @@ private:
     std::unordered_map<uint64_t, std::string> m_fiberNames;        // fiber ptr → name
     std::unordered_set<uint64_t> m_queriedFibers;                  // ptrs already queried
 
-    std::unordered_map<uint32_t, LockInfo> m_locks;                // lock id → state
+    std::unordered_map<uint32_t, LockInfo> m_locks;                // lock id → LockInfo state
 
     // SourceLocation replies carry no request pointer; the profiler answers
     // queries in order, so match replies FIFO against the announcing lock ids.

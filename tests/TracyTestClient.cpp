@@ -542,7 +542,7 @@ std::vector<std::string> TracyTestClient::GetFiberNames() const
     return names;
 }
 
-std::vector<TracyTestClient::LockInfo> TracyTestClient::GetLocks() const
+std::vector<TracyTestClient::LockInfo> TracyTestClient::GetAllLocks() const
 {
     std::lock_guard<std::mutex> lock( m_dataMutex );
     std::vector<LockInfo> result;
@@ -646,7 +646,7 @@ TracyTestClient::ZoneStack& TracyTestClient::CurrentStack( uint32_t thread )
     return m_threadZoneStacks[thread];
 }
 
-TracyTestClient::LockInfo& TracyTestClient::LockById( uint32_t id )
+TracyTestClient::LockInfo& TracyTestClient::GetOrCreateLockById( uint32_t id )
 {
     auto& info = m_locks[id];
     info.id = id;
@@ -749,7 +749,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                         const std::string value( ptr, strSz );
                         for( const auto& target : pendingIt->second )
                         {
-                            auto& info = LockById( target.lockId );
+                            auto& info = GetOrCreateLockById( target.lockId );
                             switch( target.field )
                             {
                             case 0: info.name = value; break;
@@ -830,7 +830,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     const uint32_t lockId = item->lockAnnounce.id;
                     const uint64_t srcloc = item->lockAnnounce.lckloc;
                     std::lock_guard<std::mutex> lock( m_dataMutex );
-                    LockById( lockId );
+                    GetOrCreateLockById( lockId );
                     // Resolve the announce call site. The reply carries no request
                     // pointer, so remember which lock the next reply belongs to.
                     m_pendingLockSrcLocs.push_back( lockId );
@@ -842,7 +842,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                 {
                     m_lockTerminateCount.fetch_add( 1, std::memory_order_relaxed );
                     std::lock_guard<std::mutex> lock( m_dataMutex );
-                    LockById( item->lockTerminate.id ).terminated = true;
+                    GetOrCreateLockById( item->lockTerminate.id ).terminated = true;
                     break;
                 }
 
@@ -850,7 +850,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                 {
                     m_lockWaitCount.fetch_add( 1, std::memory_order_relaxed );
                     std::lock_guard<std::mutex> lock( m_dataMutex );
-                    auto& info = LockById( item->lockWait.id );
+                    auto& info = GetOrCreateLockById( item->lockWait.id );
                     ++info.waitCount;
                     info.waitingThreads.push_back( item->lockWait.thread );
                     break;
@@ -861,7 +861,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     m_lockObtainCount.fetch_add( 1, std::memory_order_relaxed );
                     const uint32_t thread = item->lockObtain.thread;
                     std::lock_guard<std::mutex> lock( m_dataMutex );
-                    auto& info = LockById( item->lockObtain.id );
+                    auto& info = GetOrCreateLockById( item->lockObtain.id );
                     ++info.obtainCount;
                     info.holderThread = thread;
                     auto& waiting = info.waitingThreads;
@@ -875,7 +875,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                 {
                     m_lockReleaseCount.fetch_add( 1, std::memory_order_relaxed );
                     std::lock_guard<std::mutex> lock( m_dataMutex );
-                    auto& info = LockById( item->lockRelease.id );
+                    auto& info = GetOrCreateLockById( item->lockRelease.id );
                     ++info.releaseCount;
                     info.holderThread = 0;
                     break;
@@ -884,7 +884,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                 case kQueueLockName:
                 {
                     std::lock_guard<std::mutex> lock( m_dataMutex );
-                    LockById( item->lockName.id ).name = m_pendingSingleString;
+                    GetOrCreateLockById( item->lockName.id ).name = m_pendingSingleString;
                     break;
                 }
 
@@ -895,7 +895,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     {
                         const uint32_t lockId = m_pendingLockSrcLocs.front();
                         m_pendingLockSrcLocs.pop_front();
-                        LockById( lockId ).line = item->srcloc.line;
+                        GetOrCreateLockById( lockId ).line = item->srcloc.line;
                         if( item->srcloc.name != 0 )
                             RequestLockString( item->srcloc.name, lockId, 0 );
                         if( item->srcloc.function != 0 )
