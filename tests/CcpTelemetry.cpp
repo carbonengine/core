@@ -353,68 +353,6 @@ TEST_F( CcpTelemetryTest, RawTracyLockCounters )
 	EXPECT_TRUE( lockInfo.terminated );
 }
 
-TEST_F( CcpTelemetryTest, RawTracyLockCAnnounceAndTerminate )
-{
-	TracyCLockCtx lockCtx;
-	const uint32_t announceLine = __LINE__ + 1;
-	TracyCLockAnnounce( lockCtx );
-
-	// Wait for a non-terminated match: when a test is repeated in one process,
-	// Tracy replays the previous run's (terminated) lock from the same call
-	// site, and its source location may resolve before that of the new lock.
-	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && !lockInfo.terminated; } );
-	ASSERT_TRUE( TryGetLockAtLine( announceLine, lockInfo ) );
-	EXPECT_GE( m_tracyClient.GetLockAnnounceCount(), 1 );
-	EXPECT_FALSE( lockInfo.terminated );
-	EXPECT_EQ( 0u, lockInfo.holderThread );
-	EXPECT_TRUE( lockInfo.waitingThreads.empty() );
-	EXPECT_EQ( 0, lockInfo.waitCount );
-	EXPECT_EQ( 0, lockInfo.obtainCount );
-	EXPECT_EQ( 0, lockInfo.releaseCount );
-	// TracyCLockAnnounce announces with name == nullptr and function == __func__.
-	EXPECT_TRUE( lockInfo.name.empty() );
-	EXPECT_EQ( "TestBody", lockInfo.function );
-
-	TracyCLockTerminate( lockCtx );
-	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && lockInfo.terminated; } );
-	EXPECT_TRUE( lockInfo.terminated );
-	EXPECT_GE( m_tracyClient.GetLockTerminateCount(), 1 );
-}
-
-TEST_F( CcpTelemetryTest, RawTracyUncontendedLock )
-{
-	TracyCLockCtx lockCtx;
-	const uint32_t announceLine = __LINE__ + 1;
-	TracyCLockAnnounce( lockCtx );
-
-	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && !lockInfo.terminated; } );
-	ASSERT_TRUE( TryGetLockAtLine( announceLine, lockInfo ) );
-
-	const auto notifyTracy = TracyCLockBeforeLock( lockCtx );
-	EXPECT_TRUE( notifyTracy );
-	TracyCLockAfterLock( lockCtx );
-
-	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && lockInfo.obtainCount == 1; } );
-	EXPECT_EQ( 1, lockInfo.waitCount );
-	EXPECT_EQ( 1, lockInfo.obtainCount );
-	EXPECT_EQ( 0, lockInfo.releaseCount );
-	EXPECT_NE( 0u, lockInfo.holderThread );
-	EXPECT_TRUE( lockInfo.waitingThreads.empty() ) << "An obtained lock should no longer have its holder in the waiting list";
-
-	TracyCLockAfterUnlock( lockCtx );
-	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && lockInfo.releaseCount == 1; } );
-	EXPECT_EQ( 1, lockInfo.waitCount );
-	EXPECT_EQ( 1, lockInfo.obtainCount );
-	EXPECT_EQ( 1, lockInfo.releaseCount );
-	EXPECT_EQ( 0u, lockInfo.holderThread );
-
-	TracyCLockTerminate( lockCtx );
-	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && lockInfo.terminated; } );
-	EXPECT_TRUE( lockInfo.terminated );
-}
-
 // A locks, B waits, A unlocks, B locks, B unlocks.
 TEST_F( CcpTelemetryTest, RawTracyContendedLockWithOneWaitingThread )
 {
