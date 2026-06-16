@@ -520,21 +520,24 @@ TEST_F( CcpTelemetryTest, RawTracyLockMultipleWaitingThreads )
 // Release() and terminates in destructor.
 // The custom name is what currently identifies a CcpMutex lock; see TryGetActiveLockNamed.
 
-TEST_F( CcpTelemetryTest, CcpMutexAnnouncesOnConstructionAndTerminatesOnDestruction )
+TEST_F( CcpTelemetryTest, CcpMutexAnnounceAndTerminate )
 {
 	TracyTestClient::LockInfo lockInfo;
+
+	// Scope the CcpMutex so we can see what happens on destruction.
 	{
-		CcpMutex mutex( "TelemetryTests", "TestMutex" );
+		std::string lockName = "CcpTelemetryTest-CcpMutexAnnounceAndTerminate";
+		CcpMutex mutex( "CcpTelemetryTest", "CcpMutexAnnounceAndTerminate" );
 
 		// The custom name arrives almost immediately, but the source location
 		// resolves through extra server-query round trips; wait for both.
-		TickTelemetry( [&] { return TryGetActiveLockNamed( "TelemetryTests-TestMutex", lockInfo ) && !lockInfo.source.empty(); } );
-		ASSERT_TRUE( TryGetActiveLockNamed( "TelemetryTests-TestMutex", lockInfo ) );
+		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && !lockInfo.source.empty(); } );
+		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 		EXPECT_FALSE( lockInfo.terminated );
 		// The owner and name passed to CcpMutex arrive combined as the custom lock name.
-		EXPECT_EQ( "TelemetryTests-TestMutex", lockInfo.name );
+		EXPECT_EQ( lockName, lockInfo.name );
 		// The announce site is the TracyCLockAnnounce call in the CcpMutex constructor (function).
-		EXPECT_EQ( "CcpMutex", lockInfo.function );
+		EXPECT_EQ( "CcpMutex", lockInfo.function ) << "Function name is the name of the CcpMutex constructor";
 		EXPECT_EQ( 0u, lockInfo.holderThread );
 		EXPECT_TRUE( lockInfo.waitingThreads.empty() );
 		EXPECT_EQ( 0, lockInfo.waitCount );
@@ -550,11 +553,12 @@ TEST_F( CcpTelemetryTest, CcpMutexAnnouncesOnConstructionAndTerminatesOnDestruct
 
 TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
 {
-	CcpMutex mutex( "TelemetryTests", "TestMutex" );
+	std::string lockName = "CcpTelemetryTest-CcpMutexAcquireAndRelease";
+	CcpMutex mutex( "CcpTelemetryTest", "CcpMutexAcquireAndRelease" );
 
 	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( "TelemetryTests-TestMutex", lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( "TelemetryTests-TestMutex", lockInfo ) );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
+	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 	const uint32_t lockId = lockInfo.id;
 
 	mutex.Acquire();
@@ -576,11 +580,12 @@ TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
 // A acquires the CcpMutex, B waits, A releases, B acquires and releases.
 TEST_F( CcpTelemetryTest, CcpMutexContentionAcrossThreads )
 {
-	CcpMutex mutex( "TelemetryTests", "ContendedMutex" );
+	std::string lockName = "CcpTelemetryTest-CcpMutexContentionAcrossThreads";
+	CcpMutex mutex( "CcpTelemetryTest", "CcpMutexContentionAcrossThreads" );
 
 	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( "TelemetryTests-ContendedMutex", lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( "TelemetryTests-ContendedMutex", lockInfo ) );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
+	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 	const uint32_t lockId = lockInfo.id;
 
 	// Thread A acquires the mutex and holds it until we tell it to release.
@@ -630,13 +635,14 @@ TEST_F( CcpTelemetryTest, CcpMutexContentionAcrossThreads )
 	EXPECT_TRUE( lockInfo.waitingThreads.empty() );
 }
 
-TEST_F( CcpTelemetryTest, CcpAutoMutexLocksForTheDurationOfItsScope )
+TEST_F( CcpTelemetryTest, CcpAutoMutexScopeLocking )
 {
-	CcpMutex mutex( "TelemetryTests", "AutoMutex" );
+	std::string lockName = "CcpTelemetryTest-CcpAutoMutexScopeLocking";
+	CcpMutex mutex( "CcpTelemetryTest", "CcpAutoMutexScopeLocking" );
 
 	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( "TelemetryTests-AutoMutex", lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( "TelemetryTests-AutoMutex", lockInfo ) );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
+	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 	const uint32_t lockId = lockInfo.id;
 
 	{
@@ -655,13 +661,14 @@ TEST_F( CcpTelemetryTest, CcpAutoMutexLocksForTheDurationOfItsScope )
 	EXPECT_EQ( 0u, lockInfo.holderThread );
 }
 
-TEST_F( CcpTelemetryTest, CcpAutoMutexEarlyReleaseReleasesOnlyOnce )
+TEST_F( CcpTelemetryTest, CcpAutoMutexEarlyRelease )
 {
-	CcpMutex mutex( "TelemetryTests", "AutoMutexEarlyRelease" );
+	std::string lockName = "CcpTelemetryTest-CcpAutoMutexEarlyRelease";
+	CcpMutex mutex( "CcpTelemetryTest", "CcpAutoMutexEarlyRelease" );
 
 	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( "TelemetryTests-AutoMutexEarlyRelease", lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( "TelemetryTests-AutoMutexEarlyRelease", lockInfo ) );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
+	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 	const uint32_t lockId = lockInfo.id;
 
 	{
@@ -690,18 +697,20 @@ TEST_F( CcpTelemetryTest, MultipleCcpMutexesAnnounceDistinctLocks )
 {
 	// The custom lock names make the two mutexes distinguishable even though
 	// they share the same announce call site in CcpMutex.h.
-	CcpMutex firstMutex( "TelemetryTests", "FirstMutex" );
-	CcpMutex secondMutex( "TelemetryTests", "SecondMutex" );
+	CcpMutex firstMutex( "CcpTelemetryTest", "MultiTestFirstMutex" );
+	CcpMutex secondMutex( "CcpTelemetryTest", "MultiTestSecondMutex" );
+	std::string firstLockName = "CcpTelemetryTest-MultiTestFirstMutex";
+	std::string secondLockName = "CcpTelemetryTest-MultiTestSecondMutex";
 
 	// resolved) announce source location, so wait for that to settle too.
 	TracyTestClient::LockInfo firstLock;
 	TracyTestClient::LockInfo secondLock;
 	TickTelemetry( [&] {
-		return TryGetActiveLockNamed( "TelemetryTests-FirstMutex", firstLock ) &&
-			TryGetActiveLockNamed( "TelemetryTests-SecondMutex", secondLock );
+		return TryGetActiveLockNamed( firstLockName, firstLock ) &&
+			TryGetActiveLockNamed( secondLockName, secondLock );
 	} );
-	ASSERT_TRUE( TryGetActiveLockNamed( "TelemetryTests-FirstMutex", firstLock ) );
-	ASSERT_TRUE( TryGetActiveLockNamed( "TelemetryTests-SecondMutex", secondLock ) );
+	ASSERT_TRUE( TryGetActiveLockNamed( firstLockName, firstLock ) );
+	ASSERT_TRUE( TryGetActiveLockNamed( secondLockName, secondLock ) );
 	EXPECT_NE( firstLock.id, secondLock.id );
 
 	// Each mutex drives its own lock: acquiring the second must not affect the first.
