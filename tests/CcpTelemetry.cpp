@@ -354,13 +354,15 @@ TEST_F( CcpTelemetryTest, RawTracyLockCounters )
 }
 
 // A locks, B waits, A unlocks, B locks, B unlocks.
-TEST_F( CcpTelemetryTest, RawTracyContendedLockWithOneWaitingThread )
+TEST_F( CcpTelemetryTest, RawTracyLockOneWaitingThread )
 {
 	TracyCLockCtx lockCtx;
+	TracyTestClient::LockInfo lockInfo;
+	std::string lockName = "CcpTelemetryTest-RawTracyLockOneWaitingThread";
+
 	const uint32_t announceLine = __LINE__ + 1;
 	TracyCLockAnnounce( lockCtx );
-
-	TracyTestClient::LockInfo lockInfo;
+	TracyCLockCustomName( lockCtx, lockName.c_str(), lockName.size() );
 	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && !lockInfo.terminated; } );
 	ASSERT_TRUE( TryGetLockAtLine( announceLine, lockInfo ) );
 
@@ -430,13 +432,15 @@ TEST_F( CcpTelemetryTest, RawTracyContendedLockWithOneWaitingThread )
 }
 
 // A locks, B waits, C waits, A unlocks, B and C lock/unlock in turn.
-TEST_F( CcpTelemetryTest, RawTracyContendedLockWithMultipleWaitingThreads )
+TEST_F( CcpTelemetryTest, RawTracyLockMultipleWaitingThreads )
 {
 	TracyCLockCtx lockCtx;
+	TracyTestClient::LockInfo lockInfo;
+	std::string lockName = "CcpTelemetryTest-RawTracyLockMultipleWaitingThreads";
+
 	const uint32_t announceLine = __LINE__ + 1;
 	TracyCLockAnnounce( lockCtx );
-
-	TracyTestClient::LockInfo lockInfo;
+	TracyCLockCustomName( lockCtx, lockName.c_str(), lockName.size() );
 	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && !lockInfo.terminated; } );
 	ASSERT_TRUE( TryGetLockAtLine( announceLine, lockInfo ) );
 
