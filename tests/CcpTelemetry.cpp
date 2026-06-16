@@ -145,6 +145,7 @@ protected:
 		bool found = false;
 		for( const auto& lock : m_tracyClient.GetAllLocks() )
 		{
+			// All tests are in this file, hence lock.source == __FILE__
 			if( lock.line == line && lock.source == __FILE__ && ( !found || lock.id > outLock.id ) )
 			{
 				outLock = lock;
@@ -293,6 +294,63 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	TickTelemetry();
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() );
+}
+
+TEST_F( CcpTelemetryTest, RawTracyLockCounters )
+{
+	TracyCLockCtx lockCtx;
+	TracyTestClient::LockInfo lockInfo;
+	std::string lockName = "CcpTelemetryTest-RawTracyLockCounters";
+	EXPECT_EQ( 0, m_tracyClient.GetLockAnnounceCount() );
+	EXPECT_EQ( 0, m_tracyClient.GetLockWaitCount() );
+	EXPECT_EQ( 0, m_tracyClient.GetLockObtainCount() );
+	EXPECT_EQ( 0, m_tracyClient.GetLockReleaseCount() );
+	EXPECT_EQ( 0, m_tracyClient.GetLockTerminateCount() );
+
+	// Announce Lock:
+	const uint32_t announceLine = __LINE__ + 1;  // The line where we call TracyCLockAnnounce()
+	TracyCLockAnnounce( lockCtx );
+	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ); } );
+	EXPECT_EQ( "", lockInfo.name ) << "Name is only set in TracyCLockCustomName";
+	EXPECT_EQ( announceLine, lockInfo.line );
+	EXPECT_EQ( 1, m_tracyClient.GetLockAnnounceCount() );
+
+	// Give the Lock a name:
+	TracyCLockCustomName( lockCtx, lockName.c_str(), lockName.size() );
+	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && lockInfo.name == lockName; } );
+	EXPECT_EQ( lockName, lockInfo.name );
+	EXPECT_FALSE( lockInfo.terminated );
+	EXPECT_EQ( 0, size(lockInfo.waitingThreads) );
+	EXPECT_EQ( 0, lockInfo.waitCount );
+	EXPECT_EQ( 0, lockInfo.obtainCount );
+	EXPECT_EQ( 0, lockInfo.releaseCount );
+
+	// Before Lock Acquire:
+	const auto notifyTracy = TracyCLockBeforeLock( lockCtx );
+	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && (lockInfo.obtainCount == 1 || lockInfo.waitCount == 1); } );
+	EXPECT_TRUE( notifyTracy );
+	EXPECT_EQ( 1, lockInfo.waitCount + lockInfo.obtainCount ) << "Sum of Wait+Obtain needs to match";
+	EXPECT_EQ( 1, m_tracyClient.GetLockObtainCount() + m_tracyClient.GetLockWaitCount() ) << "Sum of Wait+Obtain needs to match";
+
+	// After Lock Acquire:
+	TracyCLockAfterLock( lockCtx );
+	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && lockInfo.obtainCount == 1; } );
+	EXPECT_EQ( 1, lockInfo.waitCount );
+	EXPECT_EQ( 1, lockInfo.obtainCount );
+	EXPECT_EQ( 0, lockInfo.releaseCount );
+	EXPECT_EQ( 1, m_tracyClient.GetLockObtainCount() );
+	EXPECT_EQ( 1, m_tracyClient.GetLockWaitCount() );
+
+	// After Lock Release:
+	TracyCLockAfterUnlock( lockCtx );
+	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && lockInfo.releaseCount == 1; } );
+	EXPECT_EQ( 1, lockInfo.releaseCount );
+	EXPECT_EQ( 1, m_tracyClient.GetLockReleaseCount() );
+
+	// Remove the Lock:
+	TracyCLockTerminate( lockCtx );
+	TickTelemetry( [&] { return TryGetLockAtLine( announceLine, lockInfo ) && lockInfo.terminated; } );
+	EXPECT_TRUE( lockInfo.terminated );
 }
 
 TEST_F( CcpTelemetryTest, RawTracyLockCAnnounceAndTerminate )
