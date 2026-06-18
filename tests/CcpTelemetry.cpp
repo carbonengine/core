@@ -67,11 +67,15 @@ protected:
 
 	void StartTelemetry( std::string appName = "Telemetry Tests",
 						 std::chrono::milliseconds duration = std::chrono::milliseconds::zero(),
-						 bool trackMemory = false )
+						 bool trackMemory = true,
+						 // Default to true so CcpMutex tests get lock announcements; CcpMutex now
+						 // gates all TracyCLockXxx calls on CcpTelemetryLockTrackingIsEnabled().
+						 bool trackLocks = true )
 	{
 		CcpTelemetryConfig conf{ appName };
 		conf.captureDuration = duration;
 		conf.trackMemoryAllocations = trackMemory;
+		conf.trackLocks = trackLocks;
 		CcpStartTelemetry( conf );
 		// It may appear weird that this checks `TracyIsStarted`, but the reason is that the internal state machine
 		// in CcpTelemetry only advances to `CcpTelemetryIsStarted` once it _also_ has established a connection to

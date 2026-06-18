@@ -45,6 +45,7 @@ struct CcpTelemetryConfig
 	std::string applicationName;
 	std::chrono::milliseconds captureDuration{};
 	bool trackMemoryAllocations{false};
+	bool trackLocks{false};
 };
 
 [[deprecated( "Use `CcpStartTelemetry( const CcpTelemetryConfig& config ) instead" )]] CARBON_CORE_API bool CcpStartTelemetry( const char* server, int connectionType, uint32_t maxThreadCount );
@@ -69,6 +70,7 @@ CARBON_CORE_API bool CcpTelemetryIsConnected();
 CARBON_CORE_API bool CcpTelemetryIsStarted();
 CARBON_CORE_API bool CcpTelemetryIsStopped();
 CARBON_CORE_API bool CcpTelemetryMemoryTrackingIsEnabled();
+CARBON_CORE_API bool CcpTelemetryLockTrackingIsEnabled();
 
 CARBON_CORE_API void CcpTelemetrySetActiveFiber( const std::string& name );
 CARBON_CORE_API const std::string& CcpTelemetryGetActiveFiber();

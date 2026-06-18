@@ -95,6 +95,11 @@ bool CcpTelemetryMemoryTrackingIsEnabled()
 	return s_config.trackMemoryAllocations;
 }
 
+bool CcpTelemetryLockTrackingIsEnabled()
+{
+    return s_config.trackLocks;
+}
+
 void CcpRegisterMutex( class CcpMutex& m, const char* owner, const char* name )
 {
 	// Store the name for future Telemetry sessions, even if we're already connected.
@@ -448,6 +453,11 @@ bool CcpTelemetryIsStarted()
 bool CcpTelemetryMemoryTrackingIsEnabled()
 {
 	return false;
+}
+
+bool CcpTelemetryLockTrackingIsEnabled()
+{
+    return false;
 }
 
 void CcpRegisterThread( CcpThreadId_t threadId, const char* name )

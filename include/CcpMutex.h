@@ -33,9 +33,9 @@ public:
     {
         ::DeleteCriticalSection( &m_mutex );
 #if CCP_TELEMETRY_ENABLED
-		// Only terminate if we still have a live context AND telemetry is still connected.
+		// Only terminate if Lock tracking is turned on, we still have a live context AND telemetry is still connected.
 		// If telemetry has been disconnected meanwhile, the context is already stale.
-		if ( m_tracyLockContext && CcpTelemetryIsConnected() )
+		if ( CcpTelemetryLockTrackingIsEnabled() && m_tracyLockContext && CcpTelemetryIsConnected() )
 		{
 			TracyCLockTerminate( m_tracyLockContext );
 		}
@@ -90,20 +90,21 @@ public:
 private:
 #if CCP_TELEMETRY_ENABLED
 	// Synchronizes m_tracyLockContext with the current telemetry connection state.
-	// - If telemetry is connected and we don't yet have a context, announce one.
-	// - If telemetry is disconnected but we still have a (now stale) context, drop it
+	// - If Lock tracking is disabled, behave as if telemetry were disconnected.
+	// - If telemetry is connected, and we don't yet have a context, announce one.
+	// - If telemetry is disconnected, but we still have a (now stale) context, drop it
 	//   so that a future reconnect will produce a fresh, valid context.
 	// After this returns, all other Tracy calls in Acquire/Release can rely on a
 	// single, fast null-check of m_tracyLockContext.
 	void EnsureTracyLockState()
 	{
-		const bool connected = CcpTelemetryIsConnected();
+		const bool connected = CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
 		if ( m_tracyLockContext )
 		{
 			if ( !connected )
 			{
-				// Telemetry disconnected; drop the stale context quickly so the next
-				// connect produces a fresh announce/name.
+				// Telemetry disconnected (or lock tracking disabled); drop the stale
+				// context quickly so that the next connect produces a fresh announce/name.
 				m_tracyLockContext = nullptr;
 			}
 		}
@@ -157,9 +158,9 @@ public:
 	{
 		pthread_mutex_destroy( &m_mutex );
 #if CCP_TELEMETRY_ENABLED
-		// Only terminate if we still have a live context AND telemetry is still connected.
+		// Only terminate if Lock tracking is turned on, we still have a live context AND telemetry is still connected.
 		// If telemetry has been disconnected meanwhile, the context is already stale.
-		if ( m_tracyLockContext && CcpTelemetryIsConnected() )
+		if ( CcpTelemetryLockTrackingIsEnabled() && m_tracyLockContext && CcpTelemetryIsConnected() )
 		{
 			TracyCLockTerminate( m_tracyLockContext );
 		}
@@ -216,7 +217,7 @@ private:
 	// See the Windows variant above for documentation.
 	void EnsureTracyLockState()
 	{
-		const bool connected = CcpTelemetryIsConnected();
+		const bool connected = CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
 		if ( m_tracyLockContext )
 		{
 			if ( !connected )
