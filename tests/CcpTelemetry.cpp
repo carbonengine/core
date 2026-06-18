@@ -156,7 +156,7 @@ protected:
 	}
 
 	// Helper for CcpMutex tests, finding  active locks by the given custom name.
-	// CcpMutex names its lock "<owner>-<name>" via TracyCLockCustomName in the constructor.
+	// CcpMutex names its lock "<owner>-<name>" via EnsureTracyLockState helper function.
 	// Name arrives async shortly after announce event, call function from a TickTelemetry predicate.
 	// When a test is repeated within one process, Tracy replays earlier (terminated) locks having
 	// the same name, where the most recently announced lock wins by id.
@@ -514,8 +514,8 @@ TEST_F( CcpTelemetryTest, RawTracyLockMultipleWaitingThreads )
 // ---------------------------------------------------------------------------
 // CcpMutex / CcpAutoMutex
 // ---------------------------------------------------------------------------
-// CcpMutex announces a Tracy lock in its constructor (when the telemetry is
-// connected at that point) and names it "<owner>-<name>" via TracyCLockCustomName.
+// CcpMutex announces a Tracy lock in the EnsureTracyLockState helper function
+// and names it "<owner>-<name>" via TracyCLockCustomName.
 // It reports wait/obtain around EnterCriticalSection in Acquire(), release in
 // Release() and terminates in destructor.
 // The custom name is what currently identifies a CcpMutex lock; see TryGetActiveLockNamed.
@@ -536,8 +536,8 @@ TEST_F( CcpTelemetryTest, CcpMutexAnnounceAndTerminate )
 		EXPECT_FALSE( lockInfo.terminated );
 		// The owner and name passed to CcpMutex arrive combined as the custom lock name.
 		EXPECT_EQ( lockName, lockInfo.name );
-		// The announce site is the TracyCLockAnnounce call in the CcpMutex constructor (function).
-		EXPECT_EQ( "CcpMutex", lockInfo.function ) << "Function name is the name of the CcpMutex constructor";
+		// The announce site is the EnsureTracyLockState helper function
+		EXPECT_EQ( "EnsureTracyLockState", lockInfo.function );
 		EXPECT_EQ( 0u, lockInfo.holderThread );
 		EXPECT_TRUE( lockInfo.waitingThreads.empty() );
 		EXPECT_EQ( 0, lockInfo.waitCount );
