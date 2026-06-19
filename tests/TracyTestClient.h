@@ -101,12 +101,14 @@ private:
     // the given LockInfo field. Must be called with m_dataMutex held.
     void RequestLockString( uint64_t ptr, uint32_t lockId, int field );
 
-    // Opaque handles to Tracy types, allocated on heap to keep Tracy headers out of this header.
-    void* m_socket = nullptr;    // tracy::Socket*
-    void* m_lz4Stream = nullptr; // LZ4_streamDecode_t*
+	// Opaque handles, allocated on heap to keep implementation details out of this header.
+	void* m_socket = nullptr;    // TcpSocket*
+	void* m_lz4Stream = nullptr; // LZ4_streamDecode_t*
 
-    // Ring buffer matching Tracy's decompression scheme:
-    // must be 2 × TargetFrameSize (= 2 × 256 KiB) to serve as LZ4 dictionary.
+    // Ring buffer matching Tracy's decompression scheme (TracyWorker allocates
+    // TargetFrameSize*3 + 1): a write may begin at an offset of up to
+    // 2 × TargetFrameSize and decompress up to one full frame beyond that,
+    // while the previous frame must stay intact to serve as LZ4 dictionary.
     char* m_ringBuffer = nullptr;
     int m_bufferOffset = 0;
 
