@@ -374,7 +374,7 @@ void TracyTestClient::RequestLockString( uint64_t ptr, uint32_t lockId, int fiel
     const bool alreadyQueried = !pending.empty();
     pending.push_back( { lockId, field } );
     if( !alreadyQueried )
-        SendQueryLocked( kServerQueryString, ptr );
+        SendQueryLocked( tracy::ServerQueryString, ptr );
 }
 
 // Parse the decompressed byte stream and update internal state.
@@ -451,7 +451,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     std::lock_guard<std::mutex> lock( m_dataMutex );
                     m_fiberNames[strPtr] = std::move( name );
                 }
-                else if( idx == kQueueStringData )
+                else if( idx == QueueIdx( tracy::QueueType::StringData ) )
                 {
                     // Reply to a ServerQueryString we sent while resolving a
                     // lock source location; strPtr echoes the queried pointer.
@@ -492,7 +492,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                 if( ptr + strSz > end ) return;
                 // Remember the payload: fat-pointer items (e.g. LockName) are
                 // preceded by a SingleStringData event carrying their string.
-                if( idx == kQueueSingleStringData )
+                if( idx == QueueIdx( tracy::QueueType::SingleStringData ) )
                     m_pendingSingleString.assign( ptr, strSz );
                 ptr += strSz;
             }
@@ -538,7 +538,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     break;
                 }
 
-                case kQueueLockAnnounce:
+                case tracy::QueueType::LockAnnounce:
                 {
                     m_lockAnnounceCount.fetch_add( 1, std::memory_order_relaxed );
                     const uint32_t lockId = item->lockAnnounce.id;
@@ -548,11 +548,11 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     // Resolve the announce call site. The reply carries no request
                     // pointer, so remember which lock the next reply belongs to.
                     m_pendingLockSrcLocs.push_back( lockId );
-                    SendQueryLocked( kServerQuerySourceLocation, srcloc );
+                    SendQueryLocked( tracy::ServerQuerySourceLocation, srcloc );
                     break;
                 }
 
-                case kQueueLockTerminate:
+                case tracy::QueueType::LockTerminate:
                 {
                     m_lockTerminateCount.fetch_add( 1, std::memory_order_relaxed );
                     std::lock_guard<std::mutex> lock( m_dataMutex );
@@ -560,7 +560,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     break;
                 }
 
-                case kQueueLockWait:
+                case tracy::QueueType::LockWait:
                 {
                     m_lockWaitCount.fetch_add( 1, std::memory_order_relaxed );
                     std::lock_guard<std::mutex> lock( m_dataMutex );
@@ -570,7 +570,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     break;
                 }
 
-                case kQueueLockObtain:
+                case tracy::QueueType::LockObtain:
                 {
                     m_lockObtainCount.fetch_add( 1, std::memory_order_relaxed );
                     const uint32_t thread = item->lockObtain.thread;
@@ -585,7 +585,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     break;
                 }
 
-                case kQueueLockRelease:
+                case tracy::QueueType::LockRelease:
                 {
                     m_lockReleaseCount.fetch_add( 1, std::memory_order_relaxed );
                     std::lock_guard<std::mutex> lock( m_dataMutex );
@@ -595,14 +595,14 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     break;
                 }
 
-                case kQueueLockName:
+                case tracy::QueueType::LockName:
                 {
                     std::lock_guard<std::mutex> lock( m_dataMutex );
                     GetOrCreateLockById( item->lockName.id ).name = m_pendingSingleString;
                     break;
                 }
 
-                case kQueueSourceLocation:
+                case tracy::QueueType::SourceLocation:
                 {
                     std::lock_guard<std::mutex> lock( m_dataMutex );
                     if( !m_pendingLockSrcLocs.empty() )
