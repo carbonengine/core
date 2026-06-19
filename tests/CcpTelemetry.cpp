@@ -68,8 +68,6 @@ protected:
 	void StartTelemetry( std::string appName = "Telemetry Tests",
 						 std::chrono::milliseconds duration = std::chrono::milliseconds::zero(),
 						 bool trackMemory = true,
-						 // Default to true so CcpMutex tests get lock announcements; CcpMutex now
-						 // gates all TracyCLockXxx calls on CcpTelemetryLockTrackingIsEnabled().
 						 bool trackLocks = true )
 	{
 		CcpTelemetryConfig conf{ appName };
