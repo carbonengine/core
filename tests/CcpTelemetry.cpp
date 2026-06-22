@@ -159,7 +159,7 @@ protected:
 	}
 
 	// Helper for CcpMutex tests, finding  active locks by the given custom name.
-	// CcpMutex names its lock "<owner>-<name>" via EnsureTracyLockState helper function.
+	// CcpMutex names its lock "<owner>-<name>" via EnsureTelemetryLockAnnounced helper function.
 	// Name arrives async shortly after announce event, call function from a TickTelemetry predicate.
 	// When a test is repeated within one process, Tracy replays earlier (terminated) locks having
 	// the same name, where the most recently announced lock wins by id.
@@ -517,7 +517,7 @@ TEST_F( CcpTelemetryTest, RawTracyLockMultipleWaitingThreads )
 // ---------------------------------------------------------------------------
 // CcpMutex / CcpAutoMutex
 // ---------------------------------------------------------------------------
-// CcpMutex announces a Tracy lock in the EnsureTracyLockState helper function
+// CcpMutex announces a Tracy lock in the EnsureTelemetryLockAnnounced helper function
 // and names it "<owner>-<name>" via TracyCLockCustomName.
 // It reports wait/obtain around EnterCriticalSection in Acquire(), release in
 // Release() and terminates in destructor.
@@ -539,8 +539,8 @@ TEST_F( CcpTelemetryTest, CcpMutexAnnounceAndTerminate )
 		EXPECT_FALSE( lockInfo.terminated );
 		// The owner and name passed to CcpMutex arrive combined as the custom lock name.
 		EXPECT_EQ( lockName, lockInfo.name );
-		// The announce site is the EnsureTracyLockState helper function
-		EXPECT_EQ( "EnsureTracyLockState", lockInfo.function );
+		// The announce site is the EnsureTelemetryLockAnnounced helper function
+		EXPECT_EQ( "EnsureTelemetryLockAnnounced", lockInfo.function );
 		EXPECT_EQ( 0u, lockInfo.holderThread );
 		EXPECT_TRUE( lockInfo.waitingThreads.empty() );
 		EXPECT_EQ( 0, lockInfo.waitCount );

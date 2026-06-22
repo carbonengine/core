@@ -21,9 +21,7 @@ public:
 		m_name = name;
 
 #if CCP_TELEMETRY_ENABLED
-		// Lazily announce on first Acquire/Release; this also handles the case where
-		// the mutex is created before telemetry is connected.
-		EnsureTracyLockState();
+		EnsureTelemetryLockAnnounced();
 #endif
 
 		CcpRegisterMutex( *this, owner, name );
@@ -46,16 +44,17 @@ public:
     void Acquire()
     {
 #if CCP_TELEMETRY_ENABLED
-		EnsureTracyLockState();
+		EnsureTelemetryLockAnnounced();
+		const bool emit = m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
 		bool notifyTracy{false};
-		if ( m_tracyLockContext )
+		if ( emit )
 		{
 			notifyTracy = TracyCLockBeforeLock( m_tracyLockContext );
 		}
 #endif
         EnterCriticalSection( &m_mutex);
 #if CCP_TELEMETRY_ENABLED
-		if ( notifyTracy && m_tracyLockContext )
+		if ( notifyTracy )
 		{
 			TracyCLockAfterLock( m_tracyLockContext );
 		}
@@ -66,8 +65,7 @@ public:
     {
         LeaveCriticalSection( &m_mutex );
 #if CCP_TELEMETRY_ENABLED
-		EnsureTracyLockState();
-		if ( m_tracyLockContext )
+		if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
 		{
 			TracyCLockAfterUnlock( m_tracyLockContext );
 		}
@@ -89,26 +87,17 @@ public:
 
 private:
 #if CCP_TELEMETRY_ENABLED
-	// Synchronizes m_tracyLockContext with the current telemetry connection state.
-	// - If Lock tracking is disabled, behave as if telemetry were disconnected.
-	// - If telemetry is connected, and we don't yet have a context, announce one.
-	// - If telemetry is disconnected, but we still have a (now stale) context, drop it
-	//   so that a future reconnect will produce a fresh, valid context.
-	// After this returns, all other Tracy calls in Acquire/Release can rely on a
-	// single, fast null-check of m_tracyLockContext.
-	void EnsureTracyLockState()
+	// Lazily announce mutex/lock on first call to constructor/acquire
+	// as long as telemetry is connected and lock tracking is enabled.
+	// Giving it a custom display "<owner>-<name>" name.
+	// Subsequent calls are no-ops as long as a valid context exists.
+	void EnsureTelemetryLockAnnounced()
 	{
-		const bool connected = CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
 		if ( m_tracyLockContext )
 		{
-			if ( !connected )
-			{
-				// Telemetry disconnected (or lock tracking disabled); drop the stale
-				// context quickly so that the next connect produces a fresh announce/name.
-				m_tracyLockContext = nullptr;
-			}
+			return; // already announced
 		}
-		else if ( connected )
+		if ( CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
 		{
 			const std::string tracyLockName = std::string( m_owner ? m_owner : "<owner>" ) + "-" + ( m_name ? m_name : "<name>" );
 			TracyCLockAnnounce( m_tracyLockContext );
@@ -146,9 +135,7 @@ public:
 		m_name = name;
 
 #if CCP_TELEMETRY_ENABLED
-		// Lazily announce on first Acquire/Release; this also handles the case where
-		// the mutex is created before telemetry is connected.
-		EnsureTracyLockState();
+		EnsureTelemetryLockAnnounced();
 #endif
 
 		CcpRegisterMutex( *this, owner, name );
@@ -158,8 +145,7 @@ public:
 	{
 		pthread_mutex_destroy( &m_mutex );
 #if CCP_TELEMETRY_ENABLED
-		// Only terminate if Lock tracking is turned on, we still have a live context AND telemetry is still connected.
-		// If telemetry has been disconnected meanwhile, the context is already stale.
+		// See the Windows variant for rationale.
 		if ( CcpTelemetryLockTrackingIsEnabled() && m_tracyLockContext && CcpTelemetryIsConnected() )
 		{
 			TracyCLockTerminate( m_tracyLockContext );
@@ -171,16 +157,17 @@ public:
 	void Acquire()
 	{
 #if CCP_TELEMETRY_ENABLED
-		EnsureTracyLockState();
+		EnsureTelemetryLockAnnounced();
+		const bool emit = m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
 		bool notifyTracy{false};
-		if ( m_tracyLockContext )
+		if ( emit )
 		{
 			notifyTracy = TracyCLockBeforeLock( m_tracyLockContext );
 		}
 #endif
 		pthread_mutex_lock( &m_mutex);
 #if CCP_TELEMETRY_ENABLED
-		if ( notifyTracy && m_tracyLockContext )
+		if ( notifyTracy )
 		{
 			TracyCLockAfterLock( m_tracyLockContext );
 		}
@@ -191,8 +178,7 @@ public:
 	{
 		pthread_mutex_unlock( &m_mutex );
 #if CCP_TELEMETRY_ENABLED
-		EnsureTracyLockState();
-		if ( m_tracyLockContext )
+		if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
 		{
 			TracyCLockAfterUnlock( m_tracyLockContext );
 		}
@@ -215,17 +201,13 @@ public:
 private:
 #if CCP_TELEMETRY_ENABLED
 	// See the Windows variant above for documentation.
-	void EnsureTracyLockState()
+	void EnsureTelemetryLockAnnounced()
 	{
-		const bool connected = CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
 		if ( m_tracyLockContext )
 		{
-			if ( !connected )
-			{
-				m_tracyLockContext = nullptr;
-			}
+			return; // already announced
 		}
-		else if ( connected )
+		if ( CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
 		{
 			const std::string tracyLockName = std::string( m_owner ? m_owner : "<owner>" ) + "-" + ( m_name ? m_name : "<name>" );
 			TracyCLockAnnounce( m_tracyLockContext );
