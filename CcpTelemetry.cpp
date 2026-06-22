@@ -102,16 +102,12 @@ bool CcpTelemetryLockTrackingIsEnabled()
 
 void CcpRegisterMutex( class CcpMutex& m, const char* owner, const char* name )
 {
-	// Store the name for future Telemetry sessions, even if we're already connected.
-	// This is to support multiple Telemetry sessions in one ExeFile session.
 	MutexNameMap_t& mutexNames = GetMutexNameMap();
 	mutexNames[&m] = std::make_pair( owner, name );
 }
 
 void CcpRegisterThread( CcpThreadId_t threadId, const char* name )
 {
-	// Store the name for future Telemetry sessions, even if we're already connected.
-	// This is to support multiple Telemetry sessions in one ExeFile session.
 	ThreadNameMap_t& threadNames = GetThreadNameMap();
 	threadNames[threadId] = name;
 }
