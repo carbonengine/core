@@ -26,6 +26,7 @@ set(SRC_FILES
         CCPMemory.cpp
         CCPMemoryTracker.cpp
         CCPMemoryTrackerMutex.h
+        CcpMutex.cpp
         CcpProcess.cpp
         CcpSecureCrt.cpp
         CcpSemaphore.cpp
