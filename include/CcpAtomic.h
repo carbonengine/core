@@ -14,7 +14,7 @@
 #endif
 
 #ifdef __GNUG__
-	#if __GNUC__ == 4 && __GNUC_MINOR__ >= 7
+	#if (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 7)
 		#define CCP_HAS_ATOMIC 1
 	#endif
 #endif
