@@ -2,8 +2,8 @@
 
 // See http://core/wiki/Memory_Tracking
 
-#include "include/CCPMemoryTracker.h"
-#include "include/CCPMemory.h"
+#include "include/CcpMemoryTracker.h"
+#include "include/CcpMemory.h"
 #include "include/CcpMutex.h"
 
 #include <map>
@@ -11,9 +11,9 @@
 // #define CCP_UNIT_TEST 1
 
 #include "include/CcpMacros.h"
-#include "include/CCPAssert.h"
-#include "include/CCPHash.h"
-#include "include/CCPCallstack.h"
+#include "include/CcpAssert.h"
+#include "include/CcpHash.h"
+#include "include/CcpCallstack.h"
 #include "include/CcpSecureCrt.h"
 
 #ifdef _WIN32

@@ -1,6 +1,6 @@
 // Copyright © 2025 CCP ehf.
 
-#include "include/CCPHash.h"
+#include "include/CcpHash.h"
 
 /// See http://www.isthe.com/chongo/tech/comp/fnv/ for a description of the FNV1 hash algorithm
 /// and the specific values used here.

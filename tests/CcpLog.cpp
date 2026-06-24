@@ -2,7 +2,7 @@
 
 #include <stack>
 #include <gtest/gtest.h>
-#include <CCPLog.h>
+#include <CcpLog.h>
 
 
 struct LogEntry

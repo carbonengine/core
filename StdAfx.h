@@ -16,4 +16,4 @@
 #include <vector>
 #include <algorithm>
 
-#include <CCPLog.h>
+#include <CcpLog.h>

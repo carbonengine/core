@@ -1,7 +1,7 @@
 // Copyright © 2025 CCP ehf.
 
 #include "gtest/gtest.h"
-#include "CcpCore/include/CCPCore.h"
+#include "CcpCore/include/CcpCore.h"
 
 namespace
 {

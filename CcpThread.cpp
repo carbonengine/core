@@ -1,9 +1,9 @@
 // Copyright © 2013 CCP ehf.
 
-#include <CCPLog.h>
+#include <CcpLog.h>
 
 #include "include/CcpThread.h"
-#include "include/CCPMemory.h"
+#include "include/CcpMemory.h"
 
 namespace
 {
@@ -113,7 +113,7 @@ bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
 #elif __APPLE__
 
 #include <sys/time.h>
-#include "include/CCPAssert.h"
+#include "include/CcpAssert.h"
 #include <mach/thread_act.h>
 
 namespace

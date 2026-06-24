@@ -18,15 +18,15 @@ option(WITH_MEMORY_TRACKING "Enable tracking of memory allocations." ON)
 
 set(SRC_FILES
         CcpCore.cpp
-        CCPAssert.cpp
-        CCPCallstack.cpp
+        CcpAssert.cpp
+        CcpCallstack.cpp
         CcpColorConstants.cpp
-        CCPDefines.cpp
+        CcpDefines.cpp
         CcpFileUtils.cpp
-        CCPHash.cpp
-        CCPMemory.cpp
-        CCPMemoryTracker.cpp
-        CCPMemoryTrackerMutex.h
+        CcpHash.cpp
+        CcpMemory.cpp
+        CcpMemoryTracker.cpp
+        CcpMemoryTrackerMutex.h
         CcpMutex.cpp
         CcpProcess.cpp
         CcpSecureCrt.cpp
@@ -37,7 +37,7 @@ set(SRC_FILES
         CcpThreadClass.cpp
         CcpTime.cpp
         StringConversions.cpp
-        CCPLog.cpp
+        CcpLog.cpp
 )
 
 add_library(CcpCore SHARED ${SRC_FILES})
@@ -59,18 +59,18 @@ generate_export_header(CcpCore
 
 set(PUBLIC_HEADER_FILES
         include/CachedAllocator.h
-        include/CCPAssert.h
+        include/CcpAssert.h
         include/CcpAtomic.h
-        include/CCPCallstack.h
+        include/CcpCallstack.h
         include/CcpColorConstants.h
         include/CcpCore.h
         include/CcpCrash.h
         include/CcpDefines.h
         include/CcpFileUtils.h
-        include/CCPHash.h
+        include/CcpHash.h
         include/CcpMacros.h
-        include/CCPMemory.h
-        include/CCPMemoryTracker.h
+        include/CcpMemory.h
+        include/CcpMemoryTracker.h
         include/CcpMutex.h
         include/CcpPairingHeap.h
         include/CcpProcess.h
@@ -86,7 +86,7 @@ set(PUBLIC_HEADER_FILES
         include/ICrashReporter.h
         include/StringConversions.h
         include/TrackableContainer.h
-        include/CCPLog.h
+        include/CcpLog.h
         ${CMAKE_CURRENT_BINARY_DIR}/carbon_core_export.h
 )
 target_sources(CcpCore PRIVATE ${PUBLIC_HEADER_FILES})

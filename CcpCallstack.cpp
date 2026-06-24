@@ -1,6 +1,6 @@
 // Copyright © 2025 CCP ehf.
 
-#include "include/CCPCallstack.h"
+#include "include/CcpCallstack.h"
 
 namespace
 {

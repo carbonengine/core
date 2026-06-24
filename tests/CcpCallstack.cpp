@@ -1,7 +1,7 @@
 // Copyright © 2025 CCP ehf.
 
 #include "gtest/gtest.h"
-#include "CCPCallstack.h"
+#include "CcpCallstack.h"
 #include <memory>
 
 #include "TempFile.h"

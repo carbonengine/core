@@ -29,7 +29,7 @@ std::string WideToUTF8( const wchar_t* wideString )
 
 #include <wchar.h>
 #include <string.h>
-#include "CCPMemory.h"
+#include "CcpMemory.h"
 
 
 BlueConvertWideToAscii::BlueConvertWideToAscii( const wchar_t* src ) : m_converted( nullptr )
