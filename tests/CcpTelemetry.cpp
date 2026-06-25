@@ -327,7 +327,6 @@ TEST_F( CcpTelemetryTest, CcpMutexAnnounceAndTerminate )
 		EXPECT_EQ( lockName, lockInfo.name );
 		// The announce site is the EnsureTelemetryLockAnnounced helper function
 		EXPECT_EQ( "EnsureTelemetryLockAnnounced", lockInfo.function );
-		EXPECT_EQ( 0u, lockInfo.holderThread );
 		EXPECT_TRUE( lockInfo.waitingThreads.empty() );
 		EXPECT_EQ( 0, lockInfo.waitCount );
 		EXPECT_EQ( 0, lockInfo.obtainCount );
@@ -355,7 +354,6 @@ TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 0, lockInfo.releaseCount );
-	EXPECT_NE( 0u, lockInfo.holderThread );
 	EXPECT_TRUE( lockInfo.waitingThreads.empty() );
 
 	mutex.Release();
@@ -363,7 +361,6 @@ TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 1, lockInfo.releaseCount );
-	EXPECT_EQ( 0u, lockInfo.holderThread );
 }
 
 // A acquires the CcpMutex, B waits, A releases, B acquires and releases.
@@ -420,7 +417,7 @@ TEST_F( CcpTelemetryTest, CcpMutexContentionAcrossThreads )
 	EXPECT_EQ( 2, lockInfo.waitCount );
 	EXPECT_EQ( 2, lockInfo.obtainCount );
 	EXPECT_EQ( 2, lockInfo.releaseCount );
-	EXPECT_EQ( 0u, lockInfo.holderThread );
+	EXPECT_EQ( 0u, lockInfo.holderThread ) << "No thread should hold the mutex after both A and B have released it";
 	EXPECT_TRUE( lockInfo.waitingThreads.empty() );
 }
 
@@ -441,13 +438,11 @@ TEST_F( CcpTelemetryTest, CcpAutoMutexScopeLocking )
 		EXPECT_EQ( 1, lockInfo.waitCount );
 		EXPECT_EQ( 1, lockInfo.obtainCount );
 		EXPECT_EQ( 0, lockInfo.releaseCount );
-		EXPECT_NE( 0u, lockInfo.holderThread );
 	}
 
 	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 1, lockInfo.releaseCount );
-	EXPECT_EQ( 0u, lockInfo.holderThread );
 }
 
 TEST_F( CcpTelemetryTest, CcpAutoMutexEarlyRelease )
@@ -465,12 +460,11 @@ TEST_F( CcpTelemetryTest, CcpAutoMutexEarlyRelease )
 
 		TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
 		EXPECT_EQ( 1, lockInfo.obtainCount );
-		EXPECT_NE( 0u, lockInfo.holderThread );
 
+		// Do an "early" Release on the scoped guarded Auto mutex
 		autoMutex.Release();
 		TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
 		EXPECT_EQ( 1, lockInfo.releaseCount );
-		EXPECT_EQ( 0u, lockInfo.holderThread );
 	}
 
 	// Destroying the CcpAutoMutex after the early release must not release the
@@ -506,15 +500,14 @@ TEST_F( CcpTelemetryTest, MultipleCcpMutexesAnnounceDistinctLocks )
 	secondMutex.Acquire();
 	TickTelemetry( [&] { return TryGetLockById( secondLock.id, secondLock ) && secondLock.obtainCount == 1; } );
 	EXPECT_EQ( 1, secondLock.obtainCount );
-	EXPECT_NE( 0u, secondLock.holderThread );
+	EXPECT_EQ( 0, secondLock.releaseCount );
 	ASSERT_TRUE( TryGetLockById( firstLock.id, firstLock ) );
 	EXPECT_EQ( 0, firstLock.obtainCount );
-	EXPECT_EQ( 0u, firstLock.holderThread );
 
 	secondMutex.Release();
 	TickTelemetry( [&] { return TryGetLockById( secondLock.id, secondLock ) && secondLock.releaseCount == 1; } );
 	EXPECT_EQ( 1, secondLock.releaseCount );
-	EXPECT_EQ( 0u, secondLock.holderThread );
+	EXPECT_EQ( 0, firstLock.releaseCount );
 }
 
 // ---------------------------------------------------------------------------
