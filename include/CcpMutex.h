@@ -73,7 +73,13 @@ private:
 class CcpSpinLock
 {
 public:
+	// Preferred constructor — accepts a name used to identify the spin-lock in Tracy.
+	CARBON_CORE_API explicit CcpSpinLock( const char* spinLockName );
+
+	[[deprecated( "Use `CcpSpinLock( const char* spinLockName )` instead" )]]
 	CARBON_CORE_API CcpSpinLock();
+
+	CARBON_CORE_API ~CcpSpinLock();
 
 	CARBON_CORE_API void Acquire();
 	CARBON_CORE_API void Release();
@@ -82,7 +88,17 @@ public:
 	CcpSpinLock& operator=( const CcpSpinLock& ) = delete;
 
 private:
+#if CCP_TELEMETRY_ENABLED
+	// Lazily announce the spin-lock to Tracy.
+	void EnsureTelemetryLockAnnounced();
+
+	// Opaque pointer to TracyCLockCtx, kept as void* so this header does not
+	// need to pull in Tracy headers.
+	void* m_tracyLockContext{ nullptr };
+#endif
+
 	CcpAtomic<uint32_t> m_lock;
+	const char* m_spinLockName{ nullptr };
 };
 
 

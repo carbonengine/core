@@ -185,13 +185,43 @@ void CcpAutoMutex::Release()
 // CcpSpinLock
 // ---------------------------------------------------------------------------
 
-CcpSpinLock::CcpSpinLock()
-	: m_lock( 0 )
+CcpSpinLock::CcpSpinLock( const char* spinLockName )
+	: m_lock( 0 ),
+	  m_spinLockName( spinLockName )
 {
+#if CCP_TELEMETRY_ENABLED
+	EnsureTelemetryLockAnnounced();
+#endif
+}
+
+// Deprecated default ctor — forwards to the named ctor using the class name.
+CcpSpinLock::CcpSpinLock()
+	: CcpSpinLock( "CcpSpinLock" )
+{
+}
+
+CcpSpinLock::~CcpSpinLock()
+{
+#if CCP_TELEMETRY_ENABLED
+	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
+	{
+		TracyCLockTerminate( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
+	}
+	m_tracyLockContext = nullptr;
+#endif
 }
 
 void CcpSpinLock::Acquire()
 {
+#if CCP_TELEMETRY_ENABLED
+	EnsureTelemetryLockAnnounced();
+	const bool emit = m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
+	bool notifyTracy{ false };
+	if ( emit )
+	{
+		notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
+	}
+#endif
 	while ( true )
 	{
 		uint32_t expected = 0;
@@ -201,12 +231,41 @@ void CcpSpinLock::Acquire()
 		}
 		CcpThreadYield();
 	}
+#if CCP_TELEMETRY_ENABLED
+	if ( notifyTracy )
+	{
+		TracyCLockAfterLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
+	}
+#endif
 }
 
 void CcpSpinLock::Release()
 {
 	m_lock = 0;
+#if CCP_TELEMETRY_ENABLED
+	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
+	{
+		TracyCLockAfterUnlock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
+	}
+#endif
 }
+
+#if CCP_TELEMETRY_ENABLED
+void CcpSpinLock::EnsureTelemetryLockAnnounced()
+{
+	if ( m_tracyLockContext )
+	{
+		return; // already announced
+	}
+	if ( CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
+	{
+		TracyCLockCtx ctx = static_cast<TracyCLockCtx>( m_tracyLockContext );
+		TracyCLockAnnounce( ctx );
+		TracyCLockCustomName( ctx, m_spinLockName, strlen( m_spinLockName ) );
+		m_tracyLockContext = ctx;
+	}
+}
+#endif
 
 // ---------------------------------------------------------------------------
 // CcpAutoSpinLock
