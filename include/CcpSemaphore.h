@@ -6,35 +6,66 @@
 #define CcpSemaphore_h
 
 #ifdef _WIN32
-#include <windows.h>
+	#include <windows.h>
 #elif defined(__APPLE__)
-#include <mach/task.h>
+	#include <mach/task.h>
 #else
-#include <semaphore.h>
+	#include <semaphore.h>
 #endif
 
 #include "carbon_core_export.h"
+
+// CCP_TELEMETRY_ENABLED should be set in CMake as a PUBLIC compile definition.
+// In case it isn't, default it the same as CcpTelemetry.h does it.
+#ifndef CCP_TELEMETRY_ENABLED
+	#if _MSC_VER
+		#define CCP_TELEMETRY_ENABLED 1
+	#else
+		#define CCP_TELEMETRY_ENABLED 0
+	#endif
+#endif
 
 // Simple wrapper for a semaphore
 class CARBON_CORE_API CcpSemaphore
 {
 public:
+	// Preferred constructor — accepts a name used to identify the semaphore in Tracy.
+	explicit CcpSemaphore( const char* semaphoreName, uint32_t initialCount = 0, uint32_t maximumCount = 1 );
+
+	[[deprecated( "Use `CcpSemaphore( const char* semaphoreName, ... )` instead" )]]
 	CcpSemaphore();
+
+	[[deprecated( "Use `CcpSemaphore( const char* semaphoreName, ... )` instead" )]]
 	CcpSemaphore( uint32_t initialCount, uint32_t maximumCount );
+
 	~CcpSemaphore();
 
 	bool Wait();
 	bool TimedWait( uint32_t timeoutInMs );
 	void Signal();
 
+	// Don't allow copy/assignment
+	CcpSemaphore( const CcpSemaphore& ) = delete;
+	CcpSemaphore& operator=( const CcpSemaphore& ) = delete;
+
 private:
+#if CCP_TELEMETRY_ENABLED
+	// Lazily announce the semaphore to Tracy. Subsequent calls are no-ops once a context exists.
+	void EnsureTelemetryLockAnnounced();
+
+	// Opaque pointer to TracyCLockCtx, kept as void* so this header does not
+	// need to pull in Tracy headers.
+	void* m_tracyLockContext{ nullptr };
+#endif
+
 #ifdef _WIN32
 	HANDLE m_semaphore;
 #elif defined(__APPLE__)
-    semaphore_t m_semaphore;
+	semaphore_t m_semaphore;
 #else
 	sem_t m_semaphore;
 #endif
 
+	const char* m_semaphoreName{ nullptr };
 };
 #endif // CcpSemaphore_h
