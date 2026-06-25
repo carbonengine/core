@@ -121,6 +121,7 @@ namespace
 // CcpSemaphore (cross-platform)
 // ---------------------------------------------------------------------------
 
+// Fully qualified, preferred constructor.
 CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, uint32_t maximumCount )
 	: m_semaphore( CreateNativeSemaphore( initialCount, maximumCount ) ),
 	  m_semaphoreName( semaphoreName )
@@ -128,6 +129,12 @@ CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, ui
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
 #endif
+}
+
+// Preferred constructor, with default value overloads (see header file for details)
+CcpSemaphore::CcpSemaphore( const char* semaphoreName )
+	: CcpSemaphore( semaphoreName, 0, 1 )
+{
 }
 
 // Deprecated default constructor — forwards to the preferred semaphore named ctor instead
