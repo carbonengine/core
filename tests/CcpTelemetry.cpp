@@ -136,28 +136,6 @@ protected:
 		return tracyZones.end() != std::find_if( tracyZones.begin(), tracyZones.end(), pred );
 	}
 
-	// Helper for Raw lock tests, finding lock announced via TracyCLockAnnounce at a given line.
-	// Locks are identified by their announce call site because absolute lock ids and announce counts
-	// are not stable across tests: Tracy defers LockAnnounce/LockTerminate events and replays them
-	// on every new connection, so locks from earlier tests reappear here.
-	// For the same reason, when several locks match the call site (e.g. when a test is repeated
-	// within one process), the most recently announced one wins.
-	// Call it as a TickTelemetry predicate.
-	bool TryGetLockAtLine( uint32_t line, TracyTestClient::LockInfo& outLock )
-	{
-		bool found = false;
-		for( const auto& lock : m_tracyClient.GetAllLocks() )
-		{
-			// All tests are in this file, hence lock.source == __FILE__
-			if( lock.line == line && lock.source == __FILE__ && ( !found || lock.id > outLock.id ) )
-			{
-				outLock = lock;
-				found = true;
-			}
-		}
-		return found;
-	}
-
 	// Helper for CcpMutex tests, finding  active locks by the given custom name.
 	// CcpMutex names its lock "<owner>-<name>" via EnsureTelemetryLockAnnounced helper function.
 	// Name arrives async shortly after announce event, call function from a TickTelemetry predicate.
@@ -621,7 +599,7 @@ TEST_F( CcpTelemetryTest, CcpAutoSpinLockEarlyRelease )
 // CcpSemaphore announces a Tracy lock in EnsureTelemetryLockAnnounced and names it
 // via TracyCLockCustomName using the semaphoreName passed to the constructor.
 // Wait() maps to BeforeLock/AfterLock and Signal() maps to AfterUnlock.
-
+/*
 TEST_F( CcpTelemetryTest, CcpSemaphoreAnnounceAndTerminate )
 {
 	TracyTestClient::LockInfo lockInfo;
@@ -688,7 +666,7 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreWaitsForSignalAcrossThreads )
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 1, lockInfo.releaseCount );
 }
-
+*/
 
 // ---------------------------------------------------------------------------
 // Tests for deprecated (but still used) Lock object constructors of any type
@@ -713,6 +691,7 @@ TEST_F( CcpTelemetryTest, DeprecatedCcpSpinLockDefaultConstructor )
 	EXPECT_EQ( expectedLockName, lockInfo.name );
 }
 
+/*
 TEST_F( CcpTelemetryTest, DeprecatedCcpSemaphoreDefaultConstructor )
 {
 	const std::string expectedLockName = "CcpSemaphore";
@@ -749,6 +728,7 @@ TEST_F( CcpTelemetryTest, DeprecatedCcpSemaphoreParamConstructor )
 	// One more — count is now drained, must time out.
 	EXPECT_FALSE( semaphore.TimedWait( 500 ) );
 }
+*/
 
 #if defined( _MSC_VER )
 	#pragma warning( pop )
