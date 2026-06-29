@@ -29,8 +29,16 @@
 class CARBON_CORE_API CcpSemaphore
 {
 public:
-	// Preferred constructor — accepts a name used to identify the semaphore in Tracy.
-	explicit CcpSemaphore( const char* semaphoreName, uint32_t initialCount = 0, uint32_t maximumCount = 1 );
+	// Preferred constructors, containing semaphoreName (an identifier used by telemetry tool)
+	// Note: The preferred constructors intentionally DON'T use default parameters.
+	// This is to avoid ambiguous overloads with the deprecated constructors below.
+	// A constructor with (const char* semaphoreName, uint32_t initialCount=0, uint32_t maximumCount=1)
+	// i.e. last two default parameters, would make calls such as `CcpSemaphore( 0, 1 )`,
+	// on the deprecated constructor, ambiguous (because the literal `0` is a null pointer
+	// convertible to `const char*`).
+	// Splitting the overloads avoids that ambiguity while keeping source compatibility.
+	CcpSemaphore( const char* semaphoreName, uint32_t initialCount, uint32_t maximumCount );
+	explicit CcpSemaphore( const char* semaphoreName );
 
 	[[deprecated( "Use `CcpSemaphore( const char* semaphoreName, ... )` instead" )]]
 	CcpSemaphore();

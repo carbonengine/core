@@ -599,7 +599,7 @@ TEST_F( CcpTelemetryTest, CcpAutoSpinLockEarlyRelease )
 // CcpSemaphore announces a Tracy lock in EnsureTelemetryLockAnnounced and names it
 // via TracyCLockCustomName using the semaphoreName passed to the constructor.
 // Wait() maps to BeforeLock/AfterLock and Signal() maps to AfterUnlock.
-/*
+
 TEST_F( CcpTelemetryTest, CcpSemaphoreAnnounceAndTerminate )
 {
 	TracyTestClient::LockInfo lockInfo;
@@ -608,8 +608,8 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreAnnounceAndTerminate )
 	{
 		CcpSemaphore semaphore( lockName.c_str() );
 
-		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.name == lockName; } );
+		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
 		EXPECT_FALSE( lockInfo.terminated );
 		EXPECT_EQ( lockName, lockInfo.name );
 		EXPECT_EQ( 0, lockInfo.waitCount );
@@ -628,8 +628,8 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreTimedWaitTimesOut )
 	CcpSemaphore semaphore( lockName.c_str(), 0, 1 );
 
 	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.name == lockName; } );
+	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
 	const uint32_t lockId = lockInfo.id;
 
 	// No signal beforehand — TimedWait should time out and report a wait without an obtain.
@@ -646,8 +646,8 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreWaitsForSignalAcrossThreads )
 	CcpSemaphore semaphore( lockName.c_str(), 0, 1 );
 
 	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.name == lockName; } );
+	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
 	const uint32_t lockId = lockInfo.id;
 
 	// Worker thread blocks on Wait(); main thread keeps ticking telemetry then signals.
@@ -666,7 +666,7 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreWaitsForSignalAcrossThreads )
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 1, lockInfo.releaseCount );
 }
-*/
+
 
 // ---------------------------------------------------------------------------
 // Tests for deprecated (but still used) Lock object constructors of any type
@@ -691,15 +691,15 @@ TEST_F( CcpTelemetryTest, DeprecatedCcpSpinLockDefaultConstructor )
 	EXPECT_EQ( expectedLockName, lockInfo.name );
 }
 
-/*
+
 TEST_F( CcpTelemetryTest, DeprecatedCcpSemaphoreDefaultConstructor )
 {
 	const std::string expectedLockName = "CcpSemaphore";
 	CcpSemaphore semaphore;
 
 	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( expectedLockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( expectedLockName, lockInfo ) );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( expectedLockName, lockInfo ) && lockInfo.name == expectedLockName; } );
+	ASSERT_TRUE( TryGetActiveLockNamed( expectedLockName, lockInfo ) ) << "expectedLockName: " << expectedLockName << " lockInfo.name: " << lockInfo.name;
 	EXPECT_EQ( expectedLockName, lockInfo.name );
 
 	// Default initialCount is 0 — TimedWait must time out.
@@ -716,8 +716,8 @@ TEST_F( CcpTelemetryTest, DeprecatedCcpSemaphoreParamConstructor )
 	CcpSemaphore semaphore( initialCount, maximumCount );
 
 	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( expectedLockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( expectedLockName, lockInfo ) );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( expectedLockName, lockInfo ) && lockInfo.name == expectedLockName; } );
+	ASSERT_TRUE( TryGetActiveLockNamed( expectedLockName, lockInfo ) ) << "expectedLockName: " << expectedLockName << " lockInfo.name: " << lockInfo.name;;
 	EXPECT_EQ( expectedLockName, lockInfo.name );
 
 	// initialCount slots are already signaled — these should not block.
@@ -728,7 +728,7 @@ TEST_F( CcpTelemetryTest, DeprecatedCcpSemaphoreParamConstructor )
 	// One more — count is now drained, must time out.
 	EXPECT_FALSE( semaphore.TimedWait( 500 ) );
 }
-*/
+
 
 #if defined( _MSC_VER )
 	#pragma warning( pop )
