@@ -3,6 +3,8 @@
 #ifndef CCPMUTEX_H
 #define CCPMUTEX_H
 
+#include <string>
+
 #include "CcpAtomic.h"
 #include "carbon_core_export.h"
 
@@ -47,8 +49,9 @@ private:
 	// (CRITICAL_SECTION on Windows, pthread_mutex_t elsewhere).
 	void* m_mutexHandle{ nullptr };
 
-	const char* m_owner{ nullptr };
-	const char* m_name{ nullptr };
+	// Owned copies of the owner/name strings.
+	std::string m_owner;
+	std::string m_name;
 };
 
 
@@ -98,7 +101,7 @@ private:
 #endif
 
 	CcpAtomic<uint32_t> m_lock;
-	const char* m_spinLockName{ nullptr };
+	std::string m_spinLockName;
 };
 
 

@@ -76,8 +76,8 @@ namespace
 
 CcpMutex::CcpMutex( const char* owner, const char* name, unsigned spinCount )
 	: m_mutexHandle( CreateNativeMutex( spinCount ) ),
-	  m_owner( owner ),
-	  m_name( name )
+	  m_owner( owner ? owner : "" ),
+	  m_name( name ? name : "" )
 {
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
@@ -131,12 +131,12 @@ void CcpMutex::Release()
 
 void CcpMutex::SetOwner( const char* owner )
 {
-	m_owner = owner;
+	m_owner = owner ? owner : "";
 }
 
 void CcpMutex::SetName( const char* name )
 {
-	m_name = name;
+	m_name = name ? name : "";
 }
 
 #if CCP_TELEMETRY_ENABLED
@@ -149,7 +149,8 @@ void CcpMutex::EnsureTelemetryLockAnnounced()
 	if ( CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
 	{
 		TracyCLockCtx ctx = static_cast<TracyCLockCtx>( m_tracyLockContext );
-		const std::string lockName = std::string( m_owner ? m_owner : "<owner>" ) + "-" + ( m_name ? m_name : "<name>" );
+		const std::string lockName = ( m_owner.empty() ? std::string( "<owner>" ) : m_owner ) + "-" +
+		                             ( m_name.empty()  ? std::string( "<name>" )  : m_name );
 		TracyCLockAnnounce( ctx );
 		TracyCLockCustomName( ctx, lockName.c_str(), lockName.size() );
 		m_tracyLockContext = ctx;
@@ -187,7 +188,7 @@ void CcpAutoMutex::Release()
 
 CcpSpinLock::CcpSpinLock( const char* spinLockName )
 	: m_lock( 0 ),
-	  m_spinLockName( spinLockName )
+	  m_spinLockName( spinLockName ? spinLockName : "" )
 {
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
@@ -260,8 +261,9 @@ void CcpSpinLock::EnsureTelemetryLockAnnounced()
 	if ( CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
 	{
 		TracyCLockCtx ctx = static_cast<TracyCLockCtx>( m_tracyLockContext );
+		const std::string lockName = m_spinLockName.empty() ? std::string( "CcpSpinLock" ) : m_spinLockName;
 		TracyCLockAnnounce( ctx );
-		TracyCLockCustomName( ctx, m_spinLockName, strlen( m_spinLockName ) );
+		TracyCLockCustomName( ctx, lockName.c_str(), lockName.size() );
 		m_tracyLockContext = ctx;
 	}
 }
