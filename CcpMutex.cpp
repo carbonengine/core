@@ -70,6 +70,45 @@ namespace
 	}
 }
 
+namespace
+{
+	// Helper functions to notifying Telemetry tool of a change in lock state:
+	void NotifyTelemetryLockTerminated( void* lockContext )
+	{
+		if ( CcpTelemetryLockTrackingIsEnabled() && lockContext && CcpTelemetryIsConnected() )
+		{
+			TracyCLockTerminate( static_cast<TracyCLockCtx>( lockContext ) );
+		}
+	}
+
+	bool NotifyTelemetryBeforeLock( void* lockContext )
+	{
+		const bool emit = lockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
+		bool notifyTracy{ false };
+		if ( emit )
+		{
+			notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( lockContext ) );
+		}
+		return notifyTracy;
+	}
+
+	void NotifyTelemetryAfterLock( const bool notifyTracy, void* lockContext )
+	{
+		if ( notifyTracy )
+		{
+			TracyCLockAfterLock( static_cast<TracyCLockCtx>( lockContext ) );
+		}
+	}
+
+	void NotifyTelemetryAfterUnlock( void* lockContext )
+	{
+		if ( lockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
+		{
+			TracyCLockAfterUnlock( static_cast<TracyCLockCtx>( lockContext ) );
+		}
+	}
+}
+
 // ---------------------------------------------------------------------------
 // CcpMutex
 // ---------------------------------------------------------------------------
@@ -82,6 +121,7 @@ CcpMutex::CcpMutex( const char* owner, const char* name, unsigned spinCount )
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
 #endif
+
 	CcpRegisterMutex( *this, owner, name );
 }
 
@@ -89,11 +129,9 @@ CcpMutex::~CcpMutex()
 {
 	DestroyNativeMutex( static_cast<NativeMutex*>( m_mutexHandle ) );
 	m_mutexHandle = nullptr;
+
 #if CCP_TELEMETRY_ENABLED
-	if ( CcpTelemetryLockTrackingIsEnabled() && m_tracyLockContext && CcpTelemetryIsConnected() )
-	{
-		TracyCLockTerminate( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryLockTerminated( m_tracyLockContext );
 	m_tracyLockContext = nullptr;
 #endif
 }
@@ -102,30 +140,22 @@ void CcpMutex::Acquire()
 {
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
-	const bool emit = m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
-	bool notifyTracy{ false };
-	if ( emit )
-	{
-		notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	const bool notifyTracy = NotifyTelemetryBeforeLock( m_tracyLockContext );
 #endif
+
 	LockNativeMutex( static_cast<NativeMutex*>( m_mutexHandle ) );
+
 #if CCP_TELEMETRY_ENABLED
-	if ( notifyTracy )
-	{
-		TracyCLockAfterLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterLock( notifyTracy, m_tracyLockContext );
 #endif
 }
 
 void CcpMutex::Release()
 {
 	UnlockNativeMutex( static_cast<NativeMutex*>( m_mutexHandle ) );
+
 #if CCP_TELEMETRY_ENABLED
-	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-	{
-		TracyCLockAfterUnlock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterUnlock( m_tracyLockContext );
 #endif
 }
 
@@ -204,10 +234,7 @@ CcpSpinLock::CcpSpinLock()
 CcpSpinLock::~CcpSpinLock()
 {
 #if CCP_TELEMETRY_ENABLED
-	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-	{
-		TracyCLockTerminate( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryLockTerminated( m_tracyLockContext );
 	m_tracyLockContext = nullptr;
 #endif
 }
@@ -216,13 +243,9 @@ void CcpSpinLock::Acquire()
 {
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
-	const bool emit = m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
-	bool notifyTracy{ false };
-	if ( emit )
-	{
-		notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	const bool notifyTracy = NotifyTelemetryBeforeLock( m_tracyLockContext );
 #endif
+
 	while ( true )
 	{
 		uint32_t expected = 0;
@@ -232,22 +255,18 @@ void CcpSpinLock::Acquire()
 		}
 		CcpThreadYield();
 	}
+
 #if CCP_TELEMETRY_ENABLED
-	if ( notifyTracy )
-	{
-		TracyCLockAfterLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterLock( notifyTracy, m_tracyLockContext );
 #endif
 }
 
 void CcpSpinLock::Release()
 {
 	m_lock = 0;
+
 #if CCP_TELEMETRY_ENABLED
-	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-	{
-		TracyCLockAfterUnlock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterUnlock( m_tracyLockContext );
 #endif
 }
 
