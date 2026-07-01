@@ -11,8 +11,19 @@
 
 // Fully qualified, preferred constructor.
 CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, uint32_t maximumCount )
-	: m_semaphoreName( semaphoreName ? semaphoreName : "" )
 {
+	// Make sure to keep our own copy of the semaphoreName
+	if (semaphoreName != nullptr)
+	{
+		const size_t strLen = std::strlen( semaphoreName ) + 1;
+		m_semaphoreName = new char[strLen];
+		strcpy_s( const_cast<char*>(m_semaphoreName), strLen, semaphoreName );
+	}
+	else
+	{
+		m_semaphoreName = nullptr;
+	}
+
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
 #endif
@@ -22,38 +33,24 @@ CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, ui
 
 // Preferred constructor, with default value overloads (see header file for details)
 CcpSemaphore::CcpSemaphore( const char* semaphoreName )
-	: m_semaphoreName( semaphoreName ? semaphoreName : "" )
+	: CcpSemaphore( semaphoreName, 0, 1 )
 {
-#if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
-#endif
-
-	m_semaphore = ::CreateSemaphore( 0, 0, 1, 0 );
 }
 
 CcpSemaphore::CcpSemaphore()
-	: m_semaphoreName( "CcpSemaphore" )
+	: CcpSemaphore( "CcpSemaphore", 0, 1 )
 {
-#if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
-#endif
-
-	m_semaphore = ::CreateSemaphore( 0, 0, 1, 0 );
 }
 
 CcpSemaphore::CcpSemaphore( uint32_t initialCount, uint32_t maximumCount )
-	: m_semaphoreName( "CcpSemaphore" )
+	: CcpSemaphore( "CcpSemaphore", initialCount, maximumCount )
 {
-#if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
-#endif
-
-	m_semaphore = ::CreateSemaphore( 0, initialCount, maximumCount, 0 );
 }
 
 CcpSemaphore::~CcpSemaphore()
 {
 	::CloseHandle( m_semaphore );
+	delete[] m_semaphoreName;
 
 #if CCP_TELEMETRY_ENABLED
 	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
@@ -128,10 +125,21 @@ void CcpSemaphore::Signal()
 #include <mach/semaphore.h>
 #include <mach/mach.h>
 
-// Fully qualified, preferred constructor.
+// Fully qualified, preferred constructor. Note maximumCount is ignored.
 CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, uint32_t maximumCount )
-	: m_semaphoreName( semaphoreName ? semaphoreName : "" )
 {
+	// Make sure to keep our own copy of the semaphoreName
+	if (semaphoreName != nullptr)
+	{
+		const size_t strLen = std::strlen( semaphoreName ) + 1;
+		m_semaphoreName = new char[strLen];
+		strcpy_s( const_cast<char*>(m_semaphoreName), strLen, semaphoreName );
+	}
+	else
+	{
+		m_semaphoreName = nullptr;
+	}
+
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
 #endif
@@ -141,38 +149,24 @@ CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, ui
 
 // Preferred constructor, with default value overloads (see header file for details)
 CcpSemaphore::CcpSemaphore( const char* semaphoreName )
-	: m_semaphoreName( semaphoreName ? semaphoreName : "" )
+	: CcpSemaphore( semaphoreName, 0, 1 )
 {
-#if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
-#endif
-
-	semaphore_create( current_task(), &m_semaphore, SYNC_POLICY_FIFO, 0 );
 }
 
 CcpSemaphore::CcpSemaphore()
-	: m_semaphoreName( "CcpSemaphore" )
+	: CcpSemaphore( "CcpSemaphore", 0, 1 )
 {
-#if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
-#endif
-
-    semaphore_create( current_task(), &m_semaphore, SYNC_POLICY_FIFO, 0 );
 }
 
 CcpSemaphore::CcpSemaphore( uint32_t initialCount, uint32_t maximumCount )
-	: m_semaphoreName( "CcpSemaphore" )
+	: CcpSemaphore( "CcpSemaphore", initialCount, maximumCount )
 {
-#if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
-#endif
-
-    semaphore_create( current_task(), &m_semaphore, SYNC_POLICY_FIFO, initialCount );
 }
 
 CcpSemaphore::~CcpSemaphore()
 {
     semaphore_destroy( current_task(), m_semaphore );
+	delete[] m_semaphoreName;
 
 #if CCP_TELEMETRY_ENABLED
 	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
@@ -248,10 +242,21 @@ void CcpSemaphore::Signal()
 
 #else
 
-// Fully qualified, preferred constructor.
+// Fully qualified, preferred constructor. Note maximumCount is ignored
 CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, uint32_t maximumCount )
-	: m_semaphoreName( semaphoreName ? semaphoreName : "" )
 {
+	// Make sure to keep our own copy of the semaphoreName
+	if (semaphoreName != nullptr)
+	{
+		const size_t strLen = std::strlen( semaphoreName ) + 1;
+		m_semaphoreName = new char[strLen];
+		strcpy_s( const_cast<char*>(m_semaphoreName), strLen, semaphoreName );
+	}
+	else
+	{
+		m_semaphoreName = nullptr;
+	}
+
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
 #endif
@@ -261,38 +266,24 @@ CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, ui
 
 // Preferred constructor, with default value overloads (see header file for details)
 CcpSemaphore::CcpSemaphore( const char* semaphoreName )
-	: m_semaphoreName( semaphoreName ? semaphoreName : "" )
+	: CcpSemaphore( semaphoreName, 0, 1 )
 {
-#if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
-#endif
-
-	sem_init( &m_semaphore, 0, 0 );
 }
 
 CcpSemaphore::CcpSemaphore()
-	: m_semaphoreName( "CcpSemaphore" )
+	: CcpSemaphore( "CcpSemaphore", 0, 1 )
 {
-#if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
-#endif
-
-	sem_init( &m_semaphore, 0, 0 );
 }
 
 CcpSemaphore::CcpSemaphore( uint32_t initialCount, uint32_t maximumCount )
-	: m_semaphoreName( "CcpSemaphore" )
+	: CcpSemaphore( "CcpSemaphore", initialCount, maximumCount )
 {
-#if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
-#endif
-
-	sem_init( &m_semaphore, 0, initialCount );
 }
 
 CcpSemaphore::~CcpSemaphore()
 {
 	sem_destroy( &m_semaphore );
+	delete[] m_semaphoreName;
 
 #if CCP_TELEMETRY_ENABLED
 	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
