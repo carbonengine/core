@@ -5,6 +5,45 @@
 
 #if CCP_TELEMETRY_ENABLED
 #include "include/CcpTelemetry.h"
+
+namespace
+{
+	// Helper functions to notifying Telemetry tool of a change in lock state:
+	void NotifyTelemetryLockTerminated( void* lockContext )
+	{
+		if ( CcpTelemetryLockTrackingIsEnabled() && lockContext && CcpTelemetryIsConnected() )
+		{
+			TracyCLockTerminate( static_cast<TracyCLockCtx>( lockContext ) );
+		}
+	}
+
+	bool NotifyTelemetryBeforeLock( void* lockContext )
+	{
+		const bool emit = lockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
+		bool notifyTracy{ false };
+		if ( emit )
+		{
+			notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( lockContext ) );
+		}
+		return notifyTracy;
+	}
+
+	void NotifyTelemetryAfterLock( const bool notifyTracy, void* lockContext )
+	{
+		if ( notifyTracy )
+		{
+			TracyCLockAfterLock( static_cast<TracyCLockCtx>( lockContext ) );
+		}
+	}
+
+	void NotifyTelemetryAfterUnlock( void* lockContext )
+	{
+		if ( lockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
+		{
+			TracyCLockAfterUnlock( static_cast<TracyCLockCtx>( lockContext ) );
+		}
+	}
+}
 #endif
 
 #ifdef _WIN32
@@ -53,10 +92,7 @@ CcpSemaphore::~CcpSemaphore()
 	delete[] m_semaphoreName;
 
 #if CCP_TELEMETRY_ENABLED
-	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-	{
-		TracyCLockTerminate( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryLockTerminated( m_tracyLockContext );
 	m_tracyLockContext = nullptr;
 #endif
 }
@@ -65,21 +101,13 @@ bool CcpSemaphore::Wait()
 {
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
-	const bool emit = m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
-	bool notifyTracy{ false };
-	if ( emit )
-	{
-		notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	const bool notifyTracy = NotifyTelemetryBeforeLock( m_tracyLockContext );
 #endif
 
-	const auto result = ::WaitForSingleObject( m_semaphore, INFINITE ) == 0;
+	const bool result = ::WaitForSingleObject( m_semaphore, INFINITE ) == 0;
 
 #if CCP_TELEMETRY_ENABLED
-	if ( notifyTracy && result )
-	{
-		TracyCLockAfterLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterLock( notifyTracy && result, m_tracyLockContext );
 #endif
 	return result;
 }
@@ -88,21 +116,13 @@ bool CcpSemaphore::TimedWait( uint32_t timeout )
 {
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
-	const bool emit = m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
-	bool notifyTracy{ false };
-	if ( emit )
-	{
-		notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	const bool notifyTracy = NotifyTelemetryBeforeLock( m_tracyLockContext );
 #endif
 
 	const auto result = ::WaitForSingleObject( m_semaphore, timeout ) == 0;
 
 #if CCP_TELEMETRY_ENABLED
-	if ( notifyTracy && result )
-	{
-		TracyCLockAfterLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterLock( notifyTracy && result, m_tracyLockContext );
 #endif
 	return result;
 }
@@ -112,10 +132,7 @@ void CcpSemaphore::Signal()
 	::ReleaseSemaphore( m_semaphore, 1, 0 );
 
 #if CCP_TELEMETRY_ENABLED
-	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-	{
-		TracyCLockAfterUnlock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterUnlock( m_tracyLockContext );
 #endif
 }
 
@@ -169,10 +186,7 @@ CcpSemaphore::~CcpSemaphore()
 	delete[] m_semaphoreName;
 
 #if CCP_TELEMETRY_ENABLED
-	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-	{
-		TracyCLockTerminate( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryLockTerminated( m_tracyLockContext );
 	m_tracyLockContext = nullptr;
 #endif
 }
@@ -183,21 +197,13 @@ bool CcpSemaphore::Wait()
 {
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
-	const bool emit = m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
-	bool notifyTracy{ false };
-	if ( emit )
-	{
-		notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	const bool notifyTracy = NotifyTelemetryBeforeLock( m_tracyLockContext );
 #endif
 
-	const auto result = semaphore_wait( m_semaphore ) == KERN_SUCCESS;
+	const bool result = semaphore_wait( m_semaphore ) == KERN_SUCCESS;
 
 #if CCP_TELEMETRY_ENABLED
-	if ( notifyTracy && result )
-	{
-		TracyCLockAfterLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterLock( notifyTracy && result, m_tracyLockContext );
 #endif
 	return result;
 }
@@ -206,12 +212,7 @@ bool CcpSemaphore::TimedWait( uint32_t timeoutInMs )
 {
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
-	const bool emit = m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
-	bool notifyTracy{ false };
-	if ( emit )
-	{
-		notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	const bool notifyTracy = NotifyTelemetryBeforeLock( m_tracyLockContext );
 #endif
 
 	mach_timespec_t mts;
@@ -220,10 +221,7 @@ bool CcpSemaphore::TimedWait( uint32_t timeoutInMs )
 	const auto result = semaphore_timedwait( m_semaphore, mts ) == KERN_SUCCESS;
 
 #if CCP_TELEMETRY_ENABLED
-	if ( notifyTracy && result )
-	{
-		TracyCLockAfterLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterLock( notifyTracy && result, m_tracyLockContext );
 #endif
 	return result;
 }
@@ -233,10 +231,7 @@ void CcpSemaphore::Signal()
     semaphore_signal( m_semaphore );
 
 #if CCP_TELEMETRY_ENABLED
-	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-	{
-		TracyCLockAfterUnlock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterUnlock( m_tracyLockContext );
 #endif
 }
 
@@ -286,10 +281,7 @@ CcpSemaphore::~CcpSemaphore()
 	delete[] m_semaphoreName;
 
 #if CCP_TELEMETRY_ENABLED
-	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-	{
-		TracyCLockTerminate( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryLockTerminated( m_tracyLockContext );
 	m_tracyLockContext = nullptr;
 #endif
 }
@@ -300,21 +292,13 @@ bool CcpSemaphore::Wait()
 {
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
-	const bool emit = m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
-	bool notifyTracy{ false };
-	if ( emit )
-	{
-		notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	const bool notifyTracy = NotifyTelemetryBeforeLock( m_tracyLockContext );
 #endif
 
-	const auto result = sem_wait( &m_semaphore ) == 0;
+	const bool result = sem_wait( &m_semaphore ) == 0;
 
 #if CCP_TELEMETRY_ENABLED
-	if ( notifyTracy && result )
-	{
-		TracyCLockAfterLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterLock( notifyTracy && result, m_tracyLockContext );
 #endif
 	return result;
 }
@@ -323,12 +307,7 @@ bool CcpSemaphore::TimedWait( uint32_t timeoutInMs )
 {
 #if CCP_TELEMETRY_ENABLED
 	EnsureTelemetryLockAnnounced();
-	const bool emit = m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
-	bool notifyTracy{ false };
-	if ( emit )
-	{
-		notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	const bool notifyTracy = NotifyTelemetryBeforeLock( m_tracyLockContext );
 #endif
 
 	timespec ts;
@@ -337,10 +316,7 @@ bool CcpSemaphore::TimedWait( uint32_t timeoutInMs )
 	const auto result = sem_timedwait( &m_semaphore, &ts ) == 0;
 
 #if CCP_TELEMETRY_ENABLED
-	if ( notifyTracy && result )
-	{
-		TracyCLockAfterLock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterLock( notifyTracy && result, m_tracyLockContext );
 #endif
 	return result;
 }
@@ -350,10 +326,7 @@ void CcpSemaphore::Signal()
 	sem_post( &m_semaphore );
 
 #if CCP_TELEMETRY_ENABLED
-	if ( m_tracyLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-	{
-		TracyCLockAfterUnlock( static_cast<TracyCLockCtx>( m_tracyLockContext ) );
-	}
+	NotifyTelemetryAfterUnlock( m_tracyLockContext );
 #endif
 }
 
