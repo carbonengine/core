@@ -65,8 +65,9 @@ CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, ui
 	if (semaphoreName != nullptr)
 	{
 		const size_t strLen = std::strlen( semaphoreName ) + 1;
-		m_semaphoreName = new char[strLen];
-		strcpy_s( const_cast<char*>(m_semaphoreName), strLen, semaphoreName );
+		char* copy = new char[strLen];
+		strcpy_s( copy, strLen, semaphoreName );
+		m_semaphoreName = copy;
 	}
 	else
 	{
