@@ -200,7 +200,8 @@ void CcpSemaphore::EnsureTelemetryLockAnnounced()
 	{
 		TracyCLockCtx ctx = static_cast<TracyCLockCtx>( m_tracyLockContext );
 		TracyCLockAnnounce( ctx );
-		TracyCLockCustomName( ctx, m_semaphoreName, strlen( m_semaphoreName ) );
+		const char* name = m_semaphoreName ? m_semaphoreName : "CcpSemaphore";
+		TracyCLockCustomName( ctx, name, strlen( name ) );
 		m_tracyLockContext = ctx;
 	}
 }
