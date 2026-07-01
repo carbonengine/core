@@ -70,6 +70,8 @@ namespace
 	}
 }
 
+
+#if CCP_TELEMETRY_ENABLED
 namespace
 {
 	// Helper functions to notifying Telemetry tool of a change in lock state:
@@ -108,6 +110,7 @@ namespace
 		}
 	}
 }
+#endif
 
 // ---------------------------------------------------------------------------
 // CcpMutex
