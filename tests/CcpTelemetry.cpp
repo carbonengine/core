@@ -10,6 +10,8 @@
 #include <mutex>
 #include <thread>
 
+#include <tracy/Tracy.hpp>
+
 #include <CcpCore.h>
 
 // How can we test telemetry-related functionality to ensure our bookkeeping

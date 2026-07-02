@@ -4,8 +4,6 @@
 #ifndef CcpTelemetry_h
 #define CcpTelemetry_h
 
-#include <optional>
-
 #include "CcpThread.h"
 #include "carbon_core_export.h"
 
@@ -20,12 +18,6 @@
 #endif
 
 #if CCP_TELEMETRY_ENABLED
-#pragma warning(push)
-#pragma warning(disable : 4996)
-	#include <tracy/Tracy.hpp>
-#pragma warning(pop)
-	#include <tracy/TracyC.h>
-
 	#include "TrackableContainer.h"
 
 	#define TMCM_GENERAL 1
@@ -76,13 +68,18 @@ CARBON_CORE_API void CcpTelemetrySetActiveFiber( const std::string& name );
 CARBON_CORE_API const std::string& CcpTelemetryGetActiveFiber();
 CARBON_CORE_API void CcpTelemetryRemoveFiber( const std::string& name );
 
-typedef std::set<std::string> FiberNameStore; // internal
-
 class TelemetryZone
 {
 public:
+	enum class Color : uint32_t
+	{
+		White = 0xffffff,
+		Black = 0x000000,
+		SteelBlue4 = 0x36648b,
+		Yellow = 0xffff00,
+	};
 	TelemetryZone() = delete;
-	CARBON_CORE_API TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, uint32_t color = tracy::Color::SteelBlue4 );
+	CARBON_CORE_API TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, Color color = Color::SteelBlue4 );
 	CARBON_CORE_API ~TelemetryZone();
 	TelemetryZone( TelemetryZone&& other ) noexcept;
 	TelemetryZone( const TelemetryZone& ) = delete;
@@ -92,8 +89,8 @@ public:
 	CARBON_CORE_API void text( const char* text ) const;
 
 private:
-	std::optional<TracyCZoneCtx> m_telemetryContext;
-	FiberNameStore::const_iterator m_fiber;
+	struct Private;
+	std::unique_ptr<Private> m_impl;
 };
 
 CARBON_CORE_API void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, uint32_t lineno );

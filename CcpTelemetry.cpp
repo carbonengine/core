@@ -1,5 +1,6 @@
 // Copyright © 2013 CCP ehf.
 
+#include <optional>
 #include <queue>
 
 #include "include/CCPAssert.h"
@@ -9,6 +10,20 @@
 static CcpLogChannel_t s_ch = CCP_LOG_DEFINE_CHANNEL( "Telemetry" );
 
 #if CCP_TELEMETRY_ENABLED
+
+#pragma warning(push)
+#pragma warning(disable : 4996)
+#include <tracy/Tracy.hpp>
+#pragma warning(pop)
+#include <tracy/TracyC.h>
+
+typedef std::set<std::string> FiberNameStore;
+
+struct TelemetryZone::Private
+{
+	std::optional<TracyCZoneCtx> telemetryContext;
+	FiberNameStore::const_iterator fiber;
+};
 
 enum ProfilerState {
 	Stopped,
@@ -345,7 +360,7 @@ const std::string& CcpTelemetryGetActiveFiber()
 	return *t_activeFiber;
 }
 
-TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, uint32_t color ) : m_fiber( t_activeFiber )
+TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, Color color ) : m_impl(std::make_unique<Private>())
 {
 	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
 	{
@@ -354,42 +369,43 @@ TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filena
 
 	CCP_ASSERT( filename != nullptr );
 	CCP_ASSERT( name != nullptr );
-	auto data = ___tracy_alloc_srcloc( lineno, filename, strlen( filename ), name, strlen( name ), color );
+	auto data = ___tracy_alloc_srcloc( lineno, filename, strlen( filename ), name, strlen( name ), static_cast<uint32_t>( color ) );
 //	CCP_LOG_CH( s_ch, "[Fiber %p] Creating zone %s (%p)", t_activeFiber->c_str(), ret.first->c_str(), this );
-	m_telemetryContext.emplace( ___tracy_emit_zone_begin_alloc( data, ctx & TMCM_CPP ) );
+	m_impl->fiber = t_activeFiber;
+	m_impl->telemetryContext.emplace( ___tracy_emit_zone_begin_alloc( data, ctx & TMCM_CPP ) );
 }
 
-TelemetryZone::TelemetryZone( TelemetryZone&& other ) noexcept
+TelemetryZone::TelemetryZone( TelemetryZone&& other ) noexcept : m_impl( std::make_unique<Private>() )
 {
-	m_fiber = other.m_fiber;
-	m_telemetryContext = other.m_telemetryContext;
+	m_impl->fiber = other.m_impl->fiber;
+	m_impl->telemetryContext = other.m_impl->telemetryContext;
 	// mark this instance's zone as inactive in case the destructor runs
-	other.m_telemetryContext.reset();
-//	CCP_LOG_CH( s_ch, "[Fiber %p] Moving zone %p (fiber=%s) to new zone %p (fiber=%s)", t_activeFiber->c_str(), &other, other.m_fiber->c_str(), this, m_fiber->c_str() );
+	other.m_impl->telemetryContext.reset();
+//	CCP_LOG_CH( s_ch, "[Fiber %p] Moving zone %p (fiber=%s) to new zone %p (fiber=%s)", t_activeFiber->c_str(), &other, other.m_impl->fiber->c_str(), this, m_impl->fiber->c_str() );
 }
 
 TelemetryZone::~TelemetryZone()
 {
 	// Notify Tracy of all zones ended with a valid context, regardless of profiler state
-	if( !m_telemetryContext )
+	if( !m_impl->telemetryContext )
 	{
 		return;
 	}
 
 	// Zones need to end on the same fiber they were started from, so do a little song and dance to ensure that
 	auto previous = t_activeFiber;
-	CcpTelemetrySetActiveFiber( m_fiber );
-//	CCP_LOG_CH( s_ch, "[Fiber %p] Leaving zone %p (fiber=%s)", t_activeFiber->c_str(), this, m_fiber->c_str() );
-	TracyCZoneEnd( m_telemetryContext.value() );
+	CcpTelemetrySetActiveFiber( m_impl->fiber );
+//	CCP_LOG_CH( s_ch, "[Fiber %p] Leaving zone %p (fiber=%s)", t_activeFiber->c_str(), this, m_impl->fiber->c_str() );
+	TracyCZoneEnd( m_impl->telemetryContext.value() );
 	CcpTelemetrySetActiveFiber( previous );
 }
 
 void TelemetryZone::text( const char* text ) const
 {
-	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started && m_telemetryContext )
+	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started && m_impl->telemetryContext )
 	{
 		CCP_ASSERT( text != nullptr );
-		TracyCZoneText( m_telemetryContext.value(), text, strlen( text ) );
+		TracyCZoneText( m_impl->telemetryContext.value(), text, strlen( text ) );
 	}
 }
 
@@ -398,7 +414,7 @@ void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, u
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started )
 	{
 		t_manuallyTrackedZones.emplace( key );
-		t_activeTaskletZoneStore->second.emplace( TMCM_CPP, name, filename, lineno, tracy::Color::Yellow );
+		t_activeTaskletZoneStore->second.emplace( TMCM_CPP, name, filename, lineno, TelemetryZone::Color::Yellow );
 //		CCP_LOG_CH( s_ch, "[Fiber %p] [Store %p] [Zone %p] Enter", t_activeFiber, t_activeTaskletZoneStore, &t_activeTaskletZoneStore->second.top() );
 	}
 }

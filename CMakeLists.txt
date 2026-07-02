@@ -105,7 +105,7 @@ if(WITH_TELEMETRY)
     message(STATUS "Enabling profiler integration")
     find_package(Tracy CONFIG REQUIRED)
     target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=1)
-    target_link_libraries(CcpCore PUBLIC Tracy::TracyClient)
+    target_link_libraries(CcpCore PRIVATE Tracy::TracyClient)
     # Tracy's vcpkg package is always built as Release (with NDEBUG). CcpTelemetry.cpp
     # must also be compiled with NDEBUG to match Tracy's struct layout: in 0.13.1 the
     # Profiler class has a debug-only member (std::atomic_bool m_inUse, #ifndef NDEBUG)

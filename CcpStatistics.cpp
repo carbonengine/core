@@ -2,6 +2,8 @@
 
 #include "include/CcpStatistics.h"
 
+#include <tracy/Tracy.hpp>
+
 #include "CcpTelemetry.h"
 
 static double SCALING_FACTOR_FOR_TIME = 1000000.0;
