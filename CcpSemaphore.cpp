@@ -1,11 +1,9 @@
 // Copyright © 2013 CCP ehf.
 
 #include "include/CcpSemaphore.h"
-#include "include/CCPAssert.h"
+
 
 #if CCP_TELEMETRY_ENABLED
-#include "include/CcpTelemetry.h"
-
 namespace
 {
 	// Helper functions to notifying Telemetry tool of a change in lock state:

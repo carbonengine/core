@@ -3,7 +3,6 @@
 #include <string>
 
 #include "include/CcpMutex.h"
-#include "include/CcpTelemetry.h"
 #include "include/CcpThread.h"
 
 

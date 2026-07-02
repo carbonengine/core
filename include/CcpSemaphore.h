@@ -13,17 +13,7 @@
 	#include <semaphore.h>
 #endif
 
-#include "carbon_core_export.h"
-
-// CCP_TELEMETRY_ENABLED should be set in CMake as a PUBLIC compile definition.
-// In case it isn't, default it the same as CcpTelemetry.h does it.
-#ifndef CCP_TELEMETRY_ENABLED
-	#if _MSC_VER
-		#define CCP_TELEMETRY_ENABLED 1
-	#else
-		#define CCP_TELEMETRY_ENABLED 0
-	#endif
-#endif
+#include "CcpTelemetry.h"
 
 // Simple wrapper for a semaphore
 class CARBON_CORE_API CcpSemaphore
