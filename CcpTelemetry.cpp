@@ -251,6 +251,11 @@ void CcpTelemetryTick()
 	}
 }
 
+std::chrono::milliseconds CcpTelemetryRemainingCaptureDuration()
+{
+	return std::max( std::chrono::milliseconds( 0 ), s_config.captureDuration - std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now() - s_profilerStartTime ) );
+}
+
 void CcpTelemetryTrackAllocation( void* p, size_t size )
 {
 	if ( CcpTelemetryMemoryTrackingIsEnabled() && CcpTelemetryIsConnected() ) {

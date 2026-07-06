@@ -62,6 +62,7 @@ CARBON_CORE_API bool CcpTelemetryIsConnectionRequested();
 CARBON_CORE_API bool CcpTelemetryIsConnected();
 CARBON_CORE_API bool CcpTelemetryIsStarted();
 CARBON_CORE_API bool CcpTelemetryIsStopped();
+CARBON_CORE_API std::chrono::milliseconds CcpTelemetryRemainingCaptureDuration();
 CARBON_CORE_API bool CcpTelemetryMemoryTrackingIsEnabled();
 CARBON_CORE_API bool CcpTelemetryLockTrackingIsEnabled();
 
