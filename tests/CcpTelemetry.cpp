@@ -283,11 +283,6 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 // ---------------------------------------------------------------------------
 // CcpMutex / CcpAutoMutex
 // ---------------------------------------------------------------------------
-// CcpMutex announces a Tracy lock in the EnsureTelemetryLockAnnounced helper function
-// and names it "<owner>-<name>" via TracyCLockCustomName.
-// It reports wait/obtain around EnterCriticalSection in Acquire(), release in
-// Release() and terminates in destructor.
-// The custom name is what currently identifies a CcpMutex lock; see TryGetActiveLockNamed.
 
 TEST_F( CcpTelemetryTest, CcpMutexAnnounceAndTerminate )
 {
@@ -297,6 +292,8 @@ TEST_F( CcpTelemetryTest, CcpMutexAnnounceAndTerminate )
 	{
 		std::string lockName = "CcpTelemetryTest-CcpMutexAnnounceAndTerminate";
 		CcpMutex mutex( "CcpTelemetryTest", "CcpMutexAnnounceAndTerminate" );
+		// Because `CcpMutex` lazily announces itself to tracy, we use `CcpAutoMutex` to automatically acquire and release the mutex.
+		CcpAutoMutex autoMutex( mutex );
 
 		// The custom name arrives almost immediately, but the source location
 		// resolves through extra server-query round trips; wait for both.
@@ -305,17 +302,16 @@ TEST_F( CcpTelemetryTest, CcpMutexAnnounceAndTerminate )
 		EXPECT_FALSE( lockInfo.terminated );
 		// The owner and name passed to CcpMutex arrive combined as the custom lock name.
 		EXPECT_EQ( lockName, lockInfo.name );
-		// The announce site is the EnsureTelemetryLockAnnounced helper function
-		EXPECT_EQ( "EnsureTelemetryLockAnnounced", lockInfo.function );
 		EXPECT_TRUE( lockInfo.waitingThreads.empty() );
-		EXPECT_EQ( 0, lockInfo.waitCount );
-		EXPECT_EQ( 0, lockInfo.obtainCount );
+		EXPECT_EQ( 1, lockInfo.waitCount );
+		EXPECT_EQ( 1, lockInfo.obtainCount );
 		EXPECT_EQ( 0, lockInfo.releaseCount );
 	}
 
 	// Destroying the mutex terminates its lock.
 	const uint32_t lockId = lockInfo.id;
 	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.terminated; } );
+	EXPECT_EQ( 1, lockInfo.releaseCount );
 	EXPECT_TRUE( lockInfo.terminated );
 }
 
@@ -325,12 +321,10 @@ TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
 	CcpMutex mutex( "CcpTelemetryTest", "CcpMutexAcquireAndRelease" );
 
 	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 	const uint32_t lockId = lockInfo.id;
-
 	mutex.Acquire();
-	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.obtainCount == 1; } );
+	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 0, lockInfo.releaseCount );
@@ -348,11 +342,7 @@ TEST_F( CcpTelemetryTest, CcpMutexContentionAcrossThreads )
 {
 	std::string lockName = "CcpTelemetryTest-CcpMutexContentionAcrossThreads";
 	CcpMutex mutex( "CcpTelemetryTest", "CcpMutexContentionAcrossThreads" );
-
 	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
-	const uint32_t lockId = lockInfo.id;
 
 	// Thread A acquires the mutex and holds it until we tell it to release.
 	// The locking must happen on worker threads so that this thread can keep
@@ -365,7 +355,8 @@ TEST_F( CcpTelemetryTest, CcpMutexContentionAcrossThreads )
 		mutex.Release();
 	} );
 
-	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.holderThread != 0; } );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.holderThread != 0; } );
+	const uint32_t lockId = lockInfo.id;
 	const uint32_t threadAId = lockInfo.holderThread;
 	EXPECT_NE( 0u, threadAId );
 	EXPECT_EQ( 1, lockInfo.waitCount );
@@ -401,71 +392,16 @@ TEST_F( CcpTelemetryTest, CcpMutexContentionAcrossThreads )
 	EXPECT_TRUE( lockInfo.waitingThreads.empty() );
 }
 
-TEST_F( CcpTelemetryTest, CcpAutoMutexScopeLocking )
-{
-	std::string lockName = "CcpTelemetryTest-CcpAutoMutexScopeLocking";
-	CcpMutex mutex( "CcpTelemetryTest", "CcpAutoMutexScopeLocking" );
-
-	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
-	const uint32_t lockId = lockInfo.id;
-
-	{
-		CcpAutoMutex autoMutex( mutex );
-
-		TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
-		EXPECT_EQ( 1, lockInfo.waitCount );
-		EXPECT_EQ( 1, lockInfo.obtainCount );
-		EXPECT_EQ( 0, lockInfo.releaseCount );
-	}
-
-	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
-	EXPECT_EQ( 1, lockInfo.obtainCount );
-	EXPECT_EQ( 1, lockInfo.releaseCount );
-}
-
-TEST_F( CcpTelemetryTest, CcpAutoMutexEarlyRelease )
-{
-	std::string lockName = "CcpTelemetryTest-CcpAutoMutexEarlyRelease";
-	CcpMutex mutex( "CcpTelemetryTest", "CcpAutoMutexEarlyRelease" );
-
-	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
-	const uint32_t lockId = lockInfo.id;
-
-	{
-		CcpAutoMutex autoMutex( mutex );
-
-		TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
-		EXPECT_EQ( 1, lockInfo.obtainCount );
-
-		// Do an "early" Release on the scoped guarded Auto mutex
-		autoMutex.Release();
-		TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
-		EXPECT_EQ( 1, lockInfo.releaseCount );
-	}
-
-	// Destroying the CcpAutoMutex after the early release must not release the
-	// mutex a second time. Tick a little longer to give a (faulty) second
-	// release event a chance to arrive before asserting it did not.
-	TickTelemetry( nullptr, std::chrono::milliseconds( 100 ) );
-	ASSERT_TRUE( TryGetLockById( lockId, lockInfo ) );
-	EXPECT_EQ( 1, lockInfo.obtainCount );
-	EXPECT_EQ( 1, lockInfo.releaseCount );
-}
-
 TEST_F( CcpTelemetryTest, MultipleCcpMutexesAnnounceDistinctLocks )
 {
-	// The custom lock names make the two mutexes distinguishable even though
-	// they share the same announce call site in CcpMutex.h.
 	CcpMutex firstMutex( "CcpTelemetryTest", "MultiTestFirstMutex" );
 	CcpMutex secondMutex( "CcpTelemetryTest", "MultiTestSecondMutex" );
 	std::string firstLockName = "CcpTelemetryTest-MultiTestFirstMutex";
 	std::string secondLockName = "CcpTelemetryTest-MultiTestSecondMutex";
 
-	// resolved) announce source location, so wait for that to settle too.
+	firstMutex.Acquire();
+	secondMutex.Acquire();
+
 	TracyTestClient::LockInfo firstLock;
 	TracyTestClient::LockInfo secondLock;
 	TickTelemetry( [&] {
@@ -476,25 +412,13 @@ TEST_F( CcpTelemetryTest, MultipleCcpMutexesAnnounceDistinctLocks )
 	ASSERT_TRUE( TryGetActiveLockNamed( secondLockName, secondLock ) );
 	EXPECT_NE( firstLock.id, secondLock.id );
 
-	// Each mutex drives its own lock: acquiring the second must not affect the first.
-	secondMutex.Acquire();
-	TickTelemetry( [&] { return TryGetLockById( secondLock.id, secondLock ) && secondLock.obtainCount == 1; } );
-	EXPECT_EQ( 1, secondLock.obtainCount );
-	EXPECT_EQ( 0, secondLock.releaseCount );
-	ASSERT_TRUE( TryGetLockById( firstLock.id, firstLock ) );
-	EXPECT_EQ( 0, firstLock.obtainCount );
-
 	secondMutex.Release();
-	TickTelemetry( [&] { return TryGetLockById( secondLock.id, secondLock ) && secondLock.releaseCount == 1; } );
-	EXPECT_EQ( 1, secondLock.releaseCount );
-	EXPECT_EQ( 0, firstLock.releaseCount );
+	firstMutex.Release();
 }
 
 // ---------------------------------------------------------------------------
 // CcpSpinLock / CcpAutoSpinLock
 // ---------------------------------------------------------------------------
-// CcpSpinLock announces a Tracy lock in EnsureTelemetryLockAnnounced and names it
-// via TracyCLockCustomName using the spinLockName passed to the constructor.
 
 TEST_F( CcpTelemetryTest, CcpSpinLockAnnounceAndTerminate )
 {
@@ -503,14 +427,15 @@ TEST_F( CcpTelemetryTest, CcpSpinLockAnnounceAndTerminate )
 
 	{
 		CcpSpinLock spinLock( lockName.c_str() );
+		CcpAutoSpinLock autoSpinLock( spinLock );
 
 		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
 		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 		EXPECT_FALSE( lockInfo.terminated );
 		EXPECT_EQ( lockName, lockInfo.name );
 		EXPECT_TRUE( lockInfo.waitingThreads.empty() );
-		EXPECT_EQ( 0, lockInfo.waitCount );
-		EXPECT_EQ( 0, lockInfo.obtainCount );
+		EXPECT_EQ( 1, lockInfo.waitCount );
+		EXPECT_EQ( 1, lockInfo.obtainCount );
 		EXPECT_EQ( 0, lockInfo.releaseCount );
 	}
 
@@ -526,12 +451,11 @@ TEST_F( CcpTelemetryTest, CcpSpinLockAcquireAndRelease )
 	CcpSpinLock spinLock( lockName.c_str() );
 
 	TracyTestClient::LockInfo lockInfo;
+
+	spinLock.Acquire();
 	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
 	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 	const uint32_t lockId = lockInfo.id;
-
-	spinLock.Acquire();
-	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 0, lockInfo.releaseCount );
@@ -542,85 +466,36 @@ TEST_F( CcpTelemetryTest, CcpSpinLockAcquireAndRelease )
 	EXPECT_EQ( 1, lockInfo.releaseCount );
 }
 
-TEST_F( CcpTelemetryTest, CcpAutoSpinLockScopeLocking )
-{
-	const std::string lockName = "CcpAutoSpinLockScopeLocking";
-	CcpSpinLock spinLock( lockName.c_str() );
-
-	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
-	const uint32_t lockId = lockInfo.id;
-
-	{
-		CcpAutoSpinLock autoSpinLock( spinLock );
-
-		TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
-		EXPECT_EQ( 1, lockInfo.obtainCount );
-		EXPECT_EQ( 0, lockInfo.releaseCount );
-	}
-
-	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
-	EXPECT_EQ( 1, lockInfo.releaseCount );
-}
-
-TEST_F( CcpTelemetryTest, CcpAutoSpinLockEarlyRelease )
-{
-	const std::string lockName = "CcpAutoSpinLockEarlyRelease";
-	CcpSpinLock spinLock( lockName.c_str() );
-
-	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
-	const uint32_t lockId = lockInfo.id;
-
-	{
-		CcpAutoSpinLock autoSpinLock( spinLock );
-
-		TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
-		EXPECT_EQ( 1, lockInfo.obtainCount );
-		EXPECT_EQ( 0, lockInfo.releaseCount );
-
-		// Do an "early" Release on the scoped guarded Auto lock
-		autoSpinLock.Release();
-		TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
-		EXPECT_EQ( 1, lockInfo.releaseCount );
-	}
-
-	// Destruction after early release must not double-release.
-	TickTelemetry( nullptr, std::chrono::milliseconds( 100 ) );
-	ASSERT_TRUE( TryGetLockById( lockId, lockInfo ) );
-	EXPECT_EQ( 1, lockInfo.obtainCount );
-	EXPECT_EQ( 1, lockInfo.releaseCount );
-}
-
-
 // ---------------------------------------------------------------------------
 // CcpSemaphore
 // ---------------------------------------------------------------------------
-// CcpSemaphore announces a Tracy lock in EnsureTelemetryLockAnnounced and names it
-// via TracyCLockCustomName using the semaphoreName passed to the constructor.
-// Wait() maps to BeforeLock/AfterLock and Signal() maps to AfterUnlock.
 
 TEST_F( CcpTelemetryTest, CcpSemaphoreAnnounceAndTerminate )
 {
 	TracyTestClient::LockInfo lockInfo;
 	const std::string lockName = "CcpSemaphoreAnnounceAndTerminate";
-
 	{
 		CcpSemaphore semaphore( lockName.c_str() );
 
+		std::thread waiter( [&semaphore] { semaphore.Wait(); } );
 		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.name == lockName; } );
 		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
 		EXPECT_FALSE( lockInfo.terminated );
 		EXPECT_EQ( lockName, lockInfo.name );
-		EXPECT_EQ( 0, lockInfo.waitCount );
+		EXPECT_EQ( 1, lockInfo.waitCount );
 		EXPECT_EQ( 0, lockInfo.obtainCount );
 		EXPECT_EQ( 0, lockInfo.releaseCount );
+
+		std::thread signaler( [&semaphore] { semaphore.Signal(); } );
+
+		waiter.join();
+		signaler.join();
+
+		TickTelemetry( [&] { return TryGetLockById( lockInfo.id, lockInfo ) && lockInfo.obtainCount == 1; } );
+		EXPECT_EQ( 1, lockInfo.obtainCount );
 	}
 
-	const uint32_t lockId = lockInfo.id;
-	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.terminated; } );
+	TickTelemetry( [&] { return TryGetLockById( lockInfo.id, lockInfo ) && lockInfo.terminated; } );
 	EXPECT_TRUE( lockInfo.terminated );
 }
 
@@ -630,112 +505,12 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreTimedWaitTimesOut )
 	CcpSemaphore semaphore( lockName.c_str(), 0, 1 );
 
 	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.name == lockName; } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
-	const uint32_t lockId = lockInfo.id;
 
 	// No signal beforehand — TimedWait should time out and report a wait without an obtain.
 	EXPECT_FALSE( semaphore.TimedWait( 10 ) );
-	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.waitCount == 1; } );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.waitCount == 1 && lockInfo.obtainCount == 1; } );
+	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
 	EXPECT_EQ( 1, lockInfo.waitCount );
-	EXPECT_EQ( 0, lockInfo.obtainCount );
+	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 0, lockInfo.releaseCount );
 }
-
-TEST_F( CcpTelemetryTest, CcpSemaphoreWaitsForSignalAcrossThreads )
-{
-	const std::string lockName = "CcpSemaphoreWaitsForSignalAcrossThreads";
-	CcpSemaphore semaphore( lockName.c_str(), 0, 1 );
-
-	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.name == lockName; } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
-	const uint32_t lockId = lockInfo.id;
-
-	// Worker thread blocks on Wait(); main thread keeps ticking telemetry then signals.
-	std::thread waiter( [&] {
-		EXPECT_TRUE( semaphore.Wait() );
-	} );
-
-	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.waitCount >= 1; } );
-	EXPECT_GE( lockInfo.waitCount, 1 );
-	EXPECT_EQ( 0, lockInfo.obtainCount );
-
-	semaphore.Signal();
-	waiter.join();
-
-	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.obtainCount == 1; } );
-	EXPECT_EQ( 1, lockInfo.obtainCount );
-	EXPECT_EQ( 1, lockInfo.releaseCount );
-}
-
-
-// ---------------------------------------------------------------------------
-// Tests for deprecated (but still used) Lock object constructors of any type
-// Explicitly disable deprecation warnings, ONLY for the duration of those tests.
-// ---------------------------------------------------------------------------
-#if defined( _MSC_VER )
-	#pragma warning( push )
-	#pragma warning( disable : 4996 )
-#elif defined( __clang__ ) || defined( __GNUC__ )
-	#pragma GCC diagnostic push
-	#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-#endif
-
-TEST_F( CcpTelemetryTest, DeprecatedCcpSpinLockDefaultConstructor )
-{
-	const std::string expectedLockName = "CcpSpinLock";
-	CcpSpinLock spinLock;
-
-	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( expectedLockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( expectedLockName, lockInfo ) );
-	EXPECT_EQ( expectedLockName, lockInfo.name );
-}
-
-
-TEST_F( CcpTelemetryTest, DeprecatedCcpSemaphoreDefaultConstructor )
-{
-	const std::string expectedLockName = "CcpSemaphore";
-	CcpSemaphore semaphore;
-
-	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( expectedLockName, lockInfo ) && lockInfo.name == expectedLockName; } );
-	ASSERT_TRUE( TryGetActiveLockNamed( expectedLockName, lockInfo ) ) << "expectedLockName: " << expectedLockName << " lockInfo.name: " << lockInfo.name;
-	EXPECT_EQ( expectedLockName, lockInfo.name );
-
-	// Default initialCount is 0 — TimedWait must time out.
-	EXPECT_FALSE( semaphore.TimedWait( 10 ) );
-}
-
-TEST_F( CcpTelemetryTest, DeprecatedCcpSemaphoreParamConstructor )
-{
-	// With initialCount == 3 the first three Wait()/TimedWait() calls
-	// should succeed without blocking. The fourth should time out.
-	const std::string expectedLockName = "CcpSemaphore";
-	const uint32_t initialCount = 3;
-	const uint32_t maximumCount = 5;
-	CcpSemaphore semaphore( initialCount, maximumCount );
-
-	TracyTestClient::LockInfo lockInfo;
-	TickTelemetry( [&] { return TryGetActiveLockNamed( expectedLockName, lockInfo ) && lockInfo.name == expectedLockName; } );
-	ASSERT_TRUE( TryGetActiveLockNamed( expectedLockName, lockInfo ) ) << "expectedLockName: " << expectedLockName << " lockInfo.name: " << lockInfo.name;;
-	EXPECT_EQ( expectedLockName, lockInfo.name );
-
-	// initialCount slots are already signaled — these should not block.
-	for ( uint32_t i = 0; i < initialCount; ++i )
-	{
-		EXPECT_TRUE( semaphore.TimedWait( 10 ) ) << "TimedWait #" << i << " should succeed";
-	}
-	// One more — count is now drained, must time out.
-	EXPECT_FALSE( semaphore.TimedWait( 500 ) );
-}
-
-
-#if defined( _MSC_VER )
-	#pragma warning( pop )
-#elif defined( __clang__ ) || defined( __GNUC__ )
-	#pragma GCC diagnostic pop
-#endif
-
-

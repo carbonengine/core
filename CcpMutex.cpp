@@ -2,8 +2,10 @@
 
 #include <string>
 
+#include "include/CcpAtomic.h"
 #include "include/CcpMutex.h"
 #include "include/CcpThread.h"
+#include "tracy/TracyC.h"
 
 
 namespace
@@ -19,176 +21,141 @@ namespace
 
 	// Small platform-specific helpers. The cross-platform CcpMutex methods below
 	// call these so that no public method body needs to be duplicated per OS.
-	NativeMutex* CreateNativeMutex( unsigned spinCount )
+	void CreateNativeMutex( NativeMutex& mux, unsigned spinCount )
 	{
-		auto* mux = new NativeMutex;
 #ifdef _WIN32
-		InitializeCriticalSectionAndSpinCount( mux, spinCount );
+		InitializeCriticalSectionAndSpinCount( &mux, spinCount );
 #else
 		(void)spinCount; // pthreads has no equivalent
 		pthread_mutexattr_t mutexAttr;
 		pthread_mutexattr_init( &mutexAttr );
 		pthread_mutexattr_settype( &mutexAttr, PTHREAD_MUTEX_RECURSIVE );
 
-		pthread_mutex_init( mux, &mutexAttr );
+		pthread_mutex_init( &mux, &mutexAttr );
 		pthread_mutexattr_destroy( &mutexAttr );
 #endif
-		return mux;
 	}
 
-	void DestroyNativeMutex( NativeMutex* mux )
-	{
-		if ( !mux )
-		{
-			return;
-		}
-#ifdef _WIN32
-		::DeleteCriticalSection( mux );
-#else
-		pthread_mutex_destroy( mux );
-#endif
-		delete mux;
-	}
-
-	void LockNativeMutex( NativeMutex* mux )
+	void DestroyNativeMutex( NativeMutex& mux )
 	{
 #ifdef _WIN32
-		EnterCriticalSection( mux );
+		::DeleteCriticalSection( &mux );
 #else
-		pthread_mutex_lock( mux );
+		pthread_mutex_destroy( &mux );
 #endif
 	}
 
-	void UnlockNativeMutex( NativeMutex* mux )
+	void LockNativeMutex( NativeMutex& mux )
 	{
 #ifdef _WIN32
-		LeaveCriticalSection( mux );
+		EnterCriticalSection( &mux );
 #else
-		pthread_mutex_unlock( mux );
+		pthread_mutex_lock( &mux );
+#endif
+	}
+
+	void UnlockNativeMutex( NativeMutex& mux )
+	{
+#ifdef _WIN32
+		LeaveCriticalSection( &mux );
+#else
+		pthread_mutex_unlock( &mux );
 #endif
 	}
 }
-
-
-#if CCP_TELEMETRY_ENABLED
-namespace
-{
-	// Helper functions to notifying Telemetry tool of a change in lock state:
-	void NotifyTelemetryLockTerminated( void* lockContext )
-	{
-		if ( CcpTelemetryLockTrackingIsEnabled() && lockContext && CcpTelemetryIsConnected() )
-		{
-			TracyCLockTerminate( static_cast<TracyCLockCtx>( lockContext ) );
-		}
-	}
-
-	bool NotifyTelemetryBeforeLock( void* lockContext )
-	{
-		const bool emit = lockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected();
-		bool notifyTracy{ false };
-		if ( emit )
-		{
-			notifyTracy = TracyCLockBeforeLock( static_cast<TracyCLockCtx>( lockContext ) );
-		}
-		return notifyTracy;
-	}
-
-	void NotifyTelemetryAfterLock( const bool notifyTracy, void* lockContext )
-	{
-		if ( notifyTracy )
-		{
-			TracyCLockAfterLock( static_cast<TracyCLockCtx>( lockContext ) );
-		}
-	}
-
-	void NotifyTelemetryAfterUnlock( void* lockContext )
-	{
-		if ( lockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-		{
-			TracyCLockAfterUnlock( static_cast<TracyCLockCtx>( lockContext ) );
-		}
-	}
-}
-#endif
 
 // ---------------------------------------------------------------------------
 // CcpMutex
 // ---------------------------------------------------------------------------
 
-CcpMutex::CcpMutex( const char* owner, const char* name, unsigned spinCount )
-	: m_mutexHandle( CreateNativeMutex( spinCount ) ),
-	  m_owner( owner ? owner : "" ),
-	  m_name( name ? name : "" )
+struct CcpMutex::Private
 {
 #if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
+	TracyCLockCtx telemetryLockContext;
 #endif
+
+	NativeMutex mutexHandle;
+
+	const char* owner;
+	const char* name;
+};
+
+CcpMutex::CcpMutex( const char* owner, const char* name, unsigned spinCount ) : m_impl( std::make_unique<Private>() )
+{
+	CreateNativeMutex( m_impl->mutexHandle, spinCount );
+	SetOwner( owner );
+	SetName( name );
 
 	CcpRegisterMutex( *this, owner, name );
 }
 
 CcpMutex::~CcpMutex()
 {
-	DestroyNativeMutex( static_cast<NativeMutex*>( m_mutexHandle ) );
-	m_mutexHandle = nullptr;
+	DestroyNativeMutex( m_impl->mutexHandle );
 
 #if CCP_TELEMETRY_ENABLED
-	NotifyTelemetryLockTerminated( m_tracyLockContext );
-	m_tracyLockContext = nullptr;
+	if ( CcpTelemetryLockTrackingIsEnabled() && m_impl->telemetryLockContext && CcpTelemetryIsConnected() )
+	{
+		TracyCLockTerminate( m_impl->telemetryLockContext );
+	}
 #endif
 }
 
 void CcpMutex::Acquire()
 {
 #if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
-	const bool notifyTracy = NotifyTelemetryBeforeLock( m_tracyLockContext );
+	bool notifyTracy{ false };
+	if ( CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
+	{
+		// Lazy initialization pattern because there are many CcpMutex instances which are created statically,
+		// and therefore would never be announced to tracy.
+		if ( !m_impl->telemetryLockContext )
+		{
+			const std::string lockName = std::string( m_impl->owner ) + "-" + m_impl->name;
+			TracyCLockAnnounce( m_impl->telemetryLockContext );
+			if ( m_impl->telemetryLockContext ) {
+				TracyCLockCustomName( m_impl->telemetryLockContext, lockName.c_str(), lockName.size() );
+			}
+		}
+
+		if ( m_impl->telemetryLockContext )
+		{
+			notifyTracy = TracyCLockBeforeLock( m_impl->telemetryLockContext );
+		}
+	}
 #endif
 
-	LockNativeMutex( static_cast<NativeMutex*>( m_mutexHandle ) );
+	LockNativeMutex( m_impl->mutexHandle );
 
 #if CCP_TELEMETRY_ENABLED
-	NotifyTelemetryAfterLock( notifyTracy, m_tracyLockContext );
+	if ( notifyTracy && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
+	{
+		TracyCLockAfterLock( m_impl->telemetryLockContext );
+	}
 #endif
 }
 
 void CcpMutex::Release()
 {
-	UnlockNativeMutex( static_cast<NativeMutex*>( m_mutexHandle ) );
+	UnlockNativeMutex( m_impl->mutexHandle );
 
 #if CCP_TELEMETRY_ENABLED
-	NotifyTelemetryAfterUnlock( m_tracyLockContext );
+	if ( m_impl->telemetryLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
+	{
+		TracyCLockAfterUnlock( m_impl->telemetryLockContext );
+	}
 #endif
 }
 
 void CcpMutex::SetOwner( const char* owner )
 {
-	m_owner = owner ? owner : "";
+	m_impl->owner = owner ? owner : "<owner>";
 }
 
 void CcpMutex::SetName( const char* name )
 {
-	m_name = name ? name : "";
+	m_impl->name = name ? name : "<name>";
 }
-
-#if CCP_TELEMETRY_ENABLED
-void CcpMutex::EnsureTelemetryLockAnnounced()
-{
-	if ( m_tracyLockContext )
-	{
-		return; // already announced
-	}
-	if ( CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-	{
-		TracyCLockCtx ctx = static_cast<TracyCLockCtx>( m_tracyLockContext );
-		const std::string lockName = ( m_owner.empty() ? std::string( "<owner>" ) : m_owner ) + "-" +
-		                             ( m_name.empty()  ? std::string( "<name>" )  : m_name );
-		TracyCLockAnnounce( ctx );
-		TracyCLockCustomName( ctx, lockName.c_str(), lockName.size() );
-		m_tracyLockContext = ctx;
-	}
-}
-#endif
 
 // ---------------------------------------------------------------------------
 // CcpAutoMutex
@@ -218,13 +185,19 @@ void CcpAutoMutex::Release()
 // CcpSpinLock
 // ---------------------------------------------------------------------------
 
-CcpSpinLock::CcpSpinLock( const char* spinLockName )
-	: m_lock( 0 ),
-	  m_spinLockName( spinLockName ? spinLockName : "" )
+struct CcpSpinLock::Private
 {
 #if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
+	TracyCLockCtx telemetryLockContext;
 #endif
+	CcpAtomic<uint32_t> lock;
+	const char* spinLockName;
+};
+
+CcpSpinLock::CcpSpinLock( const char* spinLockName )
+	: m_impl( std::make_unique<Private>() )
+{
+	m_impl->spinLockName = spinLockName ? spinLockName : "<Unnamed Spinlock>";
 }
 
 // Deprecated default ctor — forwards to the named ctor using the class name.
@@ -236,22 +209,40 @@ CcpSpinLock::CcpSpinLock()
 CcpSpinLock::~CcpSpinLock()
 {
 #if CCP_TELEMETRY_ENABLED
-	NotifyTelemetryLockTerminated( m_tracyLockContext );
-	m_tracyLockContext = nullptr;
+	if ( CcpTelemetryLockTrackingIsEnabled() && m_impl->telemetryLockContext && CcpTelemetryIsConnected() )
+	{
+		TracyCLockTerminate( m_impl->telemetryLockContext );
+	}
 #endif
 }
 
 void CcpSpinLock::Acquire()
 {
 #if CCP_TELEMETRY_ENABLED
-	EnsureTelemetryLockAnnounced();
-	const bool notifyTracy = NotifyTelemetryBeforeLock( m_tracyLockContext );
+	bool notifyTracy{ false };
+	if ( CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
+	{
+		// Lazy initialization pattern because there are many CcpMutex instances which are created statically,
+		// and therefore would never be announced to tracy.
+		if ( !m_impl->telemetryLockContext )
+		{
+			TracyCLockAnnounce( m_impl->telemetryLockContext );
+			if ( m_impl->telemetryLockContext ) {
+				TracyCLockCustomName( m_impl->telemetryLockContext, m_impl->spinLockName, strlen( m_impl->spinLockName) )
+			}
+		}
+
+		if ( m_impl->telemetryLockContext )
+		{
+			notifyTracy = TracyCLockBeforeLock( m_impl->telemetryLockContext );
+		}
+	}
 #endif
 
 	while ( true )
 	{
 		uint32_t expected = 0;
-		if ( m_lock.compare_exchange_strong( expected, 1 ) )
+		if ( m_impl->lock.compare_exchange_strong( expected, 1 ) )
 		{
 			break;
 		}
@@ -259,36 +250,24 @@ void CcpSpinLock::Acquire()
 	}
 
 #if CCP_TELEMETRY_ENABLED
-	NotifyTelemetryAfterLock( notifyTracy, m_tracyLockContext );
+	if ( notifyTracy && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
+	{
+		TracyCLockAfterLock( m_impl->telemetryLockContext );
+	}
 #endif
 }
 
 void CcpSpinLock::Release()
 {
-	m_lock = 0;
+	m_impl->lock = 0;
 
 #if CCP_TELEMETRY_ENABLED
-	NotifyTelemetryAfterUnlock( m_tracyLockContext );
+	if ( m_impl->telemetryLockContext && CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
+	{
+		TracyCLockAfterUnlock( m_impl->telemetryLockContext );
+	}
 #endif
 }
-
-#if CCP_TELEMETRY_ENABLED
-void CcpSpinLock::EnsureTelemetryLockAnnounced()
-{
-	if ( m_tracyLockContext )
-	{
-		return; // already announced
-	}
-	if ( CcpTelemetryLockTrackingIsEnabled() && CcpTelemetryIsConnected() )
-	{
-		TracyCLockCtx ctx = static_cast<TracyCLockCtx>( m_tracyLockContext );
-		const std::string lockName = m_spinLockName.empty() ? std::string( "CcpSpinLock" ) : m_spinLockName;
-		TracyCLockAnnounce( ctx );
-		TracyCLockCustomName( ctx, lockName.c_str(), lockName.size() );
-		m_tracyLockContext = ctx;
-	}
-}
-#endif
 
 // ---------------------------------------------------------------------------
 // CcpAutoSpinLock
@@ -313,4 +292,3 @@ void CcpAutoSpinLock::Release()
 	m_mutex.Release();
 	m_released = true;
 }
-

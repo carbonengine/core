@@ -47,23 +47,7 @@ public:
 	CcpSemaphore& operator=( const CcpSemaphore& ) = delete;
 
 private:
-#if CCP_TELEMETRY_ENABLED
-	// Lazily announce the semaphore to Tracy. Subsequent calls are no-ops once a context exists.
-	void EnsureTelemetryLockAnnounced();
-
-	// Opaque pointer to TracyCLockCtx, kept as void* so this header does not
-	// need to pull in Tracy headers.
-	void* m_tracyLockContext{ nullptr };
-#endif
-
-#ifdef _WIN32
-	HANDLE m_semaphore;
-#elif defined(__APPLE__)
-	semaphore_t m_semaphore;
-#else
-	sem_t m_semaphore;
-#endif
-
-	const char* m_semaphoreName{ nullptr };
+	struct Private;
+	std::unique_ptr<Private> m_impl;
 };
 #endif // CcpSemaphore_h

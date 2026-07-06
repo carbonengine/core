@@ -3,9 +3,6 @@
 #ifndef CCPMUTEX_H
 #define CCPMUTEX_H
 
-#include <string>
-
-#include "CcpAtomic.h"
 #include "CcpTelemetry.h"
 
 class CcpMutex
@@ -25,23 +22,8 @@ public:
 	CcpMutex& operator=( const CcpMutex& ) = delete;
 
 private:
-#if CCP_TELEMETRY_ENABLED
-	// Lazily announce mutex/lock as long as telemetry is connected and lock
-	// tracking is enabled. Subsequent calls are no-ops once a context exists.
-	void EnsureTelemetryLockAnnounced();
-
-	// Opaque pointer to TracyCLockCtx, kept as void* so this header does not
-	// need to pull in Tracy headers.
-	void* m_tracyLockContext{ nullptr };
-#endif
-
-	// Opaque pointer to the platform-native mutex primitive
-	// (CRITICAL_SECTION on Windows, pthread_mutex_t elsewhere).
-	void* m_mutexHandle{ nullptr };
-
-	// Owned copies of the owner/name strings.
-	std::string m_owner;
-	std::string m_name;
+	struct Private;
+	std::unique_ptr<Private> m_impl;
 };
 
 
@@ -81,17 +63,8 @@ public:
 	CcpSpinLock& operator=( const CcpSpinLock& ) = delete;
 
 private:
-#if CCP_TELEMETRY_ENABLED
-	// Lazily announce the spin-lock to Tracy.
-	void EnsureTelemetryLockAnnounced();
-
-	// Opaque pointer to TracyCLockCtx, kept as void* so this header does not
-	// need to pull in Tracy headers.
-	void* m_tracyLockContext{ nullptr };
-#endif
-
-	CcpAtomic<uint32_t> m_lock;
-	std::string m_spinLockName;
+	struct Private;
+	std::unique_ptr<Private> m_impl;
 };
 
 
