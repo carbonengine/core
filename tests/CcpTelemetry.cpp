@@ -196,6 +196,31 @@ TEST_F( CcpTelemetryTest, RemovingActiveFiberClearsIt )
 	EXPECT_EQ( CcpTelemetryGetActiveFiber(), expectedNoFiber );
 }
 
+TEST_F( CcpTelemetryTest, RemainingCaptureDuration )
+{
+	// The test fixture starts telemetry without a specific capture duration.
+	// So the remaining capture duration is 0 milliseconds, no matter how long we tick.
+	EXPECT_EQ( CcpTelemetryRemainingCaptureDuration(), std::chrono::milliseconds( 0 ) );
+	TickTelemetry( nullptr, std::chrono::milliseconds( 100 ) );
+	EXPECT_EQ( CcpTelemetryRemainingCaptureDuration(), std::chrono::milliseconds( 0 ) );
+	StopTelemetry();
+
+	// Now start a timed capture
+	constexpr auto captureDuration = std::chrono::milliseconds( 500 );
+	constexpr auto waitDuration = std::chrono::milliseconds( 100 );
+	StartTelemetry( "Telemetry Tests", captureDuration );
+	TickTelemetry( [] { return CcpTelemetryIsConnected(); } );
+	// Compare to lower-equal because some milliseconds may have passed to perform the whole connection handshake and so on.
+	EXPECT_LE( CcpTelemetryRemainingCaptureDuration().count(), captureDuration.count() );
+	// A short tick to observe that remaining time counts down
+	TickTelemetry( nullptr, waitDuration );
+	EXPECT_LE( CcpTelemetryRemainingCaptureDuration().count(), ( captureDuration - waitDuration ).count() );
+	// Wait for the remaining time to expire
+	TickTelemetry( nullptr, captureDuration );
+	EXPECT_EQ( CcpTelemetryRemainingCaptureDuration(), std::chrono::milliseconds( 0 ) );
+	EXPECT_TRUE( CcpTelemetryIsStopped() );
+}
+
 TEST_F( CcpTelemetryTest, SimpleZoneTest )
 {
 	EXPECT_TRUE( CcpTelemetryIsConnected() );
