@@ -321,7 +321,6 @@ TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
 	CcpMutex mutex( "CcpTelemetryTest", "CcpMutexAcquireAndRelease" );
 
 	TracyTestClient::LockInfo lockInfo;
-	const uint32_t lockId = lockInfo.id;
 	mutex.Acquire();
 	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.obtainCount == 1; } );
 	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
@@ -330,6 +329,7 @@ TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
 	EXPECT_EQ( 0, lockInfo.releaseCount );
 	EXPECT_TRUE( lockInfo.waitingThreads.empty() );
 
+	const uint32_t lockId = lockInfo.id;
 	mutex.Release();
 	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
 	EXPECT_EQ( 1, lockInfo.waitCount );
