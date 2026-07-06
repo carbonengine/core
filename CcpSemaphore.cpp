@@ -128,11 +128,11 @@ bool CcpSemaphore::Wait()
 
 	// OS specific implementation:
 #ifdef _WIN32
-	const bool result = ::WaitForSingleObject( m_semaphore, INFINITE ) == 0;
+	const bool result = ::WaitForSingleObject( m_impl->semaphore, INFINITE ) == 0;
 #elif defined(__APPLE__)
 	const bool result = semaphore_wait( m_impl->semaphore ) == KERN_SUCCESS;
 #else
-	const bool result = sem_wait( &m_semaphore ) == 0;
+	const bool result = sem_wait( &m_impl->semaphore ) == 0;
 #endif
 
 #if CCP_TELEMETRY_ENABLED
@@ -161,7 +161,7 @@ bool CcpSemaphore::TimedWait( uint32_t timeoutInMs )
 
 	// OS specific implementation:
 #ifdef _WIN32
-	const bool result = ::WaitForSingleObject( m_semaphore, timeoutInMs ) == 0;
+	const bool result = ::WaitForSingleObject( m_impl->semaphore, timeoutInMs ) == 0;
 #elif defined(__APPLE__)
 	mach_timespec_t mts;
 	mts.tv_sec = timeoutInMs / 1000;
@@ -171,7 +171,7 @@ bool CcpSemaphore::TimedWait( uint32_t timeoutInMs )
 	timespec ts;
 	ts.tv_sec = timeoutInMs / 1000;
 	ts.tv_nsec = (timeoutInMs % 1000) * 1000000;
-	const bool result = sem_timedwait( &m_semaphore, &ts ) == 0;
+	const bool result = sem_timedwait( &m_impl->semaphore, &ts ) == 0;
 #endif
 
 #if CCP_TELEMETRY_ENABLED
