@@ -4,6 +4,7 @@
 #ifndef CcpTelemetry_h
 #define CcpTelemetry_h
 
+#include "CcpColorConstants.h"
 #include "CcpThread.h"
 #include "carbon_core_export.h"
 
@@ -71,15 +72,8 @@ CARBON_CORE_API void CcpTelemetryRemoveFiber( const std::string& name );
 class TelemetryZone
 {
 public:
-	enum class Color : uint32_t
-	{
-		White = 0xffffff,
-		Black = 0x000000,
-		SteelBlue4 = 0x36648b,
-		Yellow = 0xffff00,
-	};
 	TelemetryZone() = delete;
-	CARBON_CORE_API TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, Color color = Color::SteelBlue4 );
+	CARBON_CORE_API TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, Color color = Color::SteelBlue );
 	CARBON_CORE_API ~TelemetryZone();
 	TelemetryZone( TelemetryZone&& other ) noexcept;
 	TelemetryZone( const TelemetryZone& ) = delete;

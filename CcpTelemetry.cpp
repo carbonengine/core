@@ -414,7 +414,7 @@ void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, u
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started )
 	{
 		t_manuallyTrackedZones.emplace( key );
-		t_activeTaskletZoneStore->second.emplace( TMCM_CPP, name, filename, lineno, TelemetryZone::Color::Yellow );
+		t_activeTaskletZoneStore->second.emplace( TMCM_CPP, name, filename, lineno, Color::Yellow );
 //		CCP_LOG_CH( s_ch, "[Fiber %p] [Store %p] [Zone %p] Enter", t_activeFiber, t_activeTaskletZoneStore, &t_activeTaskletZoneStore->second.top() );
 	}
 }
