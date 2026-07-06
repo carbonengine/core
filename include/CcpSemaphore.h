@@ -16,7 +16,7 @@
 #include "CcpTelemetry.h"
 
 // Simple wrapper for a semaphore
-class CARBON_CORE_API CcpSemaphore
+class CcpSemaphore
 {
 public:
 	// Preferred constructors, containing semaphoreName (an identifier used by telemetry tool)
@@ -27,20 +27,20 @@ public:
 	// on the deprecated constructor, ambiguous (because the literal `0` is a null pointer
 	// convertible to `const char*`).
 	// Splitting the overloads avoids that ambiguity while keeping source compatibility.
-	CcpSemaphore( const char* semaphoreName, uint32_t initialCount, uint32_t maximumCount );
-	explicit CcpSemaphore( const char* semaphoreName );
+	CARBON_CORE_API CcpSemaphore( const char* semaphoreName, uint32_t initialCount, uint32_t maximumCount );
+	CARBON_CORE_API explicit CcpSemaphore( const char* semaphoreName );
 
 	[[deprecated( "Use `CcpSemaphore( const char* semaphoreName, ... )` instead" )]]
-	CcpSemaphore();
+	CARBON_CORE_API CcpSemaphore();
 
 	[[deprecated( "Use `CcpSemaphore( const char* semaphoreName, ... )` instead" )]]
-	CcpSemaphore( uint32_t initialCount, uint32_t maximumCount );
+	CARBON_CORE_API CcpSemaphore( uint32_t initialCount, uint32_t maximumCount );
 
-	~CcpSemaphore();
+	CARBON_CORE_API ~CcpSemaphore();
 
-	bool Wait();
-	bool TimedWait( uint32_t timeoutInMs );
-	void Signal();
+	CARBON_CORE_API bool Wait();
+	CARBON_CORE_API bool TimedWait( uint32_t timeoutInMs );
+	CARBON_CORE_API void Signal();
 
 	// Don't allow copy/assignment
 	CcpSemaphore( const CcpSemaphore& ) = delete;
