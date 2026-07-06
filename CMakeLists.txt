@@ -136,6 +136,11 @@ endif()
 target_compile_definitions(CcpCore PRIVATE PLATFORM_TOOLSET=${CCP_TOOLSET})
 target_compile_definitions(CcpCore PUBLIC CCP_ASSERT_ENABLED=$<NOT:$<CONFIG:Release>>)
 
+if(WIN32)
+    # Prevent min/max macros being defined (in windows.h) that conflict with std::min/max ones.
+    target_compile_definitions(CcpCore PRIVATE NOMINMAX)
+endif()
+
 target_include_directories(CcpCore
     PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
