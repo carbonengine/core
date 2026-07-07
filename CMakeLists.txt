@@ -61,6 +61,7 @@ set(PUBLIC_HEADER_FILES
         include/CCPAssert.h
         include/CcpAtomic.h
         include/CCPCallstack.h
+        include/CcpColorConstants.h
         include/CcpCore.h
         include/CcpCrash.h
         include/CcpDefines.h
