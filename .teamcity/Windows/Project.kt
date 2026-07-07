@@ -25,10 +25,10 @@ val Internal = CarbonBuildWindows("Internal Windows", "Internal", "x64-windows-i
 val TrinityDev = CarbonBuildWindows("TrinityDev Windows", "TrinityDev", "x64-windows-trinitydev", "-arch=x64 -vcvars_ver=14.1")
 val Release = CarbonBuildWindows("Release Windows", "Release", "x64-windows-release", "-arch=x64 -vcvars_ver=14.1")
 
-val Debug_v145 = CarbonBuildWindows("Debug Windows", "Debug", "x64-windows-v145-debug")
-val Internal_v145 = CarbonBuildWindows("Internal Windows", "Internal", "x64-windows-v145-internal")
-val TrinityDev_v145 = CarbonBuildWindows("TrinityDev Windows", "TrinityDev", "x64-windows-v145-trinitydev")
-val Release_v145 = CarbonBuildWindows("Release Windows", "Release", "x64-windows-v145-release")
+val Debug_v145 = CarbonBuildWindows("Debug Windows v145", "Debug", "x64-windows-v145-debug")
+val Internal_v145 = CarbonBuildWindows("Internal Windows v145", "Internal", "x64-windows-v145-internal")
+val TrinityDev_v145 = CarbonBuildWindows("TrinityDev Windows v145", "TrinityDev", "x64-windows-v145-trinitydev")
+val Release_v145 = CarbonBuildWindows("Release Windows v145", "Release", "x64-windows-v145-release")
 
 object Project : Project({
     id("Windows")
