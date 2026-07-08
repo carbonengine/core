@@ -39,10 +39,6 @@ class Publish(perforce_publish_path: String) : BuildType({
         param("env.TC_PERFORCE_PATH_TO_PUBLISH_INTO", "%perforce_path_to_publish_into%")
         param("env.EXECUTABLE_FILENAMES_MATCH", "")
 
-        select("reverse.dep.*.VS_DEV_BAT_SWITCHES", "-arch=x64", label="Switches for VSDEV_BAT script (for selecting an MSVC toolchain)",
-            options = listOf(
-                "v145" to "-arch=x64",
-                "v141" to "-arch=x64 -vcvars_ver=14.1"))
         text("reverse.dep.*.carbon_ref", "", label = "Ref  Carbon Component", description = "REF for carbon component e.g. refs/heads/main or refs/tags/v1.0.0 or refs/heads/frontier", display = ParameterDisplay.PROMPT, allowEmpty = true)
     }
 

@@ -20,15 +20,15 @@ import jetbrains.buildServer.configs.kotlin.triggers.vcs
 import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
 import jetbrains.buildServer.configs.kotlin.buildFeatures.provideAwsCredentials
 
-val Debug = CarbonBuildWindows("Debug Windows", "Debug", "x64-windows-debug", "-arch=x64 -vcvars_ver=14.1")
-val Internal = CarbonBuildWindows("Internal Windows", "Internal", "x64-windows-internal", "-arch=x64 -vcvars_ver=14.1")
-val TrinityDev = CarbonBuildWindows("TrinityDev Windows", "TrinityDev", "x64-windows-trinitydev", "-arch=x64 -vcvars_ver=14.1")
-val Release = CarbonBuildWindows("Release Windows", "Release", "x64-windows-release", "-arch=x64 -vcvars_ver=14.1")
+val Debug = CarbonBuildWindows("Debug Windows", "Debug", "x64-windows-debug")
+val Internal = CarbonBuildWindows("Internal Windows", "Internal", "x64-windows-internal")
+val TrinityDev = CarbonBuildWindows("TrinityDev Windows", "TrinityDev", "x64-windows-trinitydev")
+val Release = CarbonBuildWindows("Release Windows", "Release", "x64-windows-release")
 
-val Debug_v145 = CarbonBuildWindows("Debug Windows v145", "Debug", "x64-windows-v145-debug")
-val Internal_v145 = CarbonBuildWindows("Internal Windows v145", "Internal", "x64-windows-v145-internal")
-val TrinityDev_v145 = CarbonBuildWindows("TrinityDev Windows v145", "TrinityDev", "x64-windows-v145-trinitydev")
-val Release_v145 = CarbonBuildWindows("Release Windows v145", "Release", "x64-windows-v145-release")
+val Debug_v145 = CarbonBuildWindows("Debug Windows v145", "Debug", "x64-windows-v145-debug", "14.51")
+val Internal_v145 = CarbonBuildWindows("Internal Windows v145", "Internal", "x64-windows-v145-internal", "14.51")
+val TrinityDev_v145 = CarbonBuildWindows("TrinityDev Windows v145", "TrinityDev", "x64-windows-v145-trinitydev", "14.51")
+val Release_v145 = CarbonBuildWindows("Release Windows v145", "Release", "x64-windows-v145-release", "14.51")
 
 object Project : Project({
     id("Windows")
@@ -46,7 +46,7 @@ object Project : Project({
 })
 
 
-class CarbonBuildWindows(buildName: String, configType: String, preset: String, vsDevBatSwitches: String = "-arch=x64") : BuildType({
+class CarbonBuildWindows(buildName: String, configType: String, preset: String, vcversion: String = "14.1") : BuildType({
     id(buildName.toId())
     this.name = buildName
 
@@ -56,7 +56,7 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String, 
         param("env.GIT_TAG_HASH_OVERRIDE", "")
         param("github_checkout_folder", "github")
         param("env.CTEST_JUNIT_OUTPUT_FILE", "ctest_results.xml")
-        param("VS_DEV_BAT_SWITCHES", vsDevBatSwitches)
+        param("VS_DEV_BAT_SWITCHES", "-arch=x64 -vcvars_ver=$vcversion")
         param("env.CMAKE_BUILD_TARGETS", "all")
         param("env.CMAKE_INSTALL_PREFIX", ".build-artifact")
         param("env.CMAKE_CONFIG_TYPE", configType)
