@@ -365,7 +365,7 @@ const std::string& CcpTelemetryGetActiveFiber()
 	return *t_activeFiber;
 }
 
-TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, Color color ) : m_impl(std::make_unique<Private>())
+TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, CcpColor color ) : m_impl(std::make_unique<Private>())
 {
 	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
 	{
@@ -419,7 +419,7 @@ void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, u
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started )
 	{
 		t_manuallyTrackedZones.emplace( key );
-		t_activeTaskletZoneStore->second.emplace( TMCM_CPP, name, filename, lineno, Color::Yellow );
+		t_activeTaskletZoneStore->second.emplace( TMCM_CPP, name, filename, lineno, CcpColor::Yellow );
 //		CCP_LOG_CH( s_ch, "[Fiber %p] [Store %p] [Zone %p] Enter", t_activeFiber, t_activeTaskletZoneStore, &t_activeTaskletZoneStore->second.top() );
 	}
 }
