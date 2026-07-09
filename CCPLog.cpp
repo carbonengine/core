@@ -10,12 +10,15 @@
 	#include <windows.h>
 #endif
 
+constexpr size_t LOG_ERROR_BUFFER_SIZE = 256;
+constexpr size_t LOG_LOCAL_BUFFER_SIZE = 256;
 constexpr size_t LARGE_BUFFER_SIZE = 65535;
+
 char s_largeBuffer[LARGE_BUFFER_SIZE]{};
 
 namespace
 {
-	char s_lastError[ 256 ] = "";
+	char s_lastError[ LOG_ERROR_BUFFER_SIZE ] = "";
 
 	struct LogEchoFuncEntry
 	{
@@ -214,7 +217,7 @@ CARBON_CORE_API void LogFuncChannel_v( CcpLogChannel_t& logObject, LogType type,
     va_copy( argCopy2, args );
 #endif
     
-	char localBuffer[256];
+	char localBuffer[LOG_LOCAL_BUFFER_SIZE];
 	char* output = localBuffer;
 	if ( vsnprintf( localBuffer, std::extent_v<decltype(localBuffer)>, format, args ) > ( std::extent_v<decltype(localBuffer)> - 1 ) )
 	{
@@ -230,7 +233,7 @@ CARBON_CORE_API void LogFuncChannel_v( CcpLogChannel_t& logObject, LogType type,
 
 		output = s_largeBuffer;
 		vsnprintf( output, std::extent_v<decltype(s_largeBuffer)>, format, argCopy2 );
-		assert( s_largeBuffer[LARGE_BUFFER_SIZE] == '\0' );
+		assert( s_largeBuffer[LARGE_BUFFER_SIZE - 1] == '\0' );
 	}
 
 	LogFuncChannelRaw( logObject, type, userData, output );
