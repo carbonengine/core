@@ -10,7 +10,8 @@
 	#include <windows.h>
 #endif
 
-char s_largeBuffer[65535]{};
+constexpr size_t LARGE_BUFFER_SIZE = 65535;
+char s_largeBuffer[LARGE_BUFFER_SIZE]{};
 
 namespace
 {
@@ -229,7 +230,7 @@ CARBON_CORE_API void LogFuncChannel_v( CcpLogChannel_t& logObject, LogType type,
 
 		output = s_largeBuffer;
 		vsnprintf( output, std::extent_v<decltype(s_largeBuffer)>, format, argCopy2 );
-		assert( s_largeBuffer[65534] == '\0' );
+		assert( s_largeBuffer[LARGE_BUFFER_SIZE] == '\0' );
 	}
 
 	LogFuncChannelRaw( logObject, type, userData, output );
