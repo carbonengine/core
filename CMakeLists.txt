@@ -20,6 +20,7 @@ set(SRC_FILES
         CcpCore.cpp
         CCPAssert.cpp
         CCPCallstack.cpp
+        CcpColorConstants.cpp
         CCPDefines.cpp
         CcpFileUtils.cpp
         CCPHash.cpp

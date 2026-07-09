@@ -33,6 +33,19 @@
 
 CARBON_CORE_API void CcpRegisterThread( CcpThreadId_t threadId, const char* name );
 
+// ---------------------------------------------------------------------------
+// CaptureMasks:
+// - CaptureMask(s) are used to determine if a given Zone should be emitted to
+//   Telemetry tracking or not based on its origin, i.e. carbon component.
+// - Each carbon component, core/blue/scheduler/etc..., will register for a
+//   CaptureMask with their chosen "component display name" and be assigned an
+//   available CaptureMask bit from a 64bit integer mask.
+// - A Telemetry display color is also associated with the chosen CaptureMask bit,
+//   either manually or automatically allocated based on "best available fit".
+// ---------------------------------------------------------------------------
+CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name );
+CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name, Color color );
+
 struct CcpTelemetryConfig
 {
 	std::string applicationName;

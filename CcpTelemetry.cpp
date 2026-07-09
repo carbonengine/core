@@ -1,9 +1,11 @@
 // Copyright © 2013 CCP ehf.
 
+#include <cctype>
 #include <optional>
 #include <queue>
 
 #include "include/CCPAssert.h"
+#include "include/CcpMutex.h"
 #include "include/CcpTelemetry.h"
 #include "include/CcpTime.h"
 
@@ -60,6 +62,17 @@ typedef TrackableStdMap<CcpMutex*, std::pair<const char*,const char*>> MutexName
 typedef TrackableStdMap<CcpThreadId_t , const char*> ThreadNameMap_t;
 typedef TrackableStdVector<std::pair<CcpOnTelemetryEventHandler, void*>> EventHandlerVector_t;
 
+// -------------------------------
+// CaptureMask specifics:
+// -------------------------------
+struct CaptureMaskEntry
+{
+	uint64_t maskBit{0};
+	Color color{Color::White};
+};
+
+typedef TrackableStdMap<std::string, CaptureMaskEntry> CaptureMaskMap_t;
+
 namespace
 {
 	uint32_t s_telemetryTick = 0;
@@ -83,6 +96,85 @@ namespace
 		static EventHandlerVector_t s_eventHandlers( "CcpTelemetry/s_eventHandlers" );
 		return s_eventHandlers;
 	}
+
+	// -------------------------------
+	// CaptureMask specifics:
+	// -------------------------------
+	CcpMutex s_captureMaskMutex( "CcpTelemetry", "CaptureMaskMutex" );
+
+	uint64_t s_allocatedCaptureMaskBits = 0;
+
+	uint64_t RegisterCaptureMask( const std::string& name, std::optional<Color> color )
+	{
+		static CaptureMaskMap_t s_captureMasks( "CcpTelemetry/s_captureMasks" );
+
+		// Make sure to guard write access to both s_captureMasks and s_allocatedCaptureMaskBits
+		CcpAutoMutex lock( s_captureMaskMutex );
+
+		if( s_allocatedCaptureMaskBits == 0 )
+		{
+			// The default capture masks (used by components that haven't added CaptureMask support yet)
+			// must be registered and available from the start.
+			s_captureMasks["general"] = CaptureMaskEntry{ TMCM_GENERAL, Color::SteelBlue };
+			s_captureMasks["cpp"] = CaptureMaskEntry{ TMCM_CPP, Color::Yellow };
+			s_allocatedCaptureMaskBits = TMCM_GENERAL | TMCM_CPP;
+		}
+
+		if( name.empty() )
+		{
+			CCP_LOGERR_CH( s_ch, "Cannot register a capture mask without a name" );
+			return 0;
+		}
+
+		std::string lowerName( name );
+		std::transform( lowerName.begin(), lowerName.end(), lowerName.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
+
+		// Explicitly allow change of color on an existing captureMask entry
+		auto existing = s_captureMasks.find( lowerName );
+		if( existing != s_captureMasks.end() )
+		{
+			if( color )
+			{
+				existing->second.color = *color;
+			}
+			return existing->second.maskBit;
+		}
+
+		if( ~s_allocatedCaptureMaskBits == 0 )
+		{
+			CCP_LOGERR_CH( s_ch, "Cannot register capture mask '%s' - all 64 capture mask bits are already in use", lowerName.c_str() );
+			return 0;
+		}
+
+		// Allocate the lowest free bit
+		const uint64_t maskBit = ~s_allocatedCaptureMaskBits & ( s_allocatedCaptureMaskBits + 1 );
+
+		if( !color )
+		{
+			std::vector<Color> existingColors;
+			existingColors.reserve( s_captureMasks.size() );
+			for( const auto& entry : s_captureMasks )
+			{
+				existingColors.push_back( entry.second.color );
+			}
+			color = CcpColor::PickDistinctColor( existingColors );
+		}
+
+		s_captureMasks[lowerName] = CaptureMaskEntry{ maskBit, *color };
+		s_allocatedCaptureMaskBits |= maskBit;
+		CCP_LOGWARN_CH( s_ch, "Registered a new CaptureMask for '%s' -> 0x%llx with color %s", lowerName.c_str(), static_cast<unsigned long long>( maskBit ), CcpColorToString( *color ).c_str() );
+		return maskBit;
+	}
+}
+
+uint64_t CcpRegisterCaptureMask( const std::string& name )
+{
+	return RegisterCaptureMask( name, std::nullopt );
+}
+
+uint64_t CcpRegisterCaptureMask( const std::string& name, Color color )
+{
+	return RegisterCaptureMask( name, color );
 }
 
 bool CcpTelemetryIsConnected()
@@ -479,6 +571,16 @@ bool CcpTelemetryLockTrackingIsEnabled()
 
 void CcpRegisterThread( CcpThreadId_t threadId, const char* name )
 {
+}
+
+uint64_t CcpRegisterCaptureMask( const std::string& )
+{
+	return 0;
+}
+
+uint64_t CcpRegisterCaptureMask( const std::string&, Color )
+{
+	return 0;
 }
 
 bool CcpStartTelemetry( const char* server, int connectionType, uint32_t maxThreadCount )

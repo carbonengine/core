@@ -1,5 +1,14 @@
+// Copyright © 2026 Fenris Creations.
+
+#pragma once
 #ifndef CCP_COLOR_CONSTANTS_H
 #define CCP_COLOR_CONSTANTS_H
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "carbon_core_export.h"
 
 // Useful RGB color constants
 // Initially based on the <named-color> type of CSS standard, see https://www.w3.org/TR/css-color-4/#named-colors.
@@ -154,5 +163,210 @@ enum class Color : uint32_t
 	Yellow = 0xffff00,
 	YellowGreen = 0x9acd32,
 };
+
+// Return the name of the color.
+// For colors with the same RGB value (e.g. Aqua/Cyan, Gray/Grey),
+// the first name declared in Color enum class is returned.
+CARBON_CORE_API std::string CcpColorToString( Color color );
+
+namespace CcpColor
+{
+// Decompose a Color into its 8-bit red, green and blue components.
+static inline void ToRgb( Color color, int& r, int& g, int& b )
+{
+	const uint32_t value = static_cast<uint32_t>( color );
+	r = static_cast<int>( ( value >> 16 ) & 0xff );
+	g = static_cast<int>( ( value >> 8 ) & 0xff );
+	b = static_cast<int>( value & 0xff );
+}
+
+// Find the squared Euclidean distance between two colors in RGB space.
+static inline int64_t GetSquaredDistance( Color lhs, Color rhs )
+{
+	int r1, g1, b1;
+	int r2, g2, b2;
+	ToRgb( lhs, r1, g1, b1 );
+	ToRgb( rhs, r2, g2, b2 );
+	const int64_t dr = r1 - r2;
+	const int64_t dg = g1 - g2;
+	const int64_t db = b1 - b2;
+	return dr * dr + dg * dg + db * db;
+}
+
+// All named colors, used as candidates when picking a display color.
+// NOTE:
+// - Remove a color from this list if you don't want it to be selected
+//   when automatically picking a display color for a new CaptureMask entry.
+static constexpr Color s_awailableNamedColors[] = {
+	//Color::AliceBlue,
+	Color::AntiqueWhite,
+	Color::Aqua /* == Cyan */,
+	Color::Aquamarine,
+	//Color::Azure,
+	Color::Beige,
+	Color::Bisque,
+	//Color::Black,
+	Color::BlanchedAlmond,
+	Color::Blue,
+	Color::BlueViolet,
+	Color::Brown,
+	Color::BurlyWood,
+	Color::CadetBlue,
+	Color::Chartreuse,
+	Color::Chocolate,
+	Color::Coral,
+	Color::CornflowerBlue,
+	Color::Cornsilk,
+	Color::Crimson,
+	Color::DarkBlue,
+	Color::DarkCyan,
+	Color::DarkGoldenrod,
+	//Color::DarkGray /* == DarkGrey */,
+	Color::DarkGreen,
+	Color::DarkKhaki,
+	Color::DarkMagenta,
+	Color::DarkOliveGreen,
+	Color::DarkOrange,
+	Color::DarkOrchid,
+	Color::DarkRed,
+	Color::DarkSalmon,
+	Color::DarkSeaGreen,
+	Color::DarkSlateBlue,
+	Color::DarkSlateGray /* == DarkSlateGrey */,
+	Color::DarkTurquoise,
+	Color::DarkViolet,
+	Color::DeepPink,
+	Color::DeepSkyBlue,
+	//Color::DimGray /* == DimGrey */,
+	Color::DodgerBlue,
+	Color::FireBrick,
+	//Color::FloralWhite,
+	Color::ForestGreen,
+	Color::Fuchsia /* == Magenta */,
+	Color::Gainsboro,
+	//Color::GhostWhite,
+	Color::Gold,
+	Color::Goldenrod,
+	//Color::Gray /* == Grey */,
+	Color::Green,
+	Color::GreenYellow,
+	Color::Honeydew,
+	Color::HotPink,
+	Color::IndianRed,
+	Color::Indigo,
+	//Color::Ivory,
+	Color::Khaki,
+	Color::Lavender,
+	Color::LavenderBlush,
+	Color::LawnGreen,
+	Color::LemonChiffon,
+	Color::LightBlue,
+	Color::LightCoral,
+	Color::LightCyan,
+	Color::LightGoldenrodYellow,
+	Color::LightGray /* == LightGrey */,
+	Color::LightGreen,
+	Color::LightPink,
+	Color::LightSalmon,
+	Color::LightSeaGreen,
+	Color::LightSkyBlue,
+	Color::LightSlateGray /* == LightSlateGrey */,
+	Color::LightSteelBlue,
+	Color::LightYellow,
+	Color::Lime,
+	Color::LimeGreen,
+	Color::Linen,
+	Color::Maroon,
+	Color::MediumAquamarine,
+	Color::MediumBlue,
+	Color::MediumOrchid,
+	Color::MediumPurple,
+	Color::MediumSeaGreen,
+	Color::MediumSlateBlue,
+	Color::MediumSpringGreen,
+	Color::MediumTurquoise,
+	Color::MediumVioletRed,
+	Color::MidnightBlue,
+	//Color::MintCream,
+	Color::MistyRose,
+	Color::Moccasin,
+	Color::NavajoWhite,
+	Color::Navy,
+	Color::OldLace,
+	Color::Olive,
+	Color::OliveDrab,
+	Color::Orange,
+	Color::OrangeRed,
+	Color::Orchid,
+	Color::PaleGoldenrod,
+	Color::PaleGreen,
+	Color::PaleTurquoise,
+	Color::PaleVioletRed,
+	Color::PapayaWhip,
+	Color::PeachPuff,
+	Color::Peru,
+	Color::Pink,
+	Color::Plum,
+	Color::PowderBlue,
+	Color::Purple,
+	Color::RebeccaPurple,
+	Color::Red,
+	Color::RosyBrown,
+	Color::RoyalBlue,
+	Color::SaddleBrown,
+	Color::Salmon,
+	Color::SandyBrown,
+	Color::SeaGreen,
+	//Color::SeaShell,
+	Color::Sienna,
+	Color::Silver,
+	Color::SkyBlue,
+	Color::SlateBlue,
+	Color::SlateGray /* == SlateGrey */,
+	//Color::Snow,
+	Color::SpringGreen,
+	Color::SteelBlue,
+	Color::Tan,
+	Color::Teal,
+	Color::Thistle,
+	Color::Tomato,
+	Color::Turquoise,
+	Color::Violet,
+	Color::Wheat,
+	//Color::White,
+	//Color::WhiteSmoke,
+	Color::Yellow,
+	Color::YellowGreen,
+};
+
+// Pick a display color from the s_awailableNamedColors list above
+// that are reasonably distinct from incoming existingColors.
+// Candidates are scored by their distance to existingColors and
+// the color furthest away wins.
+static inline Color PickDistinctColor( const std::vector<Color>& existingColors )
+{
+	Color bestColor = Color::SteelBlue;
+	int64_t bestScore = -1;
+	for( const Color candidate : s_awailableNamedColors )
+	{
+		int64_t minDistance = INT64_MAX;
+		for( const Color existing : existingColors )
+		{
+			const int64_t dist = GetSquaredDistance( candidate, existing );
+			if( dist < minDistance )
+			{
+				minDistance = dist;
+			}
+		}
+
+		if( minDistance > bestScore )
+		{
+			bestScore = minDistance;
+			bestColor = candidate;
+		}
+	}
+	return bestColor;
+}
+}
 
 #endif

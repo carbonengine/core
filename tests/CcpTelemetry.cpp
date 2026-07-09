@@ -539,3 +539,51 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreTimedWaitTimesOut )
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 0, lockInfo.releaseCount );
 }
+
+// ---------------------------------------------------------------------------
+// CaptureMask tests:
+// ---------------------------------------------------------------------------
+bool IsSCaptureMaskSingleBit( uint64_t mask )
+{
+	return mask != 0 && ( mask & ( mask - 1 ) ) == 0;
+}
+
+TEST_F( CcpTelemetryTest, CaptureMaskRegisterAllocatesSingleFreeBit )
+{
+	const uint64_t maskBit = CcpRegisterCaptureMask( "capturemasktest_component_a" );
+	EXPECT_TRUE( IsSCaptureMaskSingleBit( maskBit ) );
+	// TMCM_GENERAL and TMCM_CPP are registered as the default CaptureMasks, so their
+	// bits must never be handed out to other components.
+	EXPECT_EQ( 0, maskBit & ( TMCM_GENERAL | TMCM_CPP ) );
+}
+
+TEST_F( CcpTelemetryTest, CaptureMaskRegisterIsCaseInsensitive )
+{
+	const uint64_t firstBit = CcpRegisterCaptureMask( "CaptureMaskTest_Component_B" );
+	const uint64_t secondBit = CcpRegisterCaptureMask( "capturemasktest_component_b" );
+	EXPECT_TRUE( IsSCaptureMaskSingleBit( firstBit ) );
+	EXPECT_EQ( firstBit, secondBit );
+}
+
+TEST_F( CcpTelemetryTest, CaptureMaskRegisterDistinctBitPerName )
+{
+	const uint64_t maskBitC = CcpRegisterCaptureMask( "capturemasktest_component_c" );
+	const uint64_t maskBitD = CcpRegisterCaptureMask( "capturemasktest_component_d", Color::Tomato );
+	EXPECT_TRUE( IsSCaptureMaskSingleBit( maskBitC ) );
+	EXPECT_TRUE( IsSCaptureMaskSingleBit( maskBitD ) );
+	EXPECT_NE( maskBitC, maskBitD );
+}
+
+TEST_F( CcpTelemetryTest, CaptureMaskRegisterRejectEmpty )
+{
+	EXPECT_EQ( 0, CcpRegisterCaptureMask( "" ) );
+}
+
+TEST_F( CcpTelemetryTest, CaptureMaskDefaultsAreRegistered )
+{
+	// TODO: Change this test to check values from the GetCaptureMasks() function once it's ready
+	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), CcpRegisterCaptureMask( "general", Color::Black ) );
+	EXPECT_EQ( static_cast<uint64_t>( TMCM_CPP ), CcpRegisterCaptureMask( "cpp" ) );
+	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), CcpRegisterCaptureMask( "GENERAL", Color::White ) );
+}
+
