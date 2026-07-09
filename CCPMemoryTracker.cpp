@@ -3,6 +3,7 @@
 // See http://core/wiki/Memory_Tracking
 
 #include "include/CCPMemoryTracker.h"
+#include "include/CCPMemory.h"
 #include "include/CcpMutex.h"
 
 #include <map>

@@ -1,6 +1,8 @@
 // Copyright © 2025 CCP ehf.
 #include "TracyTestClient.h"
 
+#include <algorithm>
+#include <cassert>
 #include <chrono>
 #include <cstring>
 #include <lz4.h>
@@ -253,6 +255,38 @@ std::vector<std::string> TracyTestClient::GetFiberNames() const
     return names;
 }
 
+std::vector<TracyTestClient::LockInfo> TracyTestClient::GetAllLocks() const
+{
+    std::lock_guard<std::mutex> lock( m_dataMutex );
+    std::vector<LockInfo> result;
+    result.reserve( m_locks.size() );
+    for( const auto& [id, info] : m_locks )
+        result.push_back( info );
+    return result;
+}
+
+std::vector<TracyTestClient::LockInfo> TracyTestClient::GetActiveLocks() const
+{
+    std::lock_guard<std::mutex> lock( m_dataMutex );
+    std::vector<LockInfo> result;
+    for( const auto& [id, info] : m_locks )
+    {
+        if( !info.terminated )
+            result.push_back( info );
+    }
+    return result;
+}
+
+bool TracyTestClient::TryGetLock( uint32_t id, LockInfo& outLock ) const
+{
+    std::lock_guard<std::mutex> lock( m_dataMutex );
+    auto it = m_locks.find( id );
+    if( it == m_locks.end() )
+        return false;
+    outLock = it->second;
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // Private helpers
 // ---------------------------------------------------------------------------
@@ -323,6 +357,24 @@ TracyTestClient::ZoneStack& TracyTestClient::CurrentStack( uint32_t thread )
     if( fiberIt != m_threadCurrentFiber.end() && fiberIt->second != 0 )
         return m_fiberZoneStacks[fiberIt->second];
     return m_threadZoneStacks[thread];
+}
+
+TracyTestClient::LockInfo& TracyTestClient::GetOrCreateLockById( uint32_t id )
+{
+    auto& info = m_locks[id];
+    info.id = id;
+    return info;
+}
+
+void TracyTestClient::RequestLockString( uint64_t ptr, uint32_t lockId, int field )
+{
+    auto& pending = m_pendingLockStrings[ptr];
+    // Several locks can share a string pointer (e.g. the source file); query the
+    // profiler only once per pointer while a reply is outstanding.
+    const bool alreadyQueried = !pending.empty();
+    pending.push_back( { lockId, field } );
+    if( !alreadyQueried )
+        SendQueryLocked( tracy::ServerQueryString, ptr );
 }
 
 // Parse the decompressed byte stream and update internal state.
@@ -399,6 +451,29 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     std::lock_guard<std::mutex> lock( m_dataMutex );
                     m_fiberNames[strPtr] = std::move( name );
                 }
+                else if( idx == QueueIdx( tracy::QueueType::StringData ) )
+                {
+                    // Reply to a ServerQueryString we sent while resolving a
+                    // lock source location; strPtr echoes the queried pointer.
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    auto pendingIt = m_pendingLockStrings.find( strPtr );
+                    if( pendingIt != m_pendingLockStrings.end() )
+                    {
+                        const std::string value( ptr, strSz );
+                        for( const auto& target : pendingIt->second )
+                        {
+                            auto& info = GetOrCreateLockById( target.lockId );
+                            switch( target.field )
+                            {
+                            case 0: info.name = value; break;
+                            case 1: info.function = value; break;
+                            case 2: info.source = value; break;
+                            default: break;
+                            }
+                        }
+                        m_pendingLockStrings.erase( pendingIt );
+                    }
+                }
 
                 ptr += strSz;
             }
@@ -415,6 +490,10 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                 std::memcpy( &strSz, ptr, sizeof( strSz ) );
                 ptr += sizeof( strSz );
                 if( ptr + strSz > end ) return;
+                // Remember the payload: fat-pointer items (e.g. LockName) are
+                // preceded by a SingleStringData event carrying their string.
+                if( idx == QueueIdx( tracy::QueueType::SingleStringData ) )
+                    m_pendingSingleString.assign( ptr, strSz );
                 ptr += strSz;
             }
             else
@@ -456,6 +535,88 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     auto& stack = CurrentStack( thread );
                     if( !stack.empty() )
                         stack.pop_back();
+                    break;
+                }
+
+                case tracy::QueueType::LockAnnounce:
+                {
+                    m_lockAnnounceCount.fetch_add( 1, std::memory_order_relaxed );
+                    const uint32_t lockId = item->lockAnnounce.id;
+                    const uint64_t srcloc = item->lockAnnounce.lckloc;
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    GetOrCreateLockById( lockId );
+                    // Resolve the announce call site. The reply carries no request
+                    // pointer, so remember which lock the next reply belongs to.
+                    m_pendingLockSrcLocs.push_back( lockId );
+                    SendQueryLocked( tracy::ServerQuerySourceLocation, srcloc );
+                    break;
+                }
+
+                case tracy::QueueType::LockTerminate:
+                {
+                    m_lockTerminateCount.fetch_add( 1, std::memory_order_relaxed );
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    GetOrCreateLockById( item->lockTerminate.id ).terminated = true;
+                    break;
+                }
+
+                case tracy::QueueType::LockWait:
+                {
+                    m_lockWaitCount.fetch_add( 1, std::memory_order_relaxed );
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    auto& info = GetOrCreateLockById( item->lockWait.id );
+                    ++info.waitCount;
+                    info.waitingThreads.push_back( item->lockWait.thread );
+                    break;
+                }
+
+                case tracy::QueueType::LockObtain:
+                {
+                    m_lockObtainCount.fetch_add( 1, std::memory_order_relaxed );
+                    const uint32_t thread = item->lockObtain.thread;
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    auto& info = GetOrCreateLockById( item->lockObtain.id );
+                    ++info.obtainCount;
+                    info.holderThread = thread;
+                    auto& waiting = info.waitingThreads;
+                    auto waitIt = std::find( waiting.begin(), waiting.end(), thread );
+                    if( waitIt != waiting.end() )
+                        waiting.erase( waitIt );
+                    break;
+                }
+
+                case tracy::QueueType::LockRelease:
+                {
+                    m_lockReleaseCount.fetch_add( 1, std::memory_order_relaxed );
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    auto& info = GetOrCreateLockById( item->lockRelease.id );
+                    ++info.releaseCount;
+                    info.holderThread = 0;
+                    break;
+                }
+
+                case tracy::QueueType::LockName:
+                {
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    GetOrCreateLockById( item->lockName.id ).name = m_pendingSingleString;
+                    break;
+                }
+
+                case tracy::QueueType::SourceLocation:
+                {
+                    std::lock_guard<std::mutex> lock( m_dataMutex );
+                    if( !m_pendingLockSrcLocs.empty() )
+                    {
+                        const uint32_t lockId = m_pendingLockSrcLocs.front();
+                        m_pendingLockSrcLocs.pop_front();
+                        GetOrCreateLockById( lockId ).line = item->srcloc.line;
+                        if( item->srcloc.name != 0 )
+                            RequestLockString( item->srcloc.name, lockId, 0 );
+                        if( item->srcloc.function != 0 )
+                            RequestLockString( item->srcloc.function, lockId, 1 );
+                        if( item->srcloc.file != 0 )
+                            RequestLockString( item->srcloc.file, lockId, 2 );
+                    }
                     break;
                 }
 

@@ -6,35 +6,48 @@
 #define CcpSemaphore_h
 
 #ifdef _WIN32
-#include <windows.h>
+	#include <windows.h>
 #elif defined(__APPLE__)
-#include <mach/task.h>
+	#include <mach/task.h>
 #else
-#include <semaphore.h>
+	#include <semaphore.h>
 #endif
 
-#include "carbon_core_export.h"
+#include "CcpTelemetry.h"
 
 // Simple wrapper for a semaphore
-class CARBON_CORE_API CcpSemaphore
+class CcpSemaphore
 {
 public:
-	CcpSemaphore();
-	CcpSemaphore( uint32_t initialCount, uint32_t maximumCount );
-	~CcpSemaphore();
+	// Preferred constructors, containing semaphoreName (an identifier used by telemetry tool)
+	// Note: The preferred constructors intentionally DON'T use default parameters.
+	// This is to avoid ambiguous overloads with the deprecated constructors below.
+	// A constructor with (const char* semaphoreName, uint32_t initialCount=0, uint32_t maximumCount=1)
+	// i.e. last two default parameters, would make calls such as `CcpSemaphore( 0, 1 )`,
+	// on the deprecated constructor, ambiguous (because the literal `0` is a null pointer
+	// convertible to `const char*`).
+	// Splitting the overloads avoids that ambiguity while keeping source compatibility.
+	CARBON_CORE_API CcpSemaphore( const char* semaphoreName, uint32_t initialCount, uint32_t maximumCount );
+	CARBON_CORE_API explicit CcpSemaphore( const char* semaphoreName );
 
-	bool Wait();
-	bool TimedWait( uint32_t timeoutInMs );
-	void Signal();
+	[[deprecated( "Use `CcpSemaphore( const char* semaphoreName, ... )` instead" )]]
+	CARBON_CORE_API CcpSemaphore();
+
+	[[deprecated( "Use `CcpSemaphore( const char* semaphoreName, ... )` instead" )]]
+	CARBON_CORE_API CcpSemaphore( uint32_t initialCount, uint32_t maximumCount );
+
+	CARBON_CORE_API ~CcpSemaphore();
+
+	CARBON_CORE_API bool Wait();
+	CARBON_CORE_API bool TimedWait( uint32_t timeoutInMs );
+	CARBON_CORE_API void Signal();
+
+	// Don't allow copy/assignment
+	CcpSemaphore( const CcpSemaphore& ) = delete;
+	CcpSemaphore& operator=( const CcpSemaphore& ) = delete;
 
 private:
-#ifdef _WIN32
-	HANDLE m_semaphore;
-#elif defined(__APPLE__)
-    semaphore_t m_semaphore;
-#else
-	sem_t m_semaphore;
-#endif
-
+	struct Private;
+	std::unique_ptr<Private> m_impl;
 };
 #endif // CcpSemaphore_h

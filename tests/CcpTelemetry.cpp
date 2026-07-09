@@ -2,8 +2,15 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <atomic>
+#include <cctype>
 #include <functional>
 #include <future>
+#include <mutex>
+#include <thread>
+
+#include <tracy/Tracy.hpp>
 
 #include <CcpCore.h>
 
@@ -62,11 +69,13 @@ protected:
 
 	void StartTelemetry( std::string appName = "Telemetry Tests",
 						 std::chrono::milliseconds duration = std::chrono::milliseconds::zero(),
-						 bool trackMemory = false )
+						 bool trackMemory = true,
+						 bool trackLocks = true )
 	{
 		CcpTelemetryConfig conf{ appName };
 		conf.captureDuration = duration;
 		conf.trackMemoryAllocations = trackMemory;
+		conf.trackLocks = trackLocks;
 		CcpStartTelemetry( conf );
 		// It may appear weird that this checks `TracyIsStarted`, but the reason is that the internal state machine
 		// in CcpTelemetry only advances to `CcpTelemetryIsStarted` once it _also_ has established a connection to
@@ -129,12 +138,38 @@ protected:
 		return tracyZones.end() != std::find_if( tracyZones.begin(), tracyZones.end(), pred );
 	}
 
+	// Helper for CcpMutex tests, finding  active locks by the given custom name.
+	// CcpMutex names its lock "<owner>-<name>" via EnsureTelemetryLockAnnounced helper function.
+	// Name arrives async shortly after announce event, call function from a TickTelemetry predicate.
+	// When a test is repeated within one process, Tracy replays earlier (terminated) locks having
+	// the same name, where the most recently announced lock wins by id.
+	bool TryGetActiveLockNamed( const std::string& name, TracyTestClient::LockInfo& outLock )
+	{
+		bool found = false;
+		for( const auto& lock : m_tracyClient.GetActiveLocks() )
+		{
+			if( lock.name == name && ( !found || lock.id > outLock.id ) )
+			{
+				outLock = lock;
+				found = true;
+			}
+		}
+		return found;
+	}
+
+	// Refreshes a previously identified lock by id.
+	bool TryGetLockById( uint32_t lockId, TracyTestClient::LockInfo& outLock )
+	{
+		return m_tracyClient.TryGetLock( lockId, outLock );
+	}
+
 	const std::string expectedNoFiber;
 	const std::string expectedFiberName1{ "TestFiber1" };
 	const std::string expectedFiberName2{ "TestFiber2" };
 
 	TracyTestClient m_tracyClient;
 };
+
 
 TEST_F( CcpTelemetryTest, TestFiberSwitching )
 {
@@ -159,6 +194,31 @@ TEST_F( CcpTelemetryTest, RemovingActiveFiberClearsIt )
 	CcpTelemetrySetActiveFiber( expectedFiberName1 );
 	CcpTelemetryRemoveFiber( expectedFiberName1 );
 	EXPECT_EQ( CcpTelemetryGetActiveFiber(), expectedNoFiber );
+}
+
+TEST_F( CcpTelemetryTest, RemainingCaptureDuration )
+{
+	// The test fixture starts telemetry without a specific capture duration.
+	// So the remaining capture duration is 0 milliseconds, no matter how long we tick.
+	EXPECT_EQ( CcpTelemetryRemainingCaptureDuration(), std::chrono::milliseconds( 0 ) );
+	TickTelemetry( nullptr, std::chrono::milliseconds( 100 ) );
+	EXPECT_EQ( CcpTelemetryRemainingCaptureDuration(), std::chrono::milliseconds( 0 ) );
+	StopTelemetry();
+
+	// Now start a timed capture
+	constexpr auto captureDuration = std::chrono::milliseconds( 500 );
+	constexpr auto waitDuration = std::chrono::milliseconds( 100 );
+	StartTelemetry( "Telemetry Tests", captureDuration );
+	TickTelemetry( [] { return CcpTelemetryIsConnected(); } );
+	// Compare to lower-equal because some milliseconds may have passed to perform the whole connection handshake and so on.
+	EXPECT_LE( CcpTelemetryRemainingCaptureDuration().count(), captureDuration.count() );
+	// A short tick to observe that remaining time counts down
+	TickTelemetry( nullptr, waitDuration );
+	EXPECT_LE( CcpTelemetryRemainingCaptureDuration().count(), ( captureDuration - waitDuration ).count() );
+	// Wait for the remaining time to expire
+	TickTelemetry( nullptr, captureDuration );
+	EXPECT_EQ( CcpTelemetryRemainingCaptureDuration(), std::chrono::milliseconds( 0 ) );
+	EXPECT_TRUE( CcpTelemetryIsStopped() );
 }
 
 TEST_F( CcpTelemetryTest, SimpleZoneTest )
@@ -242,4 +302,240 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	TickTelemetry();
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() );
+}
+
+
+// ---------------------------------------------------------------------------
+// CcpMutex / CcpAutoMutex
+// ---------------------------------------------------------------------------
+
+TEST_F( CcpTelemetryTest, CcpMutexAnnounceAndTerminate )
+{
+	TracyTestClient::LockInfo lockInfo;
+
+	// Scope the CcpMutex so we can see what happens on destruction.
+	{
+		std::string lockName = "CcpTelemetryTest-CcpMutexAnnounceAndTerminate";
+		CcpMutex mutex( "CcpTelemetryTest", "CcpMutexAnnounceAndTerminate" );
+		// Because `CcpMutex` lazily announces itself to tracy, we use `CcpAutoMutex` to automatically acquire and release the mutex.
+		CcpAutoMutex autoMutex( mutex );
+
+		// The custom name arrives almost immediately, but the source location
+		// resolves through extra server-query round trips; wait for both.
+		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && !lockInfo.source.empty(); } );
+		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+		EXPECT_FALSE( lockInfo.terminated );
+		// The owner and name passed to CcpMutex arrive combined as the custom lock name.
+		EXPECT_EQ( lockName, lockInfo.name );
+		EXPECT_TRUE( lockInfo.waitingThreads.empty() );
+		EXPECT_EQ( 1, lockInfo.waitCount );
+		EXPECT_EQ( 1, lockInfo.obtainCount );
+		EXPECT_EQ( 0, lockInfo.releaseCount );
+	}
+
+	// Destroying the mutex terminates its lock.
+	const uint32_t lockId = lockInfo.id;
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.terminated; } );
+	EXPECT_EQ( 1, lockInfo.releaseCount );
+	EXPECT_TRUE( lockInfo.terminated );
+}
+
+TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
+{
+	std::string lockName = "CcpTelemetryTest-CcpMutexAcquireAndRelease";
+	CcpMutex mutex( "CcpTelemetryTest", "CcpMutexAcquireAndRelease" );
+
+	TracyTestClient::LockInfo lockInfo;
+	mutex.Acquire();
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.obtainCount == 1; } );
+	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+	EXPECT_EQ( 1, lockInfo.waitCount );
+	EXPECT_EQ( 1, lockInfo.obtainCount );
+	EXPECT_EQ( 0, lockInfo.releaseCount );
+	EXPECT_TRUE( lockInfo.waitingThreads.empty() );
+
+	const uint32_t lockId = lockInfo.id;
+	mutex.Release();
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
+	EXPECT_EQ( 1, lockInfo.waitCount );
+	EXPECT_EQ( 1, lockInfo.obtainCount );
+	EXPECT_EQ( 1, lockInfo.releaseCount );
+}
+
+// A acquires the CcpMutex, B waits, A releases, B acquires and releases.
+TEST_F( CcpTelemetryTest, CcpMutexContentionAcrossThreads )
+{
+	std::string lockName = "CcpTelemetryTest-CcpMutexContentionAcrossThreads";
+	CcpMutex mutex( "CcpTelemetryTest", "CcpMutexContentionAcrossThreads" );
+	TracyTestClient::LockInfo lockInfo;
+
+	// Thread A acquires the mutex and holds it until we tell it to release.
+	// The locking must happen on worker threads so that this thread can keep
+	// ticking the telemetry while the mutex is being held / waited on.
+	std::atomic<bool> releaseA{ false };
+	std::thread threadA( [&] {
+		mutex.Acquire();
+		while( !releaseA.load() )
+			std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
+		mutex.Release();
+	} );
+
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.holderThread != 0; } );
+	const uint32_t lockId = lockInfo.id;
+	const uint32_t threadAId = lockInfo.holderThread;
+	EXPECT_NE( 0u, threadAId );
+	EXPECT_EQ( 1, lockInfo.waitCount );
+	EXPECT_EQ( 1, lockInfo.obtainCount );
+	EXPECT_TRUE( lockInfo.waitingThreads.empty() );
+
+	// Thread B blocks on the mutex while A is holding it.
+	std::thread threadB( [&] {
+		mutex.Acquire();
+		mutex.Release();
+	} );
+
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.waitingThreads.size() == 1; } );
+	EXPECT_EQ( 1u, lockInfo.waitingThreads.size() );
+	const uint32_t threadBId = lockInfo.waitingThreads.empty() ? 0 : lockInfo.waitingThreads.front();
+	EXPECT_NE( 0u, threadBId );
+	EXPECT_NE( threadAId, threadBId );
+	EXPECT_EQ( threadAId, lockInfo.holderThread ) << "A should still hold the mutex while B waits";
+	EXPECT_EQ( 2, lockInfo.waitCount );
+	EXPECT_EQ( 1, lockInfo.obtainCount );
+	EXPECT_EQ( 0, lockInfo.releaseCount );
+
+	// Let A release; B then acquires and releases the mutex.
+	releaseA.store( true );
+	threadA.join();
+	threadB.join();
+
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 2; } );
+	EXPECT_EQ( 2, lockInfo.waitCount );
+	EXPECT_EQ( 2, lockInfo.obtainCount );
+	EXPECT_EQ( 2, lockInfo.releaseCount );
+	EXPECT_EQ( 0u, lockInfo.holderThread ) << "No thread should hold the mutex after both A and B have released it";
+	EXPECT_TRUE( lockInfo.waitingThreads.empty() );
+}
+
+TEST_F( CcpTelemetryTest, MultipleCcpMutexesAnnounceDistinctLocks )
+{
+	CcpMutex firstMutex( "CcpTelemetryTest", "MultiTestFirstMutex" );
+	CcpMutex secondMutex( "CcpTelemetryTest", "MultiTestSecondMutex" );
+	std::string firstLockName = "CcpTelemetryTest-MultiTestFirstMutex";
+	std::string secondLockName = "CcpTelemetryTest-MultiTestSecondMutex";
+
+	firstMutex.Acquire();
+	secondMutex.Acquire();
+
+	TracyTestClient::LockInfo firstLock;
+	TracyTestClient::LockInfo secondLock;
+	TickTelemetry( [&] {
+		return TryGetActiveLockNamed( firstLockName, firstLock ) &&
+			TryGetActiveLockNamed( secondLockName, secondLock );
+	} );
+	ASSERT_TRUE( TryGetActiveLockNamed( firstLockName, firstLock ) );
+	ASSERT_TRUE( TryGetActiveLockNamed( secondLockName, secondLock ) );
+	EXPECT_NE( firstLock.id, secondLock.id );
+
+	secondMutex.Release();
+	firstMutex.Release();
+}
+
+// ---------------------------------------------------------------------------
+// CcpSpinLock / CcpAutoSpinLock
+// ---------------------------------------------------------------------------
+
+TEST_F( CcpTelemetryTest, CcpSpinLockAnnounceAndTerminate )
+{
+	TracyTestClient::LockInfo lockInfo;
+	const std::string lockName = "CcpSpinLockAnnounceAndTerminate";
+
+	{
+		CcpSpinLock spinLock( lockName.c_str() );
+		CcpAutoSpinLock autoSpinLock( spinLock );
+
+		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
+		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+		EXPECT_FALSE( lockInfo.terminated );
+		EXPECT_EQ( lockName, lockInfo.name );
+		EXPECT_TRUE( lockInfo.waitingThreads.empty() );
+		EXPECT_EQ( 1, lockInfo.waitCount );
+		EXPECT_EQ( 1, lockInfo.obtainCount );
+		EXPECT_EQ( 0, lockInfo.releaseCount );
+	}
+
+	// Destroying the spin-lock terminates its Tracy lock.
+	const uint32_t lockId = lockInfo.id;
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.terminated; } );
+	EXPECT_TRUE( lockInfo.terminated );
+}
+
+TEST_F( CcpTelemetryTest, CcpSpinLockAcquireAndRelease )
+{
+	const std::string lockName = "CcpSpinLockAcquireAndRelease";
+	CcpSpinLock spinLock( lockName.c_str() );
+
+	TracyTestClient::LockInfo lockInfo;
+
+	spinLock.Acquire();
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
+	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+	const uint32_t lockId = lockInfo.id;
+	EXPECT_EQ( 1, lockInfo.waitCount );
+	EXPECT_EQ( 1, lockInfo.obtainCount );
+	EXPECT_EQ( 0, lockInfo.releaseCount );
+
+	spinLock.Release();
+	TickTelemetry( [&] { return TryGetLockById( lockId, lockInfo ) && lockInfo.releaseCount == 1; } );
+	EXPECT_EQ( 1, lockInfo.obtainCount );
+	EXPECT_EQ( 1, lockInfo.releaseCount );
+}
+
+// ---------------------------------------------------------------------------
+// CcpSemaphore
+// ---------------------------------------------------------------------------
+
+TEST_F( CcpTelemetryTest, CcpSemaphoreAnnounceAndTerminate )
+{
+	TracyTestClient::LockInfo lockInfo;
+	const std::string lockName = "CcpSemaphoreAnnounceAndTerminate";
+	{
+		CcpSemaphore semaphore( lockName.c_str() );
+
+		std::thread waiter( [&semaphore] { semaphore.Wait(); } );
+		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.name == lockName; } );
+		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
+		EXPECT_FALSE( lockInfo.terminated );
+		EXPECT_EQ( lockName, lockInfo.name );
+		EXPECT_EQ( 1, lockInfo.waitCount );
+		EXPECT_EQ( 0, lockInfo.obtainCount );
+		EXPECT_EQ( 0, lockInfo.releaseCount );
+
+		std::thread signaler( [&semaphore] { semaphore.Signal(); } );
+
+		waiter.join();
+		signaler.join();
+
+		TickTelemetry( [&] { return TryGetLockById( lockInfo.id, lockInfo ) && lockInfo.obtainCount == 1; } );
+		EXPECT_EQ( 1, lockInfo.obtainCount );
+	}
+
+	TickTelemetry( [&] { return TryGetLockById( lockInfo.id, lockInfo ) && lockInfo.terminated; } );
+	EXPECT_TRUE( lockInfo.terminated );
+}
+
+TEST_F( CcpTelemetryTest, CcpSemaphoreTimedWaitTimesOut )
+{
+	const std::string lockName = "CcpSemaphoreTimedWaitTimesOut";
+	CcpSemaphore semaphore( lockName.c_str(), 0, 1 );
+
+	TracyTestClient::LockInfo lockInfo;
+
+	// No signal beforehand — TimedWait should time out and report a wait without an obtain.
+	EXPECT_FALSE( semaphore.TimedWait( 10 ) );
+	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.waitCount == 1 && lockInfo.obtainCount == 1; } );
+	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
+	EXPECT_EQ( 1, lockInfo.waitCount );
+	EXPECT_EQ( 1, lockInfo.obtainCount );
+	EXPECT_EQ( 0, lockInfo.releaseCount );
 }

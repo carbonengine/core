@@ -26,6 +26,7 @@ set(SRC_FILES
         CCPMemory.cpp
         CCPMemoryTracker.cpp
         CCPMemoryTrackerMutex.h
+        CcpMutex.cpp
         CcpProcess.cpp
         CcpSecureCrt.cpp
         CcpSemaphore.cpp
@@ -60,6 +61,7 @@ set(PUBLIC_HEADER_FILES
         include/CCPAssert.h
         include/CcpAtomic.h
         include/CCPCallstack.h
+        include/CcpColorConstants.h
         include/CcpCore.h
         include/CcpCrash.h
         include/CcpDefines.h
@@ -104,7 +106,7 @@ if(WITH_TELEMETRY)
     message(STATUS "Enabling profiler integration")
     find_package(Tracy CONFIG REQUIRED)
     target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=1)
-    target_link_libraries(CcpCore PUBLIC Tracy::TracyClient)
+    target_link_libraries(CcpCore PRIVATE Tracy::TracyClient)
     # Tracy's vcpkg package is always built as Release (with NDEBUG). CcpTelemetry.cpp
     # must also be compiled with NDEBUG to match Tracy's struct layout: in 0.13.1 the
     # Profiler class has a debug-only member (std::atomic_bool m_inUse, #ifndef NDEBUG)
@@ -134,6 +136,11 @@ endif()
 
 target_compile_definitions(CcpCore PRIVATE PLATFORM_TOOLSET=${CCP_TOOLSET})
 target_compile_definitions(CcpCore PUBLIC CCP_ASSERT_ENABLED=$<NOT:$<CONFIG:Release>>)
+
+if(WIN32)
+    # Prevent min/max macros being defined (in windows.h) that conflict with std::min/max ones.
+    target_compile_definitions(CcpCore PRIVATE NOMINMAX)
+endif()
 
 target_include_directories(CcpCore
     PUBLIC
