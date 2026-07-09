@@ -60,10 +60,12 @@ bool TimeFromDateTime( CcpTime& timeStamp, const CcpDateTime& dateTime )
 CcpTime TimeNow()
 {
 	CcpTime time = 0;
-	GetSystemTimeAsFileTime( (FILETIME*)&time );
+
+	// Moved to reinterpret-cast to make the pointer conversion explicit
+	// GetSystemTimeAsFileTime( (FILETIME*)&time );
+	GetSystemTimeAsFileTime( reinterpret_cast<FILETIME*>( &time ) );
 	return time;
 }
-
 
 #elif defined(__APPLE__)
 
