@@ -87,7 +87,7 @@ class TelemetryZone
 {
 public:
 	TelemetryZone() = delete;
-	CARBON_CORE_API TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, Color color = Color::SteelBlue );
+	CARBON_CORE_API TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, CcpColor color = CcpColor::SteelBlue );
 	CARBON_CORE_API ~TelemetryZone();
 	TelemetryZone( TelemetryZone&& other ) noexcept;
 	TelemetryZone( const TelemetryZone& ) = delete;

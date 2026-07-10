@@ -12,7 +12,7 @@
 
 // Useful RGB color constants
 // Initially based on the <named-color> type of CSS standard, see https://www.w3.org/TR/css-color-4/#named-colors.
-enum class Color : uint32_t
+enum class CcpColor : uint32_t
 {
 	AliceBlue = 0xf0f8ff,
 	AntiqueWhite = 0xfaebd7,

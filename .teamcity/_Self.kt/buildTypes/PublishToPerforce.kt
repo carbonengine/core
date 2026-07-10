@@ -39,8 +39,6 @@ class Publish(perforce_publish_path: String) : BuildType({
         param("env.TC_PERFORCE_PATH_TO_PUBLISH_INTO", "%perforce_path_to_publish_into%")
         param("env.EXECUTABLE_FILENAMES_MATCH", "")
 
-        select("reverse.dep.*.env.VISUAL_STUDIO_PLATFORM_TOOLSET", "v141", label = "Visual Studio Platform Toolset", description = "Specify the toolset for the build. e.g. v141 or v143.", display = ParameterDisplay.PROMPT,
-                options = listOf("v141 (2017)" to "v141", "v143 (2022)" to "v143"))
         text("reverse.dep.*.carbon_ref", "", label = "Ref  Carbon Component", description = "REF for carbon component e.g. refs/heads/main or refs/tags/v1.0.0 or refs/heads/frontier", display = ParameterDisplay.PROMPT, allowEmpty = true)
     }
 
@@ -66,10 +64,16 @@ class Publish(perforce_publish_path: String) : BuildType({
                         "${MacOS.x64_Debug.depParamRefs["env.GIT_TAG_HASH"]}",
                         "${MacOS.x64_Internal.depParamRefs["env.GIT_TAG_HASH"]}",
                         "${MacOS.x64_TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}",
+
                         "${Windows.Release.depParamRefs["env.GIT_TAG_HASH"]}",
                         "${Windows.Debug.depParamRefs["env.GIT_TAG_HASH"]}",
                         "${Windows.Internal.depParamRefs["env.GIT_TAG_HASH"]}",
-                        "${Windows.TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}"
+                        "${Windows.TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}",
+
+                        "${Windows.Debug_v145.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Windows.Internal_v145.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Windows.TrinityDev_v145.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Windows.Release_v145.depParamRefs["env.GIT_TAG_HASH"]}"
                     ])
                     if len(tags) > 1:
                         raise ValueError(f"Multiple different build tags have been detected {tags}")
@@ -245,6 +249,42 @@ class Publish(perforce_publish_path: String) : BuildType({
 
             artifacts {
                 artifactRules = "**/*=>%perforce_path_to_publish_into%/${Windows.TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Windows.Debug_v145) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "**/*=>%perforce_path_to_publish_into%/${Windows.Debug_v145.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Windows.Internal_v145) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "**/*=>%perforce_path_to_publish_into%/${Windows.Internal_v145.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Windows.TrinityDev_v145) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "**/*=>%perforce_path_to_publish_into%/${Windows.TrinityDev_v145.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Windows.Release_v145) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "**/*=>%perforce_path_to_publish_into%/${Windows.Release_v145.depParamRefs["env.GIT_TAG_HASH"]}"
             }
         }
         artifacts(AbsoluteId("Infrastructure_MetaTeamCity_Tools_TeamcityChanges")) {
