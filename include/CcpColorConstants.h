@@ -172,7 +172,7 @@ CARBON_CORE_API std::string CcpColorToString( CcpColor color );
 namespace ColorUtil
 {
 // Decompose a CcpColor into its 8-bit red, green and blue components.
-static inline void ToRgb( CcpColor color, int& r, int& g, int& b )
+inline void ToRgb( CcpColor color, int& r, int& g, int& b )
 {
 	const uint32_t value = static_cast<uint32_t>( color );
 	r = static_cast<int>( ( value >> 16 ) & 0xff );
@@ -181,7 +181,7 @@ static inline void ToRgb( CcpColor color, int& r, int& g, int& b )
 }
 
 // Find the squared Euclidean distance between two colors in RGB space.
-static inline int64_t GetSquaredDistance( CcpColor lhs, CcpColor rhs )
+inline int64_t GetSquaredDistance( CcpColor lhs, CcpColor rhs )
 {
 	int r1, g1, b1;
 	int r2, g2, b2;
@@ -197,7 +197,7 @@ static inline int64_t GetSquaredDistance( CcpColor lhs, CcpColor rhs )
 // NOTE:
 // - Remove a color from this list if you don't want it to be selected
 //   when automatically picking a display color for a new CaptureMask entry.
-static constexpr CcpColor s_awailableNamedColors[] = {
+inline constexpr CcpColor s_awailableNamedColors[] = {
 	//CcpColor::AliceBlue,
 	CcpColor::AntiqueWhite,
 	CcpColor::Aqua /* == Cyan */,
@@ -343,7 +343,7 @@ static constexpr CcpColor s_awailableNamedColors[] = {
 // that are reasonably distinct from incoming existingColors.
 // Candidates are scored by their distance to existingColors and
 // the color furthest away wins.
-static inline CcpColor PickDistinctColor( const std::vector<CcpColor>& existingColors )
+inline CcpColor PickDistinctColor( const std::vector<CcpColor>& existingColors )
 {
 	CcpColor bestColor = CcpColor::SteelBlue;
 	int64_t bestScore = -1;
