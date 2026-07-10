@@ -76,6 +76,16 @@ void CcpCloseFile( int fd )
 	_close( fd );
 }
 
+bool CcpTruncateFile(const std::wstring& filename) {
+	int fd = CcpCreateFile( filename.c_str(), CCP_SM_RWSHARING );
+	if( fd < 0 )
+	{
+		return false;
+	}
+	CcpCloseFile( fd );
+	return true;
+}
+
 ssize_t CcpReadFromFile( int fd, void* buf, size_t numBytes )
 {
 	return _read( fd, buf, (unsigned int)numBytes );
@@ -166,6 +176,17 @@ int CcpCreateFile( const wchar_t* filename, CcpShareMode shareMode )
 void CcpCloseFile( int fd )
 {
 	close( fd );
+}
+
+bool CcpTruncateFile( const std::wstring& filename )
+{
+	int fd = CcpCreateFile( filename.c_str(), CCP_SM_RWSHARING );
+	if( fd < 0 )
+	{
+		return false;
+	}
+	CcpCloseFile( fd );
+	return true;
 }
 
 ssize_t CcpReadFromFile( int fd, void* buf, size_t numBytes )
