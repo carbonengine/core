@@ -68,7 +68,7 @@ typedef TrackableStdVector<std::pair<CcpOnTelemetryEventHandler, void*>> EventHa
 struct CaptureMaskEntry
 {
 	uint64_t maskBit{0};
-	Color color{Color::White};
+	CcpColor color{CcpColor::White};
 };
 
 typedef TrackableStdMap<std::string, CaptureMaskEntry> CaptureMaskMap_t;
@@ -104,7 +104,7 @@ namespace
 
 	uint64_t s_allocatedCaptureMaskBits = 0;
 
-	uint64_t RegisterCaptureMask( const std::string& name, std::optional<Color> color )
+	uint64_t RegisterCaptureMask( const std::string& name, std::optional<CcpColor> color )
 	{
 		static CaptureMaskMap_t s_captureMasks( "CcpTelemetry/s_captureMasks" );
 
@@ -115,8 +115,8 @@ namespace
 		{
 			// The default capture masks (used by components that haven't added CaptureMask support yet)
 			// must be registered and available from the start.
-			s_captureMasks["general"] = CaptureMaskEntry{ TMCM_GENERAL, Color::SteelBlue };
-			s_captureMasks["cpp"] = CaptureMaskEntry{ TMCM_CPP, Color::Yellow };
+			s_captureMasks["general"] = CaptureMaskEntry{ TMCM_GENERAL, CcpColor::SteelBlue };
+			s_captureMasks["cpp"] = CaptureMaskEntry{ TMCM_CPP, CcpColor::Yellow };
 			s_allocatedCaptureMaskBits = TMCM_GENERAL | TMCM_CPP;
 		}
 
@@ -151,13 +151,13 @@ namespace
 
 		if( !color )
 		{
-			std::vector<Color> existingColors;
+			std::vector<CcpColor> existingColors;
 			existingColors.reserve( s_captureMasks.size() );
 			for( const auto& entry : s_captureMasks )
 			{
 				existingColors.push_back( entry.second.color );
 			}
-			color = CcpColor::PickDistinctColor( existingColors );
+			color = ColorUtil::PickDistinctColor( existingColors );
 		}
 
 		s_captureMasks[lowerName] = CaptureMaskEntry{ maskBit, *color };
@@ -172,7 +172,7 @@ uint64_t CcpRegisterCaptureMask( const std::string& name )
 	return RegisterCaptureMask( name, std::nullopt );
 }
 
-uint64_t CcpRegisterCaptureMask( const std::string& name, Color color )
+uint64_t CcpRegisterCaptureMask( const std::string& name, CcpColor color )
 {
 	return RegisterCaptureMask( name, color );
 }

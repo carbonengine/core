@@ -12,10 +12,10 @@
 
 TEST( CcpColorConstantsTest, PickedColorIsUnused )
 {
-	std::vector<Color> existing{ Color::SteelBlue, Color::Yellow };
+	std::vector<CcpColor> existing{ CcpColor::SteelBlue, CcpColor::Yellow };
 	for( int i = 0; i < 62; ++i )
 	{
-		const Color picked = CcpColor::PickDistinctColor( existing );
+		const CcpColor picked = ColorUtil::PickDistinctColor( existing );
 		EXPECT_EQ( existing.end(), std::find( existing.begin(), existing.end(), picked ) );
 		existing.push_back( picked );
 
@@ -34,25 +34,25 @@ TEST( CcpColorConstantsTest, PickedColorIsDistinctFromExisting )
 {
 	// With a single existing color, the pick should be far away from it in RGB space,
 	// not merely a slightly different shade.
-	const std::vector<Color> existingRed{ Color::Red };
-	const Color pickedVsRed = CcpColor::PickDistinctColor( existingRed );
-	auto distPickedVsRed = CcpColor::GetSquaredDistance( pickedVsRed, Color::Red );
+	const std::vector<CcpColor> existingRed{ CcpColor::Red };
+	const CcpColor pickedVsRed = ColorUtil::PickDistinctColor( existingRed );
+	auto distPickedVsRed = ColorUtil::GetSquaredDistance( pickedVsRed, CcpColor::Red );
 
 	std::fprintf( stdout,
 		"[0x%06x] '%s' vs Picked color: [0x%06x] '%s' - distance = %lld \n",
-			  Color::Red, CcpColorToString(Color::Red).c_str(),
+			  CcpColor::Red, CcpColorToString(CcpColor::Red).c_str(),
 			  pickedVsRed, CcpColorToString( pickedVsRed ).c_str(),
 			  distPickedVsRed );
 	std::fflush( stdout );
 	EXPECT_GT( distPickedVsRed, 128 * 128 );
 
-	const std::vector<Color> existingBlue{ Color::Blue };
-	const Color pickedVsBlue = CcpColor::PickDistinctColor( existingBlue );
-	auto distPickedVsBlue = CcpColor::GetSquaredDistance( pickedVsBlue, Color::Blue );
+	const std::vector<CcpColor> existingBlue{ CcpColor::Blue };
+	const CcpColor pickedVsBlue = ColorUtil::PickDistinctColor( existingBlue );
+	auto distPickedVsBlue = ColorUtil::GetSquaredDistance( pickedVsBlue, CcpColor::Blue );
 
 	std::fprintf( stdout,
 			  "[0x%06x] '%s' vs Picked color: [0x%06x] '%s' - distance = %lld \n",
-			  Color::Blue, CcpColorToString(Color::Blue).c_str(),
+			  CcpColor::Blue, CcpColorToString(CcpColor::Blue).c_str(),
 			  pickedVsBlue, CcpColorToString( pickedVsBlue ).c_str(),
 			  distPickedVsBlue );
 	std::fflush( stdout );

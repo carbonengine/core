@@ -568,7 +568,7 @@ TEST_F( CcpTelemetryTest, CaptureMaskRegisterIsCaseInsensitive )
 TEST_F( CcpTelemetryTest, CaptureMaskRegisterDistinctBitPerName )
 {
 	const uint64_t maskBitC = CcpRegisterCaptureMask( "capturemasktest_component_c" );
-	const uint64_t maskBitD = CcpRegisterCaptureMask( "capturemasktest_component_d", Color::Tomato );
+	const uint64_t maskBitD = CcpRegisterCaptureMask( "capturemasktest_component_d", CcpColor::Tomato );
 	EXPECT_TRUE( IsSCaptureMaskSingleBit( maskBitC ) );
 	EXPECT_TRUE( IsSCaptureMaskSingleBit( maskBitD ) );
 	EXPECT_NE( maskBitC, maskBitD );
@@ -582,8 +582,8 @@ TEST_F( CcpTelemetryTest, CaptureMaskRegisterRejectEmpty )
 TEST_F( CcpTelemetryTest, CaptureMaskDefaultsAreRegistered )
 {
 	// TODO: Change this test to check values from the GetCaptureMasks() function once it's ready
-	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), CcpRegisterCaptureMask( "general", Color::Black ) );
+	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), CcpRegisterCaptureMask( "general", CcpColor::Black ) );
 	EXPECT_EQ( static_cast<uint64_t>( TMCM_CPP ), CcpRegisterCaptureMask( "cpp" ) );
-	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), CcpRegisterCaptureMask( "GENERAL", Color::White ) );
+	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), CcpRegisterCaptureMask( "GENERAL", CcpColor::White ) );
 }
 

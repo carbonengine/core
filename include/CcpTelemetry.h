@@ -44,7 +44,7 @@ CARBON_CORE_API void CcpRegisterThread( CcpThreadId_t threadId, const char* name
 //   either manually or automatically allocated based on "best available fit".
 // ---------------------------------------------------------------------------
 CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name );
-CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name, Color color );
+CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name, CcpColor color );
 
 struct CcpTelemetryConfig
 {
