@@ -43,8 +43,18 @@ CARBON_CORE_API void CcpRegisterThread( CcpThreadId_t threadId, const char* name
 // - A Telemetry display color is also associated with the chosen CaptureMask bit,
 //   either manually or automatically allocated based on "best available fit".
 // ---------------------------------------------------------------------------
+struct CcpCaptureMaskInfo
+{
+	std::string name;    // The lower-case display name of the CaptureMask (carbon-component)
+	uint64_t maskBit{0}; // The single bit assigned to this CaptureMask during registration
+	CcpColor color{CcpColor::White}; // The chosen/allocated color for the CaptureMask
+};
+
 CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name );
 CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name, CcpColor color );
+
+CARBON_CORE_API std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks();
+
 
 struct CcpTelemetryConfig
 {
