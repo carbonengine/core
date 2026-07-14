@@ -1,5 +1,7 @@
 # Carbon Core
 
+[English](./README.md) | [简体中文](./README.zh-CN.md)
+
 [![license](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.txt)
 
 ## Overview
