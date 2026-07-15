@@ -7,6 +7,7 @@ find_package(lz4 CONFIG REQUIRED)
 add_executable(CcpCoreTest
     CCPCallstack.cpp
     CcpCoreTest.cpp
+    CcpCrash.cpp
     CCPHash.cpp
     CcpFileUtils.cpp
     CcpMemory.cpp
