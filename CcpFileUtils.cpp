@@ -98,6 +98,8 @@ off_t CcpTell( int fd )
 
 #else
 
+#include <sys/file.h>
+
 int ConvertShareMode( CcpShareMode shareMode )
 {
 	int shflag = 0;
@@ -119,6 +121,39 @@ int ConvertShareMode( CcpShareMode shareMode )
 	}
 #endif
 	return shflag;
+}
+
+namespace
+{
+#if defined(O_EXLOCK) && defined(O_SHLOCK)
+
+	// The share mode is applied atomically by open() via O_EXLOCK/O_SHLOCK.
+	inline int ApplyShareMode( int fd, CcpShareMode )
+	{
+		return fd;
+	}
+
+#else
+
+	// BSD's O_EXLOCK/O_SHLOCK acquire a flock-style advisory lock atomically at
+	// open() time. Platforms without those flags apply the equivalent flock()
+	// right after opening instead.
+	int ApplyShareMode( int fd, CcpShareMode shareMode )
+	{
+		if( fd < 0 || shareMode == CCP_SM_RWSHARING )
+		{
+			return fd;
+		}
+
+		if( flock( fd, shareMode == CCP_SM_NOSHARING ? LOCK_EX : LOCK_SH ) != 0 )
+		{
+			close( fd );
+			return -1;
+		}
+		return fd;
+	}
+
+#endif
 }
 
 int ConvertOpenMode( CcpOpenMode mode )
@@ -146,7 +181,7 @@ int CcpOpenFile( const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMo
 	int shflag = ConvertShareMode( shareMode );
 	int fd = open( CW2A( filename ), oflag | shflag, S_IRUSR | S_IWUSR );
 
-	return fd;
+	return ApplyShareMode( fd, shareMode );
 }
 
 int CcpCreateFile( const wchar_t* filename )
@@ -161,7 +196,7 @@ int CcpCreateFile( const wchar_t* filename, CcpShareMode shareMode )
 	int shflag = ConvertShareMode( shareMode );
 	int fd = open( CW2A( filename ), O_CREAT | O_TRUNC | O_RDWR | shflag, S_IRUSR | S_IWUSR );
 
-	return fd;
+	return ApplyShareMode( fd, shareMode );
 }
 
 void CcpCloseFile( int fd )
