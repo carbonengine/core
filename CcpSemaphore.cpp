@@ -5,6 +5,7 @@
 #include "tracy/TracyC.h"
 
 #include <cstring>
+#include <ctime>
 
 // OS specific includes:
 #ifdef _WIN32
@@ -170,9 +171,18 @@ bool CcpSemaphore::TimedWait( uint32_t timeoutInMs )
 	mts.tv_nsec = ( timeoutInMs % 1000 ) * 1000000;
 	const bool result = semaphore_timedwait( m_impl->semaphore, mts ) == KERN_SUCCESS;
 #else
+	// sem_timedwait expects an absolute CLOCK_REALTIME timestamp, not a
+	// relative timeout; passing a relative value makes the wait return
+	// (almost) immediately.
 	timespec ts;
-	ts.tv_sec = timeoutInMs / 1000;
-	ts.tv_nsec = (timeoutInMs % 1000) * 1000000;
+	clock_gettime( CLOCK_REALTIME, &ts );
+	ts.tv_sec += timeoutInMs / 1000;
+	ts.tv_nsec += (timeoutInMs % 1000) * 1000000;
+	if( ts.tv_nsec >= 1000000000 )
+	{
+		ts.tv_sec += 1;
+		ts.tv_nsec -= 1000000000;
+	}
 	const bool result = sem_timedwait( &m_impl->semaphore, &ts ) == 0;
 #endif
 
