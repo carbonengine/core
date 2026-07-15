@@ -1,6 +1,9 @@
 // Copyright © 2013 CCP ehf.
 
+#include <array>
+#include <atomic>
 #include <cctype>
+#include <cstdint>
 #include <optional>
 #include <queue>
 
@@ -62,17 +65,6 @@ typedef TrackableStdMap<CcpMutex*, std::pair<const char*,const char*>> MutexName
 typedef TrackableStdMap<CcpThreadId_t , const char*> ThreadNameMap_t;
 typedef TrackableStdVector<std::pair<CcpOnTelemetryEventHandler, void*>> EventHandlerVector_t;
 
-// -------------------------------
-// CaptureMask specifics:
-// -------------------------------
-struct CaptureMaskEntry
-{
-	uint64_t maskBit{0};
-	CcpColor color{CcpColor::White};
-};
-
-typedef TrackableStdMap<std::string, CaptureMaskEntry> RegisteredCaptureMaskMap_t;
-
 namespace
 {
 	uint32_t s_telemetryTick = 0;
@@ -100,33 +92,59 @@ namespace
 	// -------------------------------
 	// CaptureMask specifics:
 	// -------------------------------
+	#define CAPTURE_MASKS_MAX 64
+
+	struct CaptureMaskEntry
+	{
+		std::atomic<uint64_t> slotBit{ 0 }; // used to indicate if the slot entry has been populated or not
+		CcpCaptureMaskInfo    maskInfo{};
+	};
+
+	// Fixed size array for registered CaptureMasks,
+	// allows for O(1) lookup based on single-bit CaptureMask value.
+	std::array<CaptureMaskEntry, CAPTURE_MASKS_MAX> s_registeredCaptureMasks{};
+
 	CcpMutex s_captureMaskRegisterMutex( "CcpTelemetry", "CaptureMaskRegisterMutex" );
 
-	uint64_t s_registeredCaptureMaskBits = 0;
+#if defined( _MSC_VER )
+	#include <intrin.h> // _BitScanForward64  TODO: Can be removed once upgraded to C++20 - using std::countr_zero() instead.
+#endif
 
-	// Callers must hold the s_captureMaskRegisterMutex before calling this function
-	RegisteredCaptureMaskMap_t& GetRegisteredCaptureMasks()
+	// Returns the index [0..63] of the single bit set bit in x
+	// TODO: Replace/remove this function with std::countr_zero() once upgraded to C++20 or newer.
+	int CountTrailingZeros64( uint64_t x )
 	{
-		static RegisteredCaptureMaskMap_t s_registeredCaptureMasks( "CcpTelemetry/s_registeredCaptureMasks" );
-
-		if( s_registeredCaptureMaskBits == 0 )
-		{
-			// Make sure the default registered CaptureMasks exist.
-			// Used by components that haven't added proper CaptureMask support yet.
-			s_registeredCaptureMasks["general"] = CaptureMaskEntry{ TMCM_GENERAL, CcpColor::SteelBlue };
-			s_registeredCaptureMasks["cpp"] = CaptureMaskEntry{ TMCM_CPP, CcpColor::Yellow };
-			s_registeredCaptureMaskBits = TMCM_GENERAL | TMCM_CPP;
-		}
-
-		return s_registeredCaptureMasks;
+#if defined( _MSC_VER )
+		unsigned long idx;
+		_BitScanForward64( &idx, x );
+		return static_cast<int>( idx );
+#else
+		return __builtin_ctzll( x );
+#endif
 	}
+
+	// Store a registered CaptureMask into its slot entry
+	void StoreRegisteredCaptureMask( uint64_t bit, const std::string& name, CcpColor color )
+	{
+		auto& entry = s_registeredCaptureMasks[CountTrailingZeros64( bit )];
+		entry.maskInfo.name    = name;
+		entry.maskInfo.maskBit = bit;
+		entry.maskInfo.color   = color;
+		entry.slotBit.store( bit, std::memory_order_release );
+	}
+
+	// Initialize the default CaptureMasks
+	uint64_t s_registeredCaptureMaskBits = []
+	{
+		StoreRegisteredCaptureMask( TMCM_GENERAL, "general", CcpColor::SteelBlue );
+		StoreRegisteredCaptureMask( TMCM_CPP,     "cpp",     CcpColor::Yellow );
+		return static_cast<uint64_t>( TMCM_GENERAL | TMCM_CPP );
+	}();
 
 	uint64_t RegisterCaptureMask( const std::string& name, std::optional<CcpColor> color )
 	{
 		// Guard access to registered CaptureMasks while we add/update a new entry
 		CcpAutoMutex lock( s_captureMaskRegisterMutex );
-
-		RegisteredCaptureMaskMap_t& s_registeredCaptureMasks = GetRegisteredCaptureMasks();
 
 		if( name.empty() )
 		{
@@ -137,15 +155,19 @@ namespace
 		std::string lowerName( name );
 		std::transform( lowerName.begin(), lowerName.end(), lowerName.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
 
-		// Explicitly allow change of color on an existing registered CaptureMask entry
-		auto existing = s_registeredCaptureMasks.find( lowerName );
-		if( existing != s_registeredCaptureMasks.end() )
+		// Explicitly allow change of color on an existing registered
+		// CaptureMask entry in case of re-register on same name.
+		for( auto& entry : s_registeredCaptureMasks )
 		{
-			if( color )
+			const uint64_t bit = entry.slotBit.load( std::memory_order_relaxed );
+			if( bit != 0 && entry.maskInfo.name == lowerName )
 			{
-				existing->second.color = *color;
+				if( color )
+				{
+					entry.maskInfo.color = *color;
+				}
+				return bit;
 			}
-			return existing->second.maskBit;
 		}
 
 		if( ~s_registeredCaptureMaskBits == 0 )
@@ -154,21 +176,24 @@ namespace
 			return 0;
 		}
 
-		// Allocate the lowest free bit
+		// Allocate the lowest available free bit for the new CaptureMask
 		const uint64_t maskBit = ~s_registeredCaptureMaskBits & ( s_registeredCaptureMaskBits + 1 );
 
 		if( !color )
 		{
 			std::vector<CcpColor> existingColors;
-			existingColors.reserve( s_registeredCaptureMasks.size() );
-			for( const auto& entry : s_registeredCaptureMasks )
+			existingColors.reserve( CAPTURE_MASKS_MAX );
+			for( const auto& existingEntry : s_registeredCaptureMasks )
 			{
-				existingColors.push_back( entry.second.color );
+				if( existingEntry.slotBit.load( std::memory_order_relaxed ) != 0 )
+				{
+					existingColors.push_back( existingEntry.maskInfo.color );
+				}
 			}
 			color = ColorUtil::PickDistinctColor( existingColors );
 		}
 
-		s_registeredCaptureMasks[lowerName] = CaptureMaskEntry{ maskBit, *color };
+		StoreRegisteredCaptureMask( maskBit, lowerName, *color );
 		s_registeredCaptureMaskBits |= maskBit;
 		CCP_LOGWARN_CH( s_ch, "Registered a new CaptureMask for '%s' -> 0x%llx with color %s", lowerName.c_str(), static_cast<unsigned long long>( maskBit ), CcpColorToString( *color ).c_str() );
 		return maskBit;
@@ -187,15 +212,17 @@ uint64_t CcpRegisterCaptureMask( const std::string& name, CcpColor color )
 
 std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
 {
-	// Guard access to registered CaptureMasks while return list is populated
+	// Guard access to registered CaptureMasks while return list is populated.
 	CcpAutoMutex lock( s_captureMaskRegisterMutex );
 
-	const RegisteredCaptureMaskMap_t& masks = GetRegisteredCaptureMasks();
 	std::vector<CcpCaptureMaskInfo> result;
-	result.reserve( masks.size() );
-	for( const auto& entry : masks )
+	result.reserve( CAPTURE_MASKS_MAX );
+	for( const auto& slot : s_registeredCaptureMasks )
 	{
-		result.push_back( CcpCaptureMaskInfo{ entry.first, entry.second.maskBit, entry.second.color } );
+		if( slot.slotBit.load( std::memory_order_relaxed ) != 0 )
+		{
+			result.push_back( slot.maskInfo );
+		}
 	}
 	return result;
 }
