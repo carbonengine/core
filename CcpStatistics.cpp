@@ -3,7 +3,9 @@
 #include "include/CcpStatistics.h"
 
 #include <cmath>
+#if CCP_TELEMETRY_ENABLED
 #include <tracy/Tracy.hpp>
+#endif
 
 #include "CcpTelemetry.h"
 

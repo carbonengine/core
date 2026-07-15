@@ -1,8 +1,11 @@
 // Copyright © 2013 CCP ehf.
 
 #include "include/CcpSemaphore.h"
+#include "include/CcpSecureCrt.h"
 
+#if CCP_TELEMETRY_ENABLED
 #include "tracy/TracyC.h"
+#endif
 
 #include <cstring>
 #include <ctime>
@@ -61,6 +64,7 @@ CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, ui
 #endif
 }
 
+#if CCP_TELEMETRY_ENABLED
 namespace
 {
 	void AnnounceSemaphoreToTelemetry( TracyCLockCtx& ctx, const char* name )
@@ -76,6 +80,7 @@ namespace
 		}
 	}
 }
+#endif
 
 // Preferred constructor, with default value overloads (see header file for details)
 CcpSemaphore::CcpSemaphore( const char* semaphoreName )
