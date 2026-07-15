@@ -30,6 +30,16 @@
 	{
 		sched_yield();
 	}
+#elif __linux__
+	#include <pthread.h>
+	#include <sched.h>
+    typedef pthread_t CcpThreadId_t;
+	typedef pthread_t CcpThreadHandle_t;
+
+	inline void CcpThreadYield()
+	{
+		sched_yield();
+	}
 #else
 #error "Unsupported platform!"
 #endif

@@ -203,12 +203,10 @@ void CcpTelemetryTick()
 			if ( !s_fiberEraseMap.empty() )
 			{
 				auto now = std::chrono::steady_clock::now();
-				auto elem = s_fiberEraseMap.front();
-				while ( !s_fiberEraseMap.empty() && elem.second >= now )
+				while ( !s_fiberEraseMap.empty() && s_fiberEraseMap.front().second >= now )
 				{
-					s_fiberNameStore.erase( elem.first );
+					s_fiberNameStore.erase( s_fiberEraseMap.front().first );
 					s_fiberEraseMap.pop();
-					elem = s_fiberEraseMap.front();
 				}
 			}
 

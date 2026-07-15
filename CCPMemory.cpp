@@ -6,6 +6,8 @@
 #include "include/CcpTelemetry.h"
 #include "CcpMemoryTrackerMutex.h"
 
+#include <atomic>
+
 #ifdef __APPLE__
 #include <malloc/malloc.h>
 #include <mach/mach.h>
@@ -14,6 +16,8 @@
 #include <psapi.h>
 #else
 #include <malloc.h>
+#include <stdio.h>
+#include <sys/resource.h>
 #endif
 
 // We need to initialize the memory system before any other static initializers are executed.
@@ -790,6 +794,36 @@ bool CcpGetProcessMemoryInfo( CcpProcessMemoryInfo& result )
 	{
 		result.pageFaultCount = size_t( vmEvents.faults );
 		return true;
+	}
+#elif defined(__linux__)
+	// VmRSS/VmSize are reported in kB in /proc/self/status.
+	FILE* file = fopen( "/proc/self/status", "r" );
+	if( file )
+	{
+		size_t vmRss = 0;
+		size_t vmSize = 0;
+		char line[256];
+		while( fgets( line, sizeof( line ), file ) )
+		{
+			if( sscanf( line, "VmRSS: %zu", &vmRss ) == 1 )
+			{
+				continue;
+			}
+			if( sscanf( line, "VmSize: %zu", &vmSize ) == 1 )
+			{
+				continue;
+			}
+		}
+		fclose( file );
+		result.workingSetSize = vmRss * 1024;
+		result.pageFileUsage = vmSize * 1024;
+
+		rusage usage;
+		if( getrusage( RUSAGE_SELF, &usage ) == 0 )
+		{
+			result.pageFaultCount = size_t( usage.ru_minflt + usage.ru_majflt );
+			return true;
+		}
 	}
 #endif
     return false;

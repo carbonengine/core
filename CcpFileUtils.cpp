@@ -101,7 +101,8 @@ off_t CcpTell( int fd )
 int ConvertShareMode( CcpShareMode shareMode )
 {
 	int shflag = 0;
-#ifndef __ANDROID__
+// O_EXLOCK/O_SHLOCK are BSD extensions that do not exist on Linux or Android.
+#if defined(O_EXLOCK) && defined(O_SHLOCK)
 	switch( shareMode )
 	{
 	case CCP_SM_NOSHARING:
@@ -217,6 +218,7 @@ bool CcpRenameFile( const std::wstring& src, const std::wstring& dst )
 #include <dirent.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
@@ -734,10 +736,19 @@ std::wstring CcpExecutablePath()
         tmp.resize( size );
         _NSGetExecutablePath( &tmp[0], &size );
     }
-    
+
     char actualpath [PATH_MAX];
     char* path = realpath(&tmp[0], actualpath);
     return std::wstring( CA2W( actualpath ) );
+#elif defined(__linux__)
+    char buffer[PATH_MAX];
+    ssize_t len = readlink( "/proc/self/exe", buffer, sizeof( buffer ) - 1 );
+    if( len < 0 )
+    {
+        return std::wstring();
+    }
+    buffer[len] = 0;
+    return std::wstring( CA2W( buffer ) );
 #else
     static_assert( false, "CcpExecutablePath is not implemented" );
 #endif

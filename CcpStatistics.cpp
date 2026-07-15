@@ -2,6 +2,7 @@
 
 #include "include/CcpStatistics.h"
 
+#include <cmath>
 #include <tracy/Tracy.hpp>
 
 #include "CcpTelemetry.h"

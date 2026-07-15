@@ -53,7 +53,7 @@ CARBON_CORE_API bool CcpIsDebuggerPresent();
 	#define CCP_DEBUG_BREAK() __debugbreak()
 #else
 	#include <signal.h>
-    #if defined(__APPLE__)
+    #if defined(__APPLE__) || defined(__linux__)
         #define CCP_DEBUG_BREAK() { if( CcpIsDebuggerPresent() ) raise(SIGTRAP); }
 	#elif defined(SIGTRAP)
 		#define CCP_DEBUG_BREAK() raise(SIGTRAP)

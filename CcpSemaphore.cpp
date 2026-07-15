@@ -4,6 +4,8 @@
 
 #include "tracy/TracyC.h"
 
+#include <cstring>
+
 // OS specific includes:
 #ifdef _WIN32
 // Nothing specific

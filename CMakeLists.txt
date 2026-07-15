@@ -20,12 +20,12 @@ set(SRC_FILES
         CcpCore.cpp
         CCPAssert.cpp
         CCPCallstack.cpp
-        CCPDefines.cpp
+        CcpDefines.cpp
         CcpFileUtils.cpp
         CCPHash.cpp
         CCPMemory.cpp
         CCPMemoryTracker.cpp
-        CCPMemoryTrackerMutex.h
+        CcpMemoryTrackerMutex.h
         CcpMutex.cpp
         CcpProcess.cpp
         CcpSecureCrt.cpp

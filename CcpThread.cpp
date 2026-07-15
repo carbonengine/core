@@ -110,11 +110,15 @@ bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
     return GetThreadTimes( GetCurrentThread(), &dummy, &dummy, (LPFILETIME)&kernelTime, (LPFILETIME)&userTime ) != 0;
 }
 
-#elif __APPLE__
+#elif defined(__APPLE__) || defined(__linux__)
 
 #include <sys/time.h>
 #include "include/CCPAssert.h"
+#ifdef __APPLE__
 #include <mach/thread_act.h>
+#else
+#include <sys/resource.h>
+#endif
 
 namespace
 {
@@ -131,7 +135,11 @@ namespace
 
 CcpThreadId_t CcpGetCurrentThreadId()
 {
+#ifdef __APPLE__
 	return pthread_mach_thread_np(pthread_self());
+#else
+	return pthread_self();
+#endif
 }
 
 CcpThreadHandle_t CcpCreateThread( CcpThreadProc_t threadProc, void* context, CcpThreadPriority_t priority )
@@ -139,7 +147,7 @@ CcpThreadHandle_t CcpCreateThread( CcpThreadProc_t threadProc, void* context, Cc
 	pthread_attr_t attr;
 	if( pthread_attr_init( &attr ) != 0 )
 	{
-		return nullptr;
+		return CcpThreadHandle_t();
 	}
 
 	CreateThreadData* data = CCP_NEW( "CcpCreateThread/data" ) CreateThreadData;
@@ -161,7 +169,7 @@ CcpThreadHandle_t CcpCreateThread( CcpThreadProc_t threadProc, void* context, Cc
 	}
 	else
 	{
-		return nullptr;
+		return CcpThreadHandle_t();
 	}
 }
 
@@ -243,7 +251,11 @@ int CcpJoinThreadWithTimeout( CcpThreadHandle_t threadHandle, uint32_t timeoutIn
 
 CcpThreadId_t CcpGetThreadId( CcpThreadHandle_t handle )
 {
+#ifdef __APPLE__
     return pthread_mach_thread_np(handle);
+#else
+    return handle;
+#endif
 }
 
 bool CcpSetThreadPriority( CcpThreadHandle_t thread, CcpThreadPriority_t priority )
@@ -301,6 +313,7 @@ void CcpSetThreadPriority( CcpThread& thread, CcpThreadPriority_t priority )
     CcpSetThreadPriority( thread.native_handle(), priority );
 }
 
+#ifdef __APPLE__
 bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
 {
     mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
@@ -319,5 +332,18 @@ bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
     kernelTime = int64_t( info.system_time.seconds ) * 10000000 + int64_t( info.system_time.microseconds ) * 10;
     return true;
 }
+#else
+bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
+{
+	rusage usage;
+	if( getrusage( RUSAGE_THREAD, &usage ) != 0 )
+	{
+		return false;
+	}
+	userTime = int64_t( usage.ru_utime.tv_sec ) * 10000000 + int64_t( usage.ru_utime.tv_usec ) * 10;
+	kernelTime = int64_t( usage.ru_stime.tv_sec ) * 10000000 + int64_t( usage.ru_stime.tv_usec ) * 10;
+	return true;
+}
+#endif
 
 #endif
