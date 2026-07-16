@@ -42,6 +42,13 @@ CARBON_CORE_API void CcpRegisterThread( CcpThreadId_t threadId, const char* name
 //   available CaptureMask bit from a 64bit integer mask.
 // - A Telemetry display color is also associated with the chosen CaptureMask bit,
 //   either manually or automatically allocated based on "best available fit".
+// - An active CaptureMask defaults to "all" but can be set/narrowed before or
+//   during a Telemetry session is started using either:
+//   - a numerical bit mask value of the active CaptureMask
+//   - list of "component display names" ("all" is allowed)
+// - Setting active CaptureMask is available for both:
+//   - already registered components
+//   - "pending" (yet to be registered) components
 // ---------------------------------------------------------------------------
 struct CcpCaptureMaskInfo
 {
@@ -52,8 +59,11 @@ struct CcpCaptureMaskInfo
 
 CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name );
 CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name, CcpColor color );
-
 CARBON_CORE_API std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks();
+
+CARBON_CORE_API void CcpSetActiveCaptureMask( const uint64_t captureMask );
+CARBON_CORE_API void CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames );
+CARBON_CORE_API uint64_t CcpGetActiveCaptureMask();
 
 
 struct CcpTelemetryConfig

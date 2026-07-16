@@ -633,3 +633,64 @@ TEST_F( CcpTelemetryTest, CaptureMaskAutoColorIsPickedFromCandidateList )
 	EXPECT_NE( end, std::find( begin, end, info.color ) );
 }
 
+TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByBits )
+{
+	uint64_t newBits = 0;
+	newBits |= CcpRegisterCaptureMask( "SetActiveCaptureMaskByBits_A" );
+	newBits |= CcpRegisterCaptureMask( "SetActiveCaptureMaskByBits_B" );
+
+	uint64_t registeredCaptureMaskBits = 0;
+	auto registeredCaptureMasks = CcpGetRegisteredCaptureMasks();
+	for ( auto captureMask : registeredCaptureMasks )
+	{
+		ASSERT_TRUE( IsSCaptureMaskSingleBit( captureMask.maskBit ) ) << "Each entry should only contain one bit set";
+		registeredCaptureMaskBits |= captureMask.maskBit;
+	}
+	EXPECT_TRUE( (newBits & registeredCaptureMaskBits) == newBits ) << "All bits in combined newBits should be present in combined registered CaptureMask bits ";
+	EXPECT_FALSE( (newBits & registeredCaptureMaskBits) == registeredCaptureMaskBits ) << "Registered bits should contain the additional 'general' and 'cpp' bits";
+
+	// newBits excludes the default "general" and "ccp" that are present in registeredCaptureMaskBits
+	CcpSetActiveCaptureMask( newBits );
+	EXPECT_EQ( newBits, CcpGetActiveCaptureMask() );
+
+	// Overwrite the active CaptureMask
+	CcpSetActiveCaptureMask( TMCM_GENERAL );
+	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), CcpGetActiveCaptureMask() );
+}
+
+TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByNames )
+{
+	const std::string registeredName = "SetActiveCaptureMaskByNames_RegisteredName";
+	const std::string newName = "SetActiveCaptureMaskByNames_NewName";
+	const std::string pendingName = "SetActiveCaptureMaskByNames_PendingName";
+	const std::vector<std::string> activeMaskList = { registeredName, pendingName };
+
+	// Only register one name
+	const uint64_t registeredBit = CcpRegisterCaptureMask( registeredName );
+	ASSERT_TRUE( IsSCaptureMaskSingleBit( registeredBit ) );
+	CcpSetActiveCaptureMask( activeMaskList );
+	EXPECT_EQ( registeredBit, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should only contain the registered bit, not the pending one";
+
+	// Register the new name
+	const uint64_t newBit = CcpRegisterCaptureMask( newName );
+	ASSERT_TRUE( IsSCaptureMaskSingleBit( newBit ) );
+	EXPECT_EQ( registeredBit, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should still only contain the registered bit, not the new or pending one";
+
+	// Now add the pending one
+	const uint64_t pendingBit = CcpRegisterCaptureMask( pendingName );
+	ASSERT_TRUE( IsSCaptureMaskSingleBit( pendingBit ) );
+	const uint64_t activeBits = registeredBit | pendingBit;
+	EXPECT_EQ( activeBits, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should now contain both the registered and pending bits";
+
+	// Deal with the special "all" case
+	CcpSetActiveCaptureMask( std::vector<std::string>{ "all" } );
+	EXPECT_EQ( UINT64_MAX, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should be all bits set when using the special 'all' alias";
+	CcpRegisterCaptureMask( "SetActiveCaptureMaskByNames_AfterAll" );
+	EXPECT_EQ( UINT64_MAX, CcpGetActiveCaptureMask() );
+
+	// Overwrite the active CaptureMask
+	CcpSetActiveCaptureMask( TMCM_CPP );
+	EXPECT_EQ( static_cast<uint64_t>( TMCM_CPP ), CcpGetActiveCaptureMask() );
+	ASSERT_TRUE( IsSCaptureMaskSingleBit( CcpGetActiveCaptureMask() ) );
+}
+
