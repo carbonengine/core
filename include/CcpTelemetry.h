@@ -4,6 +4,11 @@
 #ifndef CcpTelemetry_h
 #define CcpTelemetry_h
 
+#include <chrono>
+#include <memory>
+#include <string>
+#include <vector>
+
 #include "CcpColorConstants.h"
 #include "CcpThread.h"
 #include "carbon_core_export.h"
