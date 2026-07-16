@@ -425,7 +425,9 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     if( strSz >= 9 )
                     {
                         const char* p = ptr;
-                        p += 4; // skip color
+                        uint32_t color = 0;
+                        std::memcpy( &color, p, 4 );
+                        p += 4;
                         uint32_t line = 0;
                         std::memcpy( &line, p, 4 );
                         p += 4;
@@ -440,6 +442,7 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                         m_pendingZone.function = function;
                         m_pendingZone.source   = source;
                         m_pendingZone.line     = line;
+                        m_pendingZone.color    = color;
                         if( nameLen > 0 )
                             m_pendingZone.name = std::string( p, nameLen );
                         m_hasPendingZone = true;

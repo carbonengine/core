@@ -23,6 +23,7 @@ public:
         std::string function;
         std::string source;
         uint32_t line = 0;
+        uint32_t color = 0;  // Defaults to Black = 0x000000
     };
 
     using ZoneStack = std::vector<ZoneInfo>;

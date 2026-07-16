@@ -258,6 +258,11 @@ TEST_F( CcpTelemetryTest, SimpleZoneTest )
 	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_TRUE( ZoneExists( zoneName ) );
 
+	// CcpTelemetryEnterZone() hardcodes CcpColor::Yellow, make sure it is present
+	const auto zones = m_tracyClient.GetZones();
+	ASSERT_EQ( 1u, zones.size() );
+	EXPECT_EQ( static_cast<uint32_t>( CcpColor::Yellow ), zones.front().color );
+
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry( [this] { return m_tracyClient.GetZoneEndCount() == 1; } );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
