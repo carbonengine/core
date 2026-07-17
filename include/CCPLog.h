@@ -5,6 +5,7 @@
 #define CCP_LOG_H
 
 #include <cstdarg>
+#include <cstdint>
 #include <stdexcept>
 #include "carbon_core_export.h"
 

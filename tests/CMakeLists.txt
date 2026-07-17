@@ -14,15 +14,22 @@ add_executable(CcpCoreTest
     CCPMemoryTracker.cpp
     CcpSecureCrt.cpp
     CcpStatistics.cpp
-    CcpTelemetry.cpp
     CcpThread.cpp
     CcpTime.cpp
     StringConversions.cpp
     TempFile.cpp
     CCPLog.cpp
-    TracyTestClient.cpp
 )
-target_link_libraries(CcpCoreTest PRIVATE CcpCore GTest::gtest GTest::gtest_main lz4::lz4 Tracy::TracyClient)
+target_link_libraries(CcpCoreTest PRIVATE CcpCore GTest::gtest GTest::gtest_main lz4::lz4)
+if(WITH_TELEMETRY)
+    # The telemetry tests talk to a real Tracy client, so they only make sense
+    # (and only build) when the profiler integration is enabled.
+    target_sources(CcpCoreTest PRIVATE
+        CcpTelemetry.cpp
+        TracyTestClient.cpp
+    )
+    target_link_libraries(CcpCoreTest PRIVATE Tracy::TracyClient)
+endif()
 if(WIN32)
     target_link_libraries(CcpCoreTest PRIVATE ws2_32)
 endif()

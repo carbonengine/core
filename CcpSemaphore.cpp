@@ -1,8 +1,14 @@
 // Copyright © 2013 CCP ehf.
 
 #include "include/CcpSemaphore.h"
+#include "include/CcpSecureCrt.h"
 
+#if CCP_TELEMETRY_ENABLED
 #include "tracy/TracyC.h"
+#endif
+
+#include <cstring>
+#include <ctime>
 
 // OS specific includes:
 #ifdef _WIN32
@@ -58,6 +64,7 @@ CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, ui
 #endif
 }
 
+#if CCP_TELEMETRY_ENABLED
 namespace
 {
 	void AnnounceSemaphoreToTelemetry( TracyCLockCtx& ctx, const char* name )
@@ -73,6 +80,7 @@ namespace
 		}
 	}
 }
+#endif
 
 // Preferred constructor, with default value overloads (see header file for details)
 CcpSemaphore::CcpSemaphore( const char* semaphoreName )
@@ -168,9 +176,18 @@ bool CcpSemaphore::TimedWait( uint32_t timeoutInMs )
 	mts.tv_nsec = ( timeoutInMs % 1000 ) * 1000000;
 	const bool result = semaphore_timedwait( m_impl->semaphore, mts ) == KERN_SUCCESS;
 #else
+	// sem_timedwait expects an absolute CLOCK_REALTIME timestamp, not a
+	// relative timeout; passing a relative value makes the wait return
+	// (almost) immediately.
 	timespec ts;
-	ts.tv_sec = timeoutInMs / 1000;
-	ts.tv_nsec = (timeoutInMs % 1000) * 1000000;
+	clock_gettime( CLOCK_REALTIME, &ts );
+	ts.tv_sec += timeoutInMs / 1000;
+	ts.tv_nsec += (timeoutInMs % 1000) * 1000000;
+	if( ts.tv_nsec >= 1000000000 )
+	{
+		ts.tv_sec += 1;
+		ts.tv_nsec -= 1000000000;
+	}
 	const bool result = sem_timedwait( &m_impl->semaphore, &ts ) == 0;
 #endif
 

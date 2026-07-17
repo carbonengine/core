@@ -193,6 +193,36 @@ bool CcpIsDebuggerPresent()
     return ( (info.kp_proc.p_flag & P_TRACED) != 0 );
 }
 
+#elif defined(__linux__)
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// A tracer (debugger) is attached if the TracerPid field of /proc/self/status
+// is non-zero.
+bool CcpIsDebuggerPresent()
+{
+    FILE* file = fopen( "/proc/self/status", "r" );
+    if( !file )
+    {
+        return false;
+    }
+
+    bool traced = false;
+    char line[256];
+    while( fgets( line, sizeof( line ), file ) )
+    {
+        if( strncmp( line, "TracerPid:", 10 ) == 0 )
+        {
+            traced = atoi( line + 10 ) != 0;
+            break;
+        }
+    }
+    fclose( file );
+    return traced;
+}
+
 #elif _WIN32
 
 bool CcpIsDebuggerPresent()
