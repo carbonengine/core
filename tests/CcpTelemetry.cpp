@@ -410,7 +410,7 @@ TEST_F( CcpTelemetryTest, CcpTelemetryEnterZoneCaptureMaskBit )
 {
 	// Register a new component CaptureMask
 	const uint64_t componentMaskBit = CcpRegisterCaptureMask( "CcpTelemetryEnterZoneCaptureMaskBit", CcpColor::LimeGreen );
-	ASSERT_TRUE( IsSCaptureMaskSingleBit( componentMaskBit ) );
+	EXPECT_TRUE( IsSCaptureMaskSingleBit( componentMaskBit ) );
 
 	// Test where componentMaskBit is in the Active list
 	CcpSetActiveCaptureMask( componentMaskBit );
@@ -462,7 +462,7 @@ TEST_F( CcpTelemetryTest, CcpMutexAnnounceAndTerminate )
 		// The custom name arrives almost immediately, but the source location
 		// resolves through extra server-query round trips; wait for both.
 		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && !lockInfo.source.empty(); } );
-		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+		EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 		EXPECT_FALSE( lockInfo.terminated );
 		// The owner and name passed to CcpMutex arrive combined as the custom lock name.
 		EXPECT_EQ( lockName, lockInfo.name );
@@ -487,7 +487,7 @@ TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
 	TracyTestClient::LockInfo lockInfo;
 	mutex.Acquire();
 	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.obtainCount == 1; } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+	EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 0, lockInfo.releaseCount );
@@ -572,8 +572,8 @@ TEST_F( CcpTelemetryTest, MultipleCcpMutexesAnnounceDistinctLocks )
 		return TryGetActiveLockNamed( firstLockName, firstLock ) &&
 			TryGetActiveLockNamed( secondLockName, secondLock );
 	} );
-	ASSERT_TRUE( TryGetActiveLockNamed( firstLockName, firstLock ) );
-	ASSERT_TRUE( TryGetActiveLockNamed( secondLockName, secondLock ) );
+	EXPECT_TRUE( TryGetActiveLockNamed( firstLockName, firstLock ) );
+	EXPECT_TRUE( TryGetActiveLockNamed( secondLockName, secondLock ) );
 	EXPECT_NE( firstLock.id, secondLock.id );
 
 	secondMutex.Release();
@@ -594,7 +594,7 @@ TEST_F( CcpTelemetryTest, CcpSpinLockAnnounceAndTerminate )
 		CcpAutoSpinLock autoSpinLock( spinLock );
 
 		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+		EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 		EXPECT_FALSE( lockInfo.terminated );
 		EXPECT_EQ( lockName, lockInfo.name );
 		EXPECT_TRUE( lockInfo.waitingThreads.empty() );
@@ -618,7 +618,7 @@ TEST_F( CcpTelemetryTest, CcpSpinLockAcquireAndRelease )
 
 	spinLock.Acquire();
 	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+	EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 	const uint32_t lockId = lockInfo.id;
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
@@ -643,7 +643,7 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreAnnounceAndTerminate )
 
 		std::thread waiter( [&semaphore] { semaphore.Wait(); } );
 		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.name == lockName; } );
-		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
+		EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
 		EXPECT_FALSE( lockInfo.terminated );
 		EXPECT_EQ( lockName, lockInfo.name );
 		EXPECT_EQ( 1, lockInfo.waitCount );
@@ -673,7 +673,7 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreTimedWaitTimesOut )
 	// No signal beforehand — TimedWait should time out and report a wait without an obtain.
 	EXPECT_FALSE( semaphore.TimedWait( 10 ) );
 	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.waitCount == 1 && lockInfo.obtainCount == 1; } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
+	EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 0, lockInfo.releaseCount );
@@ -722,10 +722,10 @@ TEST_F( CcpTelemetryTest, CaptureMaskDefaultsAreRegistered )
 {
 	// The default CaptureMasks must be available from the start.
 	CcpCaptureMaskInfo info;
-	ASSERT_TRUE( TryGetCaptureMaskNamed( "general", info ) );
+	EXPECT_TRUE( TryGetCaptureMaskNamed( "general", info ) );
 	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), info.maskBit );
 	EXPECT_EQ( CcpColor::SteelBlue, info.color );  // CcpColor::SteelBlue is the default assigned color for TMCM_GENERAL
-	ASSERT_TRUE( TryGetCaptureMaskNamed( "cpp", info ) );
+	EXPECT_TRUE( TryGetCaptureMaskNamed( "cpp", info ) );
 	EXPECT_EQ( static_cast<uint64_t>( TMCM_CPP ), info.maskBit );
 
 	// Registering a CaptureMask for the same name should result in the same maskBit returned,
@@ -742,7 +742,7 @@ TEST_F( CcpTelemetryTest, CaptureMaskAutoColorIsPickedFromCandidateList )
 	CcpRegisterCaptureMask( "CaptureMaskAutoColorIsPickedFromCandidateList" );
 
 	CcpCaptureMaskInfo info;
-	ASSERT_TRUE( TryGetCaptureMaskNamed( "CaptureMaskAutoColorIsPickedFromCandidateList", info ) );
+	EXPECT_TRUE( TryGetCaptureMaskNamed( "CaptureMaskAutoColorIsPickedFromCandidateList", info ) );
 	const auto begin = std::begin( ColorUtil::s_awailableNamedColors );
 	const auto end = std::end( ColorUtil::s_awailableNamedColors );
 	EXPECT_NE( end, std::find( begin, end, info.color ) );
@@ -758,7 +758,7 @@ TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByBits )
 	auto registeredCaptureMasks = CcpGetRegisteredCaptureMasks();
 	for ( auto captureMask : registeredCaptureMasks )
 	{
-		ASSERT_TRUE( IsSCaptureMaskSingleBit( captureMask.maskBit ) ) << "Each entry should only contain one bit set";
+		EXPECT_TRUE( IsSCaptureMaskSingleBit( captureMask.maskBit ) ) << "Each entry should only contain one bit set";
 		registeredCaptureMaskBits |= captureMask.maskBit;
 	}
 	EXPECT_TRUE( (newBits & registeredCaptureMaskBits) == newBits ) << "All bits in combined newBits should be present in combined registered CaptureMask bits ";
@@ -782,18 +782,18 @@ TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByNames )
 
 	// Only register one name
 	const uint64_t registeredBit = CcpRegisterCaptureMask( registeredName );
-	ASSERT_TRUE( IsSCaptureMaskSingleBit( registeredBit ) );
+	EXPECT_TRUE( IsSCaptureMaskSingleBit( registeredBit ) );
 	CcpSetActiveCaptureMask( activeMaskList );
 	EXPECT_EQ( registeredBit, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should only contain the registered bit, not the pending one";
 
 	// Register the new name
 	const uint64_t newBit = CcpRegisterCaptureMask( newName );
-	ASSERT_TRUE( IsSCaptureMaskSingleBit( newBit ) );
+	EXPECT_TRUE( IsSCaptureMaskSingleBit( newBit ) );
 	EXPECT_EQ( registeredBit, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should still only contain the registered bit, not the new or pending one";
 
 	// Now add the pending one
 	const uint64_t pendingBit = CcpRegisterCaptureMask( pendingName );
-	ASSERT_TRUE( IsSCaptureMaskSingleBit( pendingBit ) );
+	EXPECT_TRUE( IsSCaptureMaskSingleBit( pendingBit ) );
 	const uint64_t activeBits = registeredBit | pendingBit;
 	EXPECT_EQ( activeBits, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should now contain both the registered and pending bits";
 
@@ -806,6 +806,6 @@ TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByNames )
 	// Overwrite the active CaptureMask
 	CcpSetActiveCaptureMask( TMCM_CPP );
 	EXPECT_EQ( static_cast<uint64_t>( TMCM_CPP ), CcpGetActiveCaptureMask() );
-	ASSERT_TRUE( IsSCaptureMaskSingleBit( CcpGetActiveCaptureMask() ) );
+	EXPECT_TRUE( IsSCaptureMaskSingleBit( CcpGetActiveCaptureMask() ) );
 }
 
