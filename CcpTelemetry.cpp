@@ -142,21 +142,23 @@ namespace
 	// From a CcpSetActiveCaptureMask( vector<string> ) call.
 	std::vector<std::string> s_pendingActiveCaptureMaskNames;
 
-#if defined( _MSC_VER )
-	#include <intrin.h> // _BitScanForward64  TODO: Can be removed once upgraded to C++20 - using std::countr_zero() instead.
-#endif
-
-	// Returns the index [0..63] of the single bit set bit in x
-	// TODO: Replace/remove this function with std::countr_zero() once upgraded to C++20 or newer.
-	int CountTrailingZeros64( uint64_t x )
+	// Returns the index [0..63] of the lowest set bit.
+	// Uses a de Bruijn sequence, thanks Claude Code.
+	// TODO: Can be replaced with std::countr_zero() once we upgrade to C++20.
+	constexpr int CountTrailingZeros64( uint64_t x ) noexcept
 	{
-#if defined( _MSC_VER )
-		unsigned long idx;
-		_BitScanForward64( &idx, x );
-		return static_cast<int>( idx );
-#else
-		return __builtin_ctzll( x );
-#endif
+		constexpr uint64_t deBruijn = 0x03f79d71b4cb0a89ULL;
+		constexpr uint8_t lookup[64] = {
+			 0,  1, 48,  2, 57, 49, 28,  3,
+			61, 58, 50, 42, 38, 29, 17,  4,
+			62, 55, 59, 36, 53, 51, 43, 22,
+			45, 39, 33, 30, 24, 18, 12,  5,
+			63, 47, 56, 27, 60, 41, 37, 16,
+			54, 35, 52, 21, 44, 32, 23, 11,
+			46, 26, 40, 15, 34, 20, 31, 10,
+			25, 14, 19,  9, 13,  8,  7,  6,
+		};
+		return lookup[( ( x & ( 0ULL - x ) ) * deBruijn ) >> 58];
 	}
 
 	// Store a registered CaptureMask into its entry slot
