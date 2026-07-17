@@ -6,7 +6,6 @@ find_package(GTest CONFIG REQUIRED)
 find_package(lz4 CONFIG REQUIRED)
 add_executable(CcpCoreTest
     CCPCallstack.cpp
-    CcpColorConstants.cpp
     CcpCoreTest.cpp
     CcpCrash.cpp
     CCPHash.cpp

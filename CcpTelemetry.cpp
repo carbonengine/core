@@ -117,6 +117,27 @@ namespace
 	// narrowed in a later call to CcpSetActiveCaptureMask()
 	std::atomic<uint64_t> s_activeCaptureMaskBits{ UINT64_MAX };
 
+	// Color palette for auto-assigned CaptureMasks
+	constexpr CcpColor s_captureMaskColorPalette[] = {
+		CcpColor::OrangeRed,
+		CcpColor::LimeGreen,
+		CcpColor::DodgerBlue,
+		CcpColor::Gold,
+		CcpColor::MediumPurple,
+		CcpColor::Turquoise,
+		CcpColor::DeepPink,
+		CcpColor::Chartreuse,
+		CcpColor::Tomato,
+		CcpColor::CornflowerBlue,
+		CcpColor::Khaki,
+		CcpColor::SeaGreen,
+		CcpColor::Orchid,
+		CcpColor::Salmon,
+		CcpColor::Aquamarine,
+		CcpColor::Crimson,
+	};
+	size_t s_captureMaskColorPaletteCursor = 0;
+
 	// List of CaptureMask names that have yet to be registered.
 	// From a CcpSetActiveCaptureMask( vector<string> ) call.
 	std::vector<std::string> s_pendingActiveCaptureMaskNames;
@@ -195,16 +216,7 @@ namespace
 
 		if( !color )
 		{
-			std::vector<CcpColor> existingColors;
-			existingColors.reserve( CAPTURE_MASKS_MAX );
-			for( const auto& existingEntry : s_registeredCaptureMasks )
-			{
-				if( existingEntry.slotBit.load( std::memory_order_relaxed ) != 0 )
-				{
-					existingColors.push_back( existingEntry.maskInfo.color );
-				}
-			}
-			color = ColorUtil::PickDistinctColor( existingColors );
+			color = s_captureMaskColorPalette[s_captureMaskColorPaletteCursor++ % std::size( s_captureMaskColorPalette )];
 		}
 
 		StoreRegisteredCaptureMask( maskBit, lowerName, *color );

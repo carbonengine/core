@@ -737,15 +737,15 @@ TEST_F( CcpTelemetryTest, CaptureMaskDefaultsAreRegistered )
 	EXPECT_EQ( CcpColor::OrangeRed, info.color );
 }
 
-TEST_F( CcpTelemetryTest, CaptureMaskAutoColorIsPickedFromCandidateList )
+TEST_F( CcpTelemetryTest, CaptureMaskAutoAssignColor )
 {
-	CcpRegisterCaptureMask( "CaptureMaskAutoColorIsPickedFromCandidateList" );
+	CcpRegisterCaptureMask( "CaptureMaskAutoAssignColor" );
 
 	CcpCaptureMaskInfo info;
-	EXPECT_TRUE( TryGetCaptureMaskNamed( "CaptureMaskAutoColorIsPickedFromCandidateList", info ) );
-	const auto begin = std::begin( ColorUtil::s_awailableNamedColors );
-	const auto end = std::end( ColorUtil::s_awailableNamedColors );
-	EXPECT_NE( end, std::find( begin, end, info.color ) );
+	EXPECT_TRUE( TryGetCaptureMaskNamed( "CaptureMaskAutoAssignColor", info ) );
+	EXPECT_NE( CcpColor::White, info.color ) << "CcpColor::White is the default initialized color";
+	EXPECT_NE( CcpColor::SteelBlue, info.color ) << "CcpColor::SteelBlue is reserved for TMCM_GENERAL";
+	EXPECT_NE( CcpColor::Yellow, info.color ) << "CcpColor::Yellow is reserved for TMCM_CPP";
 }
 
 TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByBits )
