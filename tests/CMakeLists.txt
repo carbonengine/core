@@ -8,6 +8,7 @@ add_executable(CcpCoreTest
     CCPCallstack.cpp
     CcpColorConstants.cpp
     CcpCoreTest.cpp
+    CcpCrash.cpp
     CCPHash.cpp
     CcpFileUtils.cpp
     CcpMemory.cpp
