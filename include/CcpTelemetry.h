@@ -108,12 +108,25 @@ CARBON_CORE_API void CcpTelemetrySetActiveFiber( const std::string& name );
 CARBON_CORE_API const std::string& CcpTelemetryGetActiveFiber();
 CARBON_CORE_API void CcpTelemetryRemoveFiber( const std::string& name );
 
+// The CaptureMaskBitTag is a work-around to solve disambiguity between the two
+// TelemetryZone constructors (uint32_t ctx vs uint64_t captureMaskBit) and
+// still preserve ABI compatibility.
+// The ambiguity would otherwise be triggered if the default CcpColor parameter
+// is omitted in the original (now deprecated) uint32_t ctx constructor.
+struct CaptureMaskBitTag { explicit CaptureMaskBitTag() = default; };
+inline constexpr CaptureMaskBitTag CaptureMaskBit{};
+
 class TelemetryZone
 {
 public:
 	TelemetryZone() = delete;
+
+	[[deprecated( "Use `TelemetryZone( CaptureMaskBitTag, uint64_t captureMaskBit, ... )` instead" )]]
 	CARBON_CORE_API TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, CcpColor color = CcpColor::SteelBlue );
+
+	CARBON_CORE_API TelemetryZone( CaptureMaskBitTag, uint64_t captureMaskBit, const char* name, const char* filename, uint32_t lineno );
 	CARBON_CORE_API ~TelemetryZone();
+
 	TelemetryZone( TelemetryZone&& other ) noexcept;
 	TelemetryZone( const TelemetryZone& ) = delete;
 	TelemetryZone& operator=( TelemetryZone&& ) = delete;
@@ -126,7 +139,10 @@ private:
 	std::unique_ptr<Private> m_impl;
 };
 
+[[deprecated( "Use `CcpTelemetryEnterZone( void* key, uint64_t captureMaskBit, ... )` instead" )]]
 CARBON_CORE_API void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, uint32_t lineno );
+
+CARBON_CORE_API void CcpTelemetryEnterZone( void* key, uint64_t captureMaskBit, const char* name, const char* filename, uint32_t lineno );
 CARBON_CORE_API void CcpTelemetryLeaveZone( void* key );
 CARBON_CORE_API void CcpTelemetryZoneAddText( void* key, const char* text );
 

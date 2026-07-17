@@ -222,6 +222,36 @@ namespace
 
 		return maskBit;
 	}
+
+	// Get the registered CaptureMask color for a given CaptureMask
+	// Default to CcpColor::White if not found
+	CcpColor GetCaptureMaskColor( uint64_t captureMaskBit )
+	{
+		if( captureMaskBit == 0 )
+		{
+			return CcpColor::White;
+		}
+
+		// Find the registered CaptureMask index
+		const int idx = CountTrailingZeros64( captureMaskBit );
+		if( idx < 0 || idx >= CAPTURE_MASKS_MAX )
+		{
+			return CcpColor::White;
+		}
+
+		const auto& entry = s_registeredCaptureMasks[idx];
+		if( entry.slotBit.load( std::memory_order_acquire ) == captureMaskBit )
+		{
+			return entry.maskInfo.color;
+		}
+
+		return CcpColor::White;
+	}
+
+	bool IsCaptureMaskActive( uint64_t captureMaskBit )
+	{
+		return ( s_activeCaptureMaskBits.load( std::memory_order_acquire ) & captureMaskBit ) != 0;
+	}
 }
 
 uint64_t CcpRegisterCaptureMask( const std::string& name )
@@ -595,6 +625,7 @@ const std::string& CcpTelemetryGetActiveFiber()
 	return *t_activeFiber;
 }
 
+// Deprecated version
 TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, CcpColor color ) : m_impl(std::make_unique<Private>())
 {
 	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
@@ -604,10 +635,30 @@ TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filena
 
 	CCP_ASSERT( filename != nullptr );
 	CCP_ASSERT( name != nullptr );
+
+	const int active = ( ( ctx & TMCM_CPP ) != 0 ) && IsCaptureMaskActive( ctx );
 	auto data = ___tracy_alloc_srcloc( lineno, filename, strlen( filename ), name, strlen( name ), static_cast<uint32_t>( color ) );
 //	CCP_LOG_CH( s_ch, "[Fiber %p] Creating zone %s (%p)", t_activeFiber->c_str(), ret.first->c_str(), this );
 	m_impl->fiber = t_activeFiber;
-	m_impl->telemetryContext.emplace( ___tracy_emit_zone_begin_alloc( data, ctx & TMCM_CPP ) );
+	m_impl->telemetryContext.emplace( ___tracy_emit_zone_begin_alloc( data, active ) );
+}
+
+// Preferred version
+TelemetryZone::TelemetryZone( CaptureMaskBitTag, uint64_t captureMaskBit, const char* name, const char* filename, uint32_t lineno ) : m_impl( std::make_unique<Private>() )
+{
+	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
+	{
+		return;
+	}
+
+	CCP_ASSERT( filename != nullptr );
+	CCP_ASSERT( name != nullptr );
+
+	const CcpColor color = GetCaptureMaskColor( captureMaskBit );
+	const int active = IsCaptureMaskActive( captureMaskBit );
+	auto data = ___tracy_alloc_srcloc( lineno, filename, strlen( filename ), name, strlen( name ), static_cast<uint32_t>( color ) );
+	m_impl->fiber = t_activeFiber;
+	m_impl->telemetryContext.emplace( ___tracy_emit_zone_begin_alloc( data, active ) );
 }
 
 TelemetryZone::TelemetryZone( TelemetryZone&& other ) noexcept : m_impl( std::make_unique<Private>() )
@@ -644,13 +695,19 @@ void TelemetryZone::text( const char* text ) const
 	}
 }
 
+// Deprecated version
 void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, uint32_t lineno )
+{
+	CcpTelemetryEnterZone( key, TMCM_CPP, name, filename, lineno ); // The default assigned color for TMCM_CPP is CcpColor::Yellow
+}
+
+// Preferred version
+void CcpTelemetryEnterZone( void* key, uint64_t captureMaskBit, const char* name, const char* filename, uint32_t lineno )
 {
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started )
 	{
 		t_manuallyTrackedZones.emplace( key );
-		t_activeTaskletZoneStore->second.emplace( TMCM_CPP, name, filename, lineno, CcpColor::Yellow );
-//		CCP_LOG_CH( s_ch, "[Fiber %p] [Store %p] [Zone %p] Enter", t_activeFiber, t_activeTaskletZoneStore, &t_activeTaskletZoneStore->second.top() );
+		t_activeTaskletZoneStore->second.emplace( CaptureMaskBit, captureMaskBit, name, filename, lineno );
 	}
 }
 
@@ -784,6 +841,10 @@ void CcpTelemetryRemoveFiber( const std::string& )
 }
 
 void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, uint32_t lineno )
+{
+}
+
+void CcpTelemetryEnterZone( void* key, uint64_t captureMaskBit, const char* name, const char* filename, uint32_t lineno )
 {
 }
 
