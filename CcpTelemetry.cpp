@@ -770,7 +770,7 @@ uint64_t CcpRegisterCaptureMask( const std::string&, CcpColor )
 	return 0;
 }
 
-std::vector<CcpCaptureMaskInfo> CcpGetCaptureMasks()
+std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
 {
 	return {};
 }
