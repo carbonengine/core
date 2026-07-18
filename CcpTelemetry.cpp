@@ -103,19 +103,13 @@ namespace
 
 	CcpMutex s_captureMaskMutex( "CcpTelemetry", "CaptureMaskMutex" );
 
-	struct CaptureMaskEntry
-	{
-		std::atomic<uint64_t> slotBit{ 0 }; // used to indicate if the slot entry has been populated or not
-		CcpCaptureMaskInfo    maskInfo{};
-	};
-
 	// Fixed size array for registered CaptureMasks.
 	// Allows for O(1) lookup based on single-bit CaptureMask value.
-	std::array<CaptureMaskEntry, CAPTURE_MASKS_MAX> s_registeredCaptureMasks{};
+	std::array<CcpCaptureMaskInfo, CAPTURE_MASKS_MAX> s_registeredCaptureMasks{};
 
 	// Currently-active CaptureMask. Defaults to "all" until
 	// narrowed in a later call to CcpSetActiveCaptureMask()
-	std::atomic<uint64_t> s_activeCaptureMaskBits{ UINT64_MAX };
+	uint64_t s_activeCaptureMaskBits = UINT64_MAX;
 
 	// Color palette for auto-assigned CaptureMasks
 	constexpr CcpColor s_captureMaskColorPalette[] = {
@@ -161,14 +155,13 @@ namespace
 		return lookup[( ( x & ( 0ULL - x ) ) * deBruijn ) >> 58];
 	}
 
-	// Store a registered CaptureMask into its entry slot
+	// Store a registered CaptureMask into its array slot
 	void StoreRegisteredCaptureMask( uint64_t bit, const std::string& name, CcpColor color )
 	{
 		auto& entry = s_registeredCaptureMasks[CountTrailingZeros64( bit )];
-		entry.maskInfo.name    = name;
-		entry.maskInfo.maskBit = bit;
-		entry.maskInfo.color   = color;
-		entry.slotBit.store( bit, std::memory_order_release );
+		entry.name    = name;
+		entry.maskBit = bit;
+		entry.color   = color;
 	}
 
 	// Initialize the default CaptureMasks
@@ -196,14 +189,13 @@ namespace
 		// CaptureMask entry in case of re-register on same name.
 		for( auto& registeredEntry : s_registeredCaptureMasks )
 		{
-			const uint64_t bit = registeredEntry.slotBit.load( std::memory_order_relaxed );
-			if( bit != 0 && registeredEntry.maskInfo.name == lowerName )
+			if( registeredEntry.maskBit != 0 && registeredEntry.name == lowerName )
 			{
 				if( color )
 				{
-					registeredEntry.maskInfo.color = *color;
+					registeredEntry.color = *color;
 				}
-				return bit;
+				return registeredEntry.maskBit;
 			}
 		}
 
@@ -230,7 +222,7 @@ namespace
 		if( pendingIt != s_pendingActiveCaptureMaskNames.end() )
 		{
 			s_pendingActiveCaptureMaskNames.erase( pendingIt );
-			s_activeCaptureMaskBits.fetch_or( maskBit, std::memory_order_acq_rel );
+			s_activeCaptureMaskBits |= maskBit;
 			CCP_LOGWARN_CH( s_ch, "Previously pending CaptureMask '%s' added to activeCaptureMask  -> 0x%llx", lowerName.c_str(), static_cast<unsigned long long>( maskBit ) );
 		}
 
@@ -245,26 +237,13 @@ namespace
 		{
 			return CcpColor::White;
 		}
-
-		// Find the registered CaptureMask index
-		const int idx = CountTrailingZeros64( captureMaskBit );
-		if( idx < 0 || idx >= CAPTURE_MASKS_MAX )
-		{
-			return CcpColor::White;
-		}
-
-		const auto& entry = s_registeredCaptureMasks[idx];
-		if( entry.slotBit.load( std::memory_order_acquire ) == captureMaskBit )
-		{
-			return entry.maskInfo.color;
-		}
-
-		return CcpColor::White;
+		const auto& entry = s_registeredCaptureMasks[CountTrailingZeros64( captureMaskBit )];
+		return entry.maskBit == captureMaskBit ? entry.color : CcpColor::White;
 	}
 
 	bool IsCaptureMaskActive( uint64_t captureMaskBit )
 	{
-		return ( s_activeCaptureMaskBits.load( std::memory_order_acquire ) & captureMaskBit ) != 0;
+		return ( s_activeCaptureMaskBits & captureMaskBit ) != 0;
 	}
 }
 
@@ -287,9 +266,9 @@ std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
 	result.reserve( CAPTURE_MASKS_MAX );
 	for( const auto& registeredEntry : s_registeredCaptureMasks )
 	{
-		if( registeredEntry.slotBit.load( std::memory_order_relaxed ) != 0 )
+		if( registeredEntry.maskBit != 0 )
 		{
-			result.push_back( registeredEntry.maskInfo );
+			result.push_back( registeredEntry );
 		}
 	}
 	return result;
@@ -301,7 +280,7 @@ void CcpSetActiveCaptureMask( const uint64_t captureMask )
 	CcpAutoMutex lock( s_captureMaskMutex );
 
 	s_pendingActiveCaptureMaskNames.clear();
-	s_activeCaptureMaskBits.store( captureMask, std::memory_order_release );
+	s_activeCaptureMaskBits = captureMask;
 	CCP_LOGWARN_CH( s_ch, "Active CaptureMask set to 0x%llx", static_cast<unsigned long long>( captureMask ) );
 }
 
@@ -331,10 +310,9 @@ void CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames )
 		bool alreadyRegistered = false;
 		for( const auto& registeredEntry : s_registeredCaptureMasks )
 		{
-			const uint64_t entryBit = registeredEntry.slotBit.load( std::memory_order_relaxed );
-			if( entryBit != 0 && registeredEntry.maskInfo.name == lowerName )
+			if( registeredEntry.maskBit != 0 && registeredEntry.name == lowerName )
 			{
-				newActiveCaptureMask |= entryBit;
+				newActiveCaptureMask |= registeredEntry.maskBit;
 				alreadyRegistered = true;
 				break;
 			}
@@ -350,13 +328,13 @@ void CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames )
 		}
 	}
 
-	s_activeCaptureMaskBits.store( newActiveCaptureMask, std::memory_order_release );
+	s_activeCaptureMaskBits = newActiveCaptureMask;
 	CCP_LOGWARN_CH( s_ch, "Active CaptureMask set to 0x%llx (%zu pending unresolved name(s))", static_cast<unsigned long long>( newActiveCaptureMask ), s_pendingActiveCaptureMaskNames.size() );
 }
 
 uint64_t CcpGetActiveCaptureMask()
 {
-	return s_activeCaptureMaskBits.load( std::memory_order_acquire );
+	return s_activeCaptureMaskBits;
 }
 
 bool CcpTelemetryIsConnected()
