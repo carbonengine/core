@@ -164,12 +164,24 @@ namespace
 		entry.color   = color;
 	}
 
-	// Initialize the default CaptureMasks
-	uint64_t s_registeredCaptureMaskBits = []
+	uint64_t GetRegisteredCaptureMaskBits()
 	{
+		uint64_t registeredBits = 0;
+		for( const auto& entry : s_registeredCaptureMasks )
+		{
+			registeredBits |= entry.maskBit;
+		}
+		return registeredBits;
+	}
+
+	// Make sure the default CaptureMasks are registered and available from the start
+	const bool s_defaultCaptureMasksInitialized = []
+	{
+		CcpAutoMutex lock( s_captureMaskMutex );
+
 		StoreRegisteredCaptureMask( TMCM_GENERAL, "general", CcpColor::SteelBlue );
 		StoreRegisteredCaptureMask( TMCM_CPP,     "cpp",     CcpColor::Yellow );
-		return static_cast<uint64_t>( TMCM_GENERAL | TMCM_CPP );
+		return true;
 	}();
 
 	uint64_t RegisterCaptureMask( const std::string& name, std::optional<CcpColor> color )
@@ -199,34 +211,34 @@ namespace
 			}
 		}
 
-		if( s_registeredCaptureMaskBits == UINT64_MAX )
+		const uint64_t alreadyRegisteredBits = GetRegisteredCaptureMaskBits();
+		if( alreadyRegisteredBits == UINT64_MAX )
 		{
 			CCP_LOGERR_CH( s_ch, "Cannot register CaptureMask '%s' - all 64 bits are already in use", lowerName.c_str() );
 			return 0;
 		}
 
 		// Allocate the lowest available free bit for the new CaptureMask
-		const uint64_t maskBit = ~s_registeredCaptureMaskBits & ( s_registeredCaptureMaskBits + 1 );
+		const uint64_t newMaskBit = ~alreadyRegisteredBits & ( alreadyRegisteredBits + 1 );
 
 		if( !color )
 		{
 			color = s_captureMaskColorPalette[s_captureMaskColorPaletteCursor++ % std::size( s_captureMaskColorPalette )];
 		}
 
-		StoreRegisteredCaptureMask( maskBit, lowerName, *color );
-		s_registeredCaptureMaskBits |= maskBit;
-		CCP_LOGWARN_CH( s_ch, "Registered a new CaptureMask for '%s' -> 0x%llx with color %s", lowerName.c_str(), static_cast<unsigned long long>( maskBit ), CcpColorToString( *color ).c_str() );
+		StoreRegisteredCaptureMask( newMaskBit, lowerName, *color );
+		CCP_LOGWARN_CH( s_ch, "Registered a new CaptureMask for '%s' -> 0x%llx with color %s", lowerName.c_str(), static_cast<unsigned long long>( newMaskBit ), CcpColorToString( *color ).c_str() );
 
 		// Make sure previously "pending active" CaptureMask is included
 		auto pendingIt = std::find( s_pendingActiveCaptureMaskNames.begin(), s_pendingActiveCaptureMaskNames.end(), lowerName );
 		if( pendingIt != s_pendingActiveCaptureMaskNames.end() )
 		{
 			s_pendingActiveCaptureMaskNames.erase( pendingIt );
-			s_activeCaptureMaskBits |= maskBit;
-			CCP_LOGWARN_CH( s_ch, "Previously pending CaptureMask '%s' added to activeCaptureMask  -> 0x%llx", lowerName.c_str(), static_cast<unsigned long long>( maskBit ) );
+			s_activeCaptureMaskBits |= newMaskBit;
+			CCP_LOGWARN_CH( s_ch, "Previously pending CaptureMask '%s' added to activeCaptureMask  -> 0x%llx", lowerName.c_str(), static_cast<unsigned long long>( newMaskBit ) );
 		}
 
-		return maskBit;
+		return newMaskBit;
 	}
 
 	// Get the registered CaptureMask color for a given CaptureMask
