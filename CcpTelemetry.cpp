@@ -105,32 +105,15 @@ namespace
 
 	// Fixed size array for registered CaptureMasks.
 	// Allows for O(1) lookup based on single-bit CaptureMask value.
-	std::array<CcpCaptureMaskInfo, CAPTURE_MASKS_MAX> s_registeredCaptureMasks{};
+	std::array<CcpCaptureMaskInfo, CAPTURE_MASKS_MAX> s_registeredCaptureMasks{
+			CcpCaptureMaskInfo{ "general", TMCM_GENERAL, CcpColor::SteelBlue },
+			CcpCaptureMaskInfo{ "cpp", TMCM_CPP,     CcpColor::Yellow	},
+	};
 
 	// Currently-active CaptureMask. Defaults to "all" until
 	// narrowed in a later call to CcpSetActiveCaptureMask()
 	uint64_t s_activeCaptureMaskBits = UINT64_MAX;
 
-	// Color palette for auto-assigned CaptureMasks
-	constexpr CcpColor s_captureMaskColorPalette[] = {
-		CcpColor::OrangeRed,
-		CcpColor::LimeGreen,
-		CcpColor::DodgerBlue,
-		CcpColor::Gold,
-		CcpColor::MediumPurple,
-		CcpColor::Turquoise,
-		CcpColor::DeepPink,
-		CcpColor::Chartreuse,
-		CcpColor::Tomato,
-		CcpColor::CornflowerBlue,
-		CcpColor::Khaki,
-		CcpColor::SeaGreen,
-		CcpColor::Orchid,
-		CcpColor::Salmon,
-		CcpColor::Aquamarine,
-		CcpColor::Crimson,
-	};
-	size_t s_captureMaskColorPaletteCursor = 0;
 
 	// List of CaptureMask names that have yet to be registered.
 	// From a CcpSetActiveCaptureMask( vector<string> ) call.
@@ -174,73 +157,6 @@ namespace
 		return registeredBits;
 	}
 
-	// Make sure the default CaptureMasks are registered and available from the start
-	const bool s_defaultCaptureMasksInitialized = []
-	{
-		CcpAutoMutex lock( s_captureMaskMutex );
-
-		StoreRegisteredCaptureMask( TMCM_GENERAL, "general", CcpColor::SteelBlue );
-		StoreRegisteredCaptureMask( TMCM_CPP,     "cpp",     CcpColor::Yellow );
-		return true;
-	}();
-
-	uint64_t RegisterCaptureMask( const std::string& name, std::optional<CcpColor> color )
-	{
-		// Guard access to registered CaptureMasks while we add/update a new entry
-		CcpAutoMutex lock( s_captureMaskMutex );
-
-		if( name.empty() )
-		{
-			CCP_LOGERR_CH( s_ch, "Cannot register a CaptureMask without a name" );
-			return 0;
-		}
-
-		std::string lowerName = ToLower( name );
-
-		// Explicitly allow change of color on an existing registered
-		// CaptureMask entry in case of re-register on same name.
-		for( auto& registeredEntry : s_registeredCaptureMasks )
-		{
-			if( registeredEntry.maskBit != 0 && registeredEntry.name == lowerName )
-			{
-				if( color )
-				{
-					registeredEntry.color = *color;
-				}
-				return registeredEntry.maskBit;
-			}
-		}
-
-		const uint64_t alreadyRegisteredBits = GetRegisteredCaptureMaskBits();
-		if( alreadyRegisteredBits == UINT64_MAX )
-		{
-			CCP_LOGERR_CH( s_ch, "Cannot register CaptureMask '%s' - all 64 bits are already in use", lowerName.c_str() );
-			return 0;
-		}
-
-		// Allocate the lowest available free bit for the new CaptureMask
-		const uint64_t newMaskBit = ~alreadyRegisteredBits & ( alreadyRegisteredBits + 1 );
-
-		if( !color )
-		{
-			color = s_captureMaskColorPalette[s_captureMaskColorPaletteCursor++ % std::size( s_captureMaskColorPalette )];
-		}
-
-		StoreRegisteredCaptureMask( newMaskBit, lowerName, *color );
-		CCP_LOGWARN_CH( s_ch, "Registered a new CaptureMask for '%s' -> 0x%llx with color %s", lowerName.c_str(), static_cast<unsigned long long>( newMaskBit ), CcpColorToString( *color ).data() );
-
-		// Make sure previously "pending active" CaptureMask is included
-		auto pendingIt = std::find( s_pendingActiveCaptureMaskNames.begin(), s_pendingActiveCaptureMaskNames.end(), lowerName );
-		if( pendingIt != s_pendingActiveCaptureMaskNames.end() )
-		{
-			s_pendingActiveCaptureMaskNames.erase( pendingIt );
-			s_activeCaptureMaskBits |= newMaskBit;
-			CCP_LOGWARN_CH( s_ch, "Previously pending CaptureMask '%s' added to activeCaptureMask  -> 0x%llx", lowerName.c_str(), static_cast<unsigned long long>( newMaskBit ) );
-		}
-
-		return newMaskBit;
-	}
-
 	// Get the registered CaptureMask color for a given CaptureMask
 	// Default to CcpColor::White if not found
 	CcpColor GetCaptureMaskColor( uint64_t captureMaskBit )
@@ -259,14 +175,51 @@ namespace
 	}
 }
 
-uint64_t CcpRegisterCaptureMask( const std::string& name )
-{
-	return RegisterCaptureMask( name, std::nullopt );
-}
-
 uint64_t CcpRegisterCaptureMask( const std::string& name, CcpColor color )
 {
-	return RegisterCaptureMask( name, color );
+		// Guard access to registered CaptureMasks while we add/update a new entry
+		CcpAutoMutex lock( s_captureMaskMutex );
+
+		if( name.empty() )
+		{
+			CCP_LOGERR_CH( s_ch, "Cannot register a CaptureMask without a name" );
+			return 0;
+		}
+
+		// Explicitly allow change of color on an existing registered
+		// CaptureMask entry in case of re-register on same name.
+		for( auto& registeredEntry : s_registeredCaptureMasks )
+		{
+			if( registeredEntry.maskBit != 0 && registeredEntry.name == name )
+			{
+				registeredEntry.color = color;
+				return registeredEntry.maskBit;
+			}
+		}
+
+		const uint64_t alreadyRegisteredBits = GetRegisteredCaptureMaskBits();
+		if( alreadyRegisteredBits == UINT64_MAX )
+		{
+			CCP_LOGERR_CH( s_ch, "Cannot register CaptureMask '%s' - all 64 bits are already in use", name.c_str() );
+			return 0;
+		}
+
+		// Allocate the lowest available free bit for the new CaptureMask
+		const uint64_t newMaskBit = ~alreadyRegisteredBits & ( alreadyRegisteredBits + 1 );
+
+		StoreRegisteredCaptureMask( newMaskBit, name, color );
+		CCP_LOGWARN_CH( s_ch, "Registered a new CaptureMask for '%s' -> 0x%llx with color %s", name.c_str(), static_cast<unsigned long long>( newMaskBit ), CcpColorToString( color ).data() );
+
+		// Make sure previously "pending active" CaptureMask is included
+		auto pendingIt = std::find( s_pendingActiveCaptureMaskNames.begin(), s_pendingActiveCaptureMaskNames.end(), name );
+		if( pendingIt != s_pendingActiveCaptureMaskNames.end() )
+		{
+			s_pendingActiveCaptureMaskNames.erase( pendingIt );
+			s_activeCaptureMaskBits |= newMaskBit;
+			CCP_LOGWARN_CH( s_ch, "Previously pending CaptureMask '%s' added to activeCaptureMask  -> 0x%llx", name.c_str(), static_cast<unsigned long long>( newMaskBit ) );
+		}
+
+		return newMaskBit;
 }
 
 std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
@@ -309,20 +262,11 @@ void CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames )
 		{
 			continue;
 		}
-		std::string lowerName = ToLower( rawName );
-
-		if( lowerName == "all" )
-		{
-			// Set all bits and clear the pending list
-			s_pendingActiveCaptureMaskNames.clear();
-			newActiveCaptureMask = UINT64_MAX;
-			break;
-		}
 
 		bool alreadyRegistered = false;
 		for( const auto& registeredEntry : s_registeredCaptureMasks )
 		{
-			if( registeredEntry.maskBit != 0 && registeredEntry.name == lowerName )
+			if( registeredEntry.maskBit != 0 && registeredEntry.name == rawName )
 			{
 				newActiveCaptureMask |= registeredEntry.maskBit;
 				alreadyRegistered = true;
@@ -333,9 +277,9 @@ void CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames )
 		// This CaptureMask hasn't been registered (yet) so add it to the pending list
 		if( !alreadyRegistered )
 		{
-			if( std::find( s_pendingActiveCaptureMaskNames.begin(), s_pendingActiveCaptureMaskNames.end(), lowerName ) == s_pendingActiveCaptureMaskNames.end() )
+			if( std::find( s_pendingActiveCaptureMaskNames.begin(), s_pendingActiveCaptureMaskNames.end(), rawName ) == s_pendingActiveCaptureMaskNames.end() )
 			{
-				s_pendingActiveCaptureMaskNames.push_back( std::move( lowerName ) );
+				s_pendingActiveCaptureMaskNames.push_back( std::move( rawName ) );
 			}
 		}
 	}

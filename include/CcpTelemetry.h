@@ -62,8 +62,7 @@ struct CcpCaptureMaskInfo
 	CcpColor color{CcpColor::White}; // The chosen/allocated color for the CaptureMask
 };
 
-CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name );
-CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name, CcpColor color );
+CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name, CcpColor color = CcpColor::Fuchsia );
 CARBON_CORE_API std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks();
 
 CARBON_CORE_API void CcpSetActiveCaptureMask( const uint64_t captureMask );

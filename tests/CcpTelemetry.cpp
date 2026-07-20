@@ -696,7 +696,7 @@ TEST_F( CcpTelemetryTest, CcpRegisterCaptureMaskAllocatesBitsInOrder )
 	EXPECT_EXIT(
 		{
 			uint64_t previousBit = TMCM_CPP; // last default-registered bit (slot 2)
-			for( int i = 3; i <= 64; ++i )
+			for( int i = 2; i < 64; ++i )
 			{
 				const std::string name = "CaptureMaskBit_" + std::to_string( i );
 				const uint64_t maskBit = CcpRegisterCaptureMask( name );
@@ -726,18 +726,6 @@ TEST_F( CcpTelemetryTest, CaptureMaskRegisterReturnsNonDefaultBit )
 	EXPECT_EQ( 0, maskBit & ( TMCM_GENERAL | TMCM_CPP ) );
 }
 
-TEST_F( CcpTelemetryTest, CaptureMaskRegisterIsCaseInsensitive )
-{
-	const uint64_t firstBit = CcpRegisterCaptureMask( "CaptureMaskRegisterIsCaseInsensitive" );
-	const uint64_t secondBit = CcpRegisterCaptureMask( "capturemaskregisteriscaseinsensitive" );
-	EXPECT_TRUE( IsCaptureMaskSingleBit( firstBit ) );
-	EXPECT_EQ( firstBit, secondBit );
-
-	CcpCaptureMaskInfo info;
-	TryGetCaptureMaskNamed( "CAPTUREmaskREGISTERisCASEinsensitive", info );
-	EXPECT_EQ( firstBit, info.maskBit );
-}
-
 TEST_F( CcpTelemetryTest, CaptureMaskRegisterDistinctBitPerName )
 {
 	const uint64_t maskBitA = CcpRegisterCaptureMask( "CaptureMaskRegisterDistinctBitPerName_A" );
@@ -764,22 +752,11 @@ TEST_F( CcpTelemetryTest, CaptureMaskDefaultsAreRegistered )
 
 	// Registering a CaptureMask for the same name should result in the same maskBit returned,
 	// but a color change should be allowed.
-	const uint64_t reRegisterMaskBit = CcpRegisterCaptureMask( "GENERAL", CcpColor::OrangeRed );
+	const uint64_t reRegisterMaskBit = CcpRegisterCaptureMask( "general", CcpColor::OrangeRed );
 	TryGetCaptureMaskNamed( "general", info );
 	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), reRegisterMaskBit );
 	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), info.maskBit );
 	EXPECT_EQ( CcpColor::OrangeRed, info.color );
-}
-
-TEST_F( CcpTelemetryTest, CaptureMaskAutoAssignColor )
-{
-	CcpRegisterCaptureMask( "CaptureMaskAutoAssignColor" );
-
-	CcpCaptureMaskInfo info;
-	EXPECT_TRUE( TryGetCaptureMaskNamed( "CaptureMaskAutoAssignColor", info ) );
-	EXPECT_NE( CcpColor::White, info.color ) << "CcpColor::White is the default initialized color";
-	EXPECT_NE( CcpColor::SteelBlue, info.color ) << "CcpColor::SteelBlue is reserved for TMCM_GENERAL";
-	EXPECT_NE( CcpColor::Yellow, info.color ) << "CcpColor::Yellow is reserved for TMCM_CPP";
 }
 
 TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByBits )
@@ -831,15 +808,8 @@ TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByNames )
 	const uint64_t activeBits = registeredBit | pendingBit;
 	EXPECT_EQ( activeBits, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should now contain both the registered and pending bits";
 
-	// Deal with the special "all" case
-	CcpSetActiveCaptureMask( std::vector<std::string>{ "all" } );
-	EXPECT_EQ( UINT64_MAX, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should be all bits set when using the special 'all' alias";
-	CcpRegisterCaptureMask( "SetActiveCaptureMaskByNames_AfterAll" );
-	EXPECT_EQ( UINT64_MAX, CcpGetActiveCaptureMask() );
-
 	// Overwrite the active CaptureMask
 	CcpSetActiveCaptureMask( TMCM_CPP );
 	EXPECT_EQ( static_cast<uint64_t>( TMCM_CPP ), CcpGetActiveCaptureMask() );
 	EXPECT_TRUE( IsCaptureMaskSingleBit( CcpGetActiveCaptureMask() ) );
 }
-
