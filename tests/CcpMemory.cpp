@@ -262,6 +262,19 @@ TEST( CcpMemory, CanDetectInvalidMemoryAccessBeforeMemoryBlock )
     }
 }
 
+TEST( CcpMemory, CanDetectDoubleFreeWithGuard )
+{
+	const size_t size = 123;
+	void* memory = CCPMallocWithGuard( size );
+	EXPECT_NE( nullptr, memory );
+	CCPFreeWithGuard( memory );
+
+	LogHelper logHelper;
+	SilencedFreeWithGuard( memory );
+
+	EXPECT_TRUE( logHelper.HasMessage( CCP::LOGTYPE_ERR, "already freed" ) );
+}
+
 TEST( CcpMemory, CanDuplicateString )
 {
 	const char* string = "just a string";
