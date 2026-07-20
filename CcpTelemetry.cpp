@@ -227,7 +227,7 @@ namespace
 		}
 
 		StoreRegisteredCaptureMask( newMaskBit, lowerName, *color );
-		CCP_LOGWARN_CH( s_ch, "Registered a new CaptureMask for '%s' -> 0x%llx with color %s", lowerName.c_str(), static_cast<unsigned long long>( newMaskBit ), CcpColorToString( *color ).c_str() );
+		CCP_LOGWARN_CH( s_ch, "Registered a new CaptureMask for '%s' -> 0x%llx with color %s", lowerName.c_str(), static_cast<unsigned long long>( newMaskBit ), CcpColorToString( *color ).data() );
 
 		// Make sure previously "pending active" CaptureMask is included
 		auto pendingIt = std::find( s_pendingActiveCaptureMaskNames.begin(), s_pendingActiveCaptureMaskNames.end(), lowerName );

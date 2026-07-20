@@ -2,15 +2,15 @@
 
 #include "include/CcpColorConstants.h"
 
-std::string CcpColorToString( CcpColor color )
+std::string_view CcpColorToString( CcpColor color )
 {
 	// For colors sharing the same RGB value (Aqua/Cyan, Fuchsia/Magenta, and the
-	// various *Gray/*Grey pairs), the first name declared in the enum wins.
+	// various *Gray/*Grey pairs), all names sharing that value are returned.
 	switch( color )
 	{
 		case CcpColor::AliceBlue: return "AliceBlue";
 		case CcpColor::AntiqueWhite: return "AntiqueWhite";
-		case CcpColor::Aqua: return "Aqua"; // == Cyan
+		case CcpColor::Aqua: return "Aqua / Cyan";
 		case CcpColor::Aquamarine: return "Aquamarine";
 		case CcpColor::Azure: return "Azure";
 		case CcpColor::Beige: return "Beige";
@@ -31,7 +31,7 @@ std::string CcpColorToString( CcpColor color )
 		case CcpColor::DarkBlue: return "DarkBlue";
 		case CcpColor::DarkCyan: return "DarkCyan";
 		case CcpColor::DarkGoldenrod: return "DarkGoldenrod";
-		case CcpColor::DarkGray: return "DarkGray"; // == DarkGrey
+		case CcpColor::DarkGray: return "DarkGray / DarkGrey";
 		case CcpColor::DarkGreen: return "DarkGreen";
 		case CcpColor::DarkKhaki: return "DarkKhaki";
 		case CcpColor::DarkMagenta: return "DarkMagenta";
@@ -42,22 +42,22 @@ std::string CcpColorToString( CcpColor color )
 		case CcpColor::DarkSalmon: return "DarkSalmon";
 		case CcpColor::DarkSeaGreen: return "DarkSeaGreen";
 		case CcpColor::DarkSlateBlue: return "DarkSlateBlue";
-		case CcpColor::DarkSlateGray: return "DarkSlateGray"; // == DarkSlateGrey
+		case CcpColor::DarkSlateGray: return "DarkSlateGray / DarkSlateGrey";
 		case CcpColor::DarkTurquoise: return "DarkTurquoise";
 		case CcpColor::DarkViolet: return "DarkViolet";
 		case CcpColor::DeepPink: return "DeepPink";
 		case CcpColor::DeepSkyBlue: return "DeepSkyBlue";
-		case CcpColor::DimGray: return "DimGray"; // == DimGrey
+		case CcpColor::DimGray: return "DimGray / DimGrey";
 		case CcpColor::DodgerBlue: return "DodgerBlue";
 		case CcpColor::FireBrick: return "FireBrick";
 		case CcpColor::FloralWhite: return "FloralWhite";
 		case CcpColor::ForestGreen: return "ForestGreen";
-		case CcpColor::Fuchsia: return "Fuchsia"; // == Magenta
+		case CcpColor::Fuchsia: return "Fuchsia / Magenta";
 		case CcpColor::Gainsboro: return "Gainsboro";
 		case CcpColor::GhostWhite: return "GhostWhite";
 		case CcpColor::Gold: return "Gold";
 		case CcpColor::Goldenrod: return "Goldenrod";
-		case CcpColor::Gray: return "Gray"; // == Grey
+		case CcpColor::Gray: return "Gray / Grey";
 		case CcpColor::Green: return "Green";
 		case CcpColor::GreenYellow: return "GreenYellow";
 		case CcpColor::Honeydew: return "Honeydew";
@@ -74,13 +74,13 @@ std::string CcpColorToString( CcpColor color )
 		case CcpColor::LightCoral: return "LightCoral";
 		case CcpColor::LightCyan: return "LightCyan";
 		case CcpColor::LightGoldenrodYellow: return "LightGoldenrodYellow";
-		case CcpColor::LightGray: return "LightGray"; // == LightGrey
+		case CcpColor::LightGray: return "LightGray / LightGrey";
 		case CcpColor::LightGreen: return "LightGreen";
 		case CcpColor::LightPink: return "LightPink";
 		case CcpColor::LightSalmon: return "LightSalmon";
 		case CcpColor::LightSeaGreen: return "LightSeaGreen";
 		case CcpColor::LightSkyBlue: return "LightSkyBlue";
-		case CcpColor::LightSlateGray: return "LightSlateGray"; // == LightSlateGrey
+		case CcpColor::LightSlateGray: return "LightSlateGray / LightSlateGrey";
 		case CcpColor::LightSteelBlue: return "LightSteelBlue";
 		case CcpColor::LightYellow: return "LightYellow";
 		case CcpColor::Lime: return "Lime";
@@ -132,7 +132,7 @@ std::string CcpColorToString( CcpColor color )
 		case CcpColor::Silver: return "Silver";
 		case CcpColor::SkyBlue: return "SkyBlue";
 		case CcpColor::SlateBlue: return "SlateBlue";
-		case CcpColor::SlateGray: return "SlateGray"; // == SlateGrey
+		case CcpColor::SlateGray: return "SlateGray / SlateGrey";
 		case CcpColor::Snow: return "Snow";
 		case CcpColor::SpringGreen: return "SpringGreen";
 		case CcpColor::SteelBlue: return "SteelBlue";

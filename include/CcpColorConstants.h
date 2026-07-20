@@ -5,7 +5,7 @@
 #define CCP_COLOR_CONSTANTS_H
 
 #include <cstdint>
-#include <string>
+#include <string_view>
 
 // Useful RGB color constants
 // Initially based on the <named-color> type of CSS standard, see https://www.w3.org/TR/css-color-4/#named-colors.
@@ -161,6 +161,6 @@ enum class CcpColor : uint32_t
 	YellowGreen = 0x9acd32,
 };
 
-std::string CcpColorToString( CcpColor color );
+std::string_view CcpColorToString( CcpColor color );
 
 #endif
