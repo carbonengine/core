@@ -165,7 +165,7 @@ protected:
 	}
 
 	// Helper for CaptureMasks to make sure it only has a single bit set to 1
-	bool IsSCaptureMaskSingleBit( uint64_t mask )
+	bool IsCaptureMaskSingleBit( uint64_t mask )
 	{
 		return mask != 0 && ( mask & ( mask - 1 ) ) == 0;
 	}
@@ -375,7 +375,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneCaptureMaskBitConstructor )
 {
 	// Register a new component CaptureMask
 	const uint64_t componentMaskBit = CcpRegisterCaptureMask( "TelemetryZoneCaptureMaskBitConstructor", CcpColor::Orange );
-	EXPECT_TRUE( IsSCaptureMaskSingleBit( componentMaskBit ) );
+	EXPECT_TRUE( IsCaptureMaskSingleBit( componentMaskBit ) );
 
 	// Test where componentMaskBit is in the Active list
 	CcpSetActiveCaptureMask( componentMaskBit );
@@ -411,7 +411,7 @@ TEST_F( CcpTelemetryTest, CcpTelemetryEnterZoneCaptureMaskBit )
 {
 	// Register a new component CaptureMask
 	const uint64_t componentMaskBit = CcpRegisterCaptureMask( "CcpTelemetryEnterZoneCaptureMaskBit", CcpColor::LimeGreen );
-	EXPECT_TRUE( IsSCaptureMaskSingleBit( componentMaskBit ) );
+	EXPECT_TRUE( IsCaptureMaskSingleBit( componentMaskBit ) );
 
 	// Test where componentMaskBit is in the Active list
 	CcpSetActiveCaptureMask( componentMaskBit );
@@ -700,7 +700,7 @@ TEST_F( CcpTelemetryTest, CcpRegisterCaptureMaskAllocatesBitsInOrder )
 			{
 				const std::string name = "CaptureMaskBit_" + std::to_string( i );
 				const uint64_t maskBit = CcpRegisterCaptureMask( name );
-				if( !IsSCaptureMaskSingleBit( maskBit ) || maskBit <= previousBit )
+				if( !IsCaptureMaskSingleBit( maskBit ) || maskBit <= previousBit )
 				{
 					std::fprintf( stderr,
 								  "FAIL: %s returned 0x%llx, previous was 0x%llx\n",
@@ -720,7 +720,7 @@ TEST_F( CcpTelemetryTest, CcpRegisterCaptureMaskAllocatesBitsInOrder )
 TEST_F( CcpTelemetryTest, CaptureMaskRegisterReturnsNonDefaultBit )
 {
 	const uint64_t maskBit = CcpRegisterCaptureMask( "CaptureMaskRegisterReturnsNonDefaultBit" );
-	EXPECT_TRUE( IsSCaptureMaskSingleBit( maskBit ) );
+	EXPECT_TRUE( IsCaptureMaskSingleBit( maskBit ) );
 	// TMCM_GENERAL and TMCM_CPP are registered as the default CaptureMasks,
 	// so their maskBits must never be handed out to other components.
 	EXPECT_EQ( 0, maskBit & ( TMCM_GENERAL | TMCM_CPP ) );
@@ -730,7 +730,7 @@ TEST_F( CcpTelemetryTest, CaptureMaskRegisterIsCaseInsensitive )
 {
 	const uint64_t firstBit = CcpRegisterCaptureMask( "CaptureMaskRegisterIsCaseInsensitive" );
 	const uint64_t secondBit = CcpRegisterCaptureMask( "capturemaskregisteriscaseinsensitive" );
-	EXPECT_TRUE( IsSCaptureMaskSingleBit( firstBit ) );
+	EXPECT_TRUE( IsCaptureMaskSingleBit( firstBit ) );
 	EXPECT_EQ( firstBit, secondBit );
 
 	CcpCaptureMaskInfo info;
@@ -742,8 +742,8 @@ TEST_F( CcpTelemetryTest, CaptureMaskRegisterDistinctBitPerName )
 {
 	const uint64_t maskBitA = CcpRegisterCaptureMask( "CaptureMaskRegisterDistinctBitPerName_A" );
 	const uint64_t maskBitB = CcpRegisterCaptureMask( "CaptureMaskRegisterDistinctBitPerName_B", CcpColor::Tomato );
-	EXPECT_TRUE( IsSCaptureMaskSingleBit( maskBitA ) );
-	EXPECT_TRUE( IsSCaptureMaskSingleBit( maskBitB ) );
+	EXPECT_TRUE( IsCaptureMaskSingleBit( maskBitA ) );
+	EXPECT_TRUE( IsCaptureMaskSingleBit( maskBitB ) );
 	EXPECT_NE( maskBitA, maskBitB );
 }
 
@@ -792,7 +792,7 @@ TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByBits )
 	auto registeredCaptureMasks = CcpGetRegisteredCaptureMasks();
 	for ( auto captureMask : registeredCaptureMasks )
 	{
-		EXPECT_TRUE( IsSCaptureMaskSingleBit( captureMask.maskBit ) ) << "Each entry should only contain one bit set";
+		EXPECT_TRUE( IsCaptureMaskSingleBit( captureMask.maskBit ) ) << "Each entry should only contain one bit set";
 		registeredCaptureMaskBits |= captureMask.maskBit;
 	}
 	EXPECT_TRUE( (newBits & registeredCaptureMaskBits) == newBits ) << "All bits in combined newBits should be present in combined registered CaptureMask bits ";
@@ -816,18 +816,18 @@ TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByNames )
 
 	// Only register one name
 	const uint64_t registeredBit = CcpRegisterCaptureMask( registeredName );
-	EXPECT_TRUE( IsSCaptureMaskSingleBit( registeredBit ) );
+	EXPECT_TRUE( IsCaptureMaskSingleBit( registeredBit ) );
 	CcpSetActiveCaptureMask( activeMaskList );
 	EXPECT_EQ( registeredBit, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should only contain the registered bit, not the pending one";
 
 	// Register the new name
 	const uint64_t newBit = CcpRegisterCaptureMask( newName );
-	EXPECT_TRUE( IsSCaptureMaskSingleBit( newBit ) );
+	EXPECT_TRUE( IsCaptureMaskSingleBit( newBit ) );
 	EXPECT_EQ( registeredBit, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should still only contain the registered bit, not the new or pending one";
 
 	// Now add the pending one
 	const uint64_t pendingBit = CcpRegisterCaptureMask( pendingName );
-	EXPECT_TRUE( IsSCaptureMaskSingleBit( pendingBit ) );
+	EXPECT_TRUE( IsCaptureMaskSingleBit( pendingBit ) );
 	const uint64_t activeBits = registeredBit | pendingBit;
 	EXPECT_EQ( activeBits, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should now contain both the registered and pending bits";
 
@@ -840,6 +840,6 @@ TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByNames )
 	// Overwrite the active CaptureMask
 	CcpSetActiveCaptureMask( TMCM_CPP );
 	EXPECT_EQ( static_cast<uint64_t>( TMCM_CPP ), CcpGetActiveCaptureMask() );
-	EXPECT_TRUE( IsSCaptureMaskSingleBit( CcpGetActiveCaptureMask() ) );
+	EXPECT_TRUE( IsCaptureMaskSingleBit( CcpGetActiveCaptureMask() ) );
 }
 
