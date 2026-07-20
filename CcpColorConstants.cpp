@@ -1,4 +1,4 @@
-// Copyright © 2026 Fenris Creations.
+// Copyright © 2026 CCP ehf.
 
 #include "include/CcpColorConstants.h"
 

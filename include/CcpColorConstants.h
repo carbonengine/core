@@ -1,4 +1,4 @@
-// Copyright © 2026 Fenris Creations.
+// Copyright © 2026 CCP ehf.
 
 #pragma once
 #ifndef CCP_COLOR_CONSTANTS_H
