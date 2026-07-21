@@ -340,7 +340,7 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 TEST_F( CcpTelemetryTest, TelemetryZoneLegacyConstructor )
 {
 	// Test where captureMask is in the Active list
-	CcpSetActiveCaptureMask( TMCM_GENERAL | TMCM_CPP );
+	CcpSetActiveCaptureMask( {"cpp", "general" } );
 	{
 		// Make sure the "legacy deprecated" TelemetryZone constructor respects overwrites of color
 		TelemetryZone activeZone( TMCM_CPP, "LegacyZoneIsInActiveList", __FILE__, __LINE__, CcpColor::Red ); // Overwrite the default CcpColor::Yellow of TMCM_CPP
@@ -378,7 +378,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneCaptureMaskBitConstructor )
 	EXPECT_TRUE( IsCaptureMaskSingleBit( componentMaskBit ) );
 
 	// Test where componentMaskBit is in the Active list
-	CcpSetActiveCaptureMask( componentMaskBit );
+	CcpSetActiveCaptureMask( {"TelemetryZoneCaptureMaskBitConstructor"} );
 	{
 		TelemetryZone activeZone( CaptureMaskBit, componentMaskBit, "Active_TelemetryZoneCaptureMaskBitConstructor", __FILE__, __LINE__ );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
@@ -393,7 +393,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneCaptureMaskBitConstructor )
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 
 	// Test where componentMaskBit is NOT in the Active list - overwrite the Active list with only "general"
-	CcpSetActiveCaptureMask( TMCM_GENERAL );
+	CcpSetActiveCaptureMask( {"general"} );
 	EXPECT_EQ( 0, CcpGetActiveCaptureMask() & componentMaskBit );
 	{
 		TelemetryZone inactiveZone( CaptureMaskBit, componentMaskBit, "Inactive_TelemetryZoneCaptureMaskBitConstructor", __FILE__, __LINE__ );
@@ -414,7 +414,7 @@ TEST_F( CcpTelemetryTest, CcpTelemetryEnterZoneCaptureMaskBit )
 	EXPECT_TRUE( IsCaptureMaskSingleBit( componentMaskBit ) );
 
 	// Test where componentMaskBit is in the Active list
-	CcpSetActiveCaptureMask( componentMaskBit );
+	CcpSetActiveCaptureMask( {"CcpTelemetryEnterZoneCaptureMaskBit"} );
 	static int activeKey = 8001;
 	CcpTelemetryEnterZone( &activeKey, componentMaskBit, "Active_CcpTelemetryEnterZoneCaptureMaskBit", __FILE__, __LINE__ );
 	TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
@@ -430,7 +430,7 @@ TEST_F( CcpTelemetryTest, CcpTelemetryEnterZoneCaptureMaskBit )
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
 
 	// Test where componentMaskBit is NOT in the Active list - overwrite the Active list with only "general"
-	CcpSetActiveCaptureMask( TMCM_GENERAL );
+	CcpSetActiveCaptureMask( {"general"} );
 	EXPECT_EQ( 0, CcpGetActiveCaptureMask() & componentMaskBit );
 	static int inactiveKey = 8002;
 	CcpTelemetryEnterZone( &inactiveKey, componentMaskBit, "Inactive_CcpTelemetryEnterZoneCaptureMaskBit", __FILE__, __LINE__ );
@@ -707,6 +707,23 @@ TEST_F( CcpTelemetryTest, CaptureMaskRegisterRejectEmpty )
 	EXPECT_EQ( 0, CcpRegisterCaptureMask( "" ) );
 }
 
+TEST_F( CcpTelemetryTest, SetCaptureMaskRejectsTooManyMasks )
+{
+	const std::vector<std::string> numbers{
+		"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
+		"31", "32", "33", "34", "35", "36", "37", "38", "39", "40",
+		"41", "42", "43", "44", "45", "46", "47", "48", "49", "50",
+		"51", "52", "53", "54", "55", "56", "57", "58", "59", "60",
+		"61", "62", "63", "64", "65", "66", "67", "68", "69", "70",
+		"71", "72", "73", "74", "75", "76", "77", "78", "79", "80",
+		"81", "82", "83", "84", "85", "86", "87", "88", "89", "90",
+		"91", "92", "93", "94", "95", "96", "97", "98", "99"
+	};
+	EXPECT_FALSE( CcpSetActiveCaptureMask( numbers ) ) << "Should have failed because more than the allowed number of masks was requested";
+}
+
 TEST_F( CcpTelemetryTest, CaptureMaskDefaultsAreRegistered )
 {
 	// The default CaptureMasks must be available from the start.
@@ -724,31 +741,6 @@ TEST_F( CcpTelemetryTest, CaptureMaskDefaultsAreRegistered )
 	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), reRegisterMaskBit );
 	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), info.maskBit );
 	EXPECT_EQ( CcpColor::OrangeRed, info.color );
-}
-
-TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByBits )
-{
-	uint64_t newBits = 0;
-	newBits |= CcpRegisterCaptureMask( "SetActiveCaptureMaskByBits_A" );
-	newBits |= CcpRegisterCaptureMask( "SetActiveCaptureMaskByBits_B" );
-
-	uint64_t registeredCaptureMaskBits = 0;
-	auto registeredCaptureMasks = CcpGetRegisteredCaptureMasks();
-	for ( auto captureMask : registeredCaptureMasks )
-	{
-		EXPECT_TRUE( IsCaptureMaskSingleBit( captureMask.maskBit ) ) << "Each entry should only contain one bit set";
-		registeredCaptureMaskBits |= captureMask.maskBit;
-	}
-	EXPECT_TRUE( (newBits & registeredCaptureMaskBits) == newBits ) << "All bits in combined newBits should be present in combined registered CaptureMask bits ";
-	EXPECT_FALSE( (newBits & registeredCaptureMaskBits) == registeredCaptureMaskBits ) << "Registered bits should contain the additional 'general' and 'cpp' bits";
-
-	// newBits excludes the default "general" and "ccp" that are present in registeredCaptureMaskBits
-	CcpSetActiveCaptureMask( newBits );
-	EXPECT_EQ( newBits, CcpGetActiveCaptureMask() );
-
-	// Overwrite the active CaptureMask
-	CcpSetActiveCaptureMask( TMCM_GENERAL );
-	EXPECT_EQ( static_cast<uint64_t>( TMCM_GENERAL ), CcpGetActiveCaptureMask() );
 }
 
 TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByNames )
@@ -776,7 +768,7 @@ TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByNames )
 	EXPECT_EQ( activeBits, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should now contain both the registered and pending bits";
 
 	// Overwrite the active CaptureMask
-	CcpSetActiveCaptureMask( TMCM_CPP );
+	CcpSetActiveCaptureMask( {"cpp"} );
 	EXPECT_EQ( static_cast<uint64_t>( TMCM_CPP ), CcpGetActiveCaptureMask() );
 	EXPECT_TRUE( IsCaptureMaskSingleBit( CcpGetActiveCaptureMask() ) );
 }

@@ -239,20 +239,16 @@ std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
 	return result;
 }
 
-void CcpSetActiveCaptureMask( const uint64_t captureMask )
-{
-	// Guard access to active and pending CaptureMasks
-	CcpAutoMutex lock( s_captureMaskMutex );
-
-	s_pendingActiveCaptureMaskNames.clear();
-	s_activeCaptureMaskBits = captureMask;
-	CCP_LOGWARN_CH( s_ch, "Active CaptureMask set to 0x%llx", static_cast<unsigned long long>( captureMask ) );
-}
-
-void CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames )
+bool CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames )
 {
 	// Guard access to all CaptureMasks members
 	CcpAutoMutex lock( s_captureMaskMutex );
+
+	if ( maskNames.size() > CAPTURE_MASKS_MAX )
+	{
+		CCP_LOGERR_CH( s_ch, "Failed setting active capture mask because more %lu maskNames were passed in, but only %lu are allowed", maskNames.size(), CAPTURE_MASKS_MAX );
+		return false;
+	}
 
 	s_pendingActiveCaptureMaskNames.clear();
 	uint64_t newActiveCaptureMask = 0;
@@ -279,13 +275,15 @@ void CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames )
 		{
 			if( std::find( s_pendingActiveCaptureMaskNames.begin(), s_pendingActiveCaptureMaskNames.end(), rawName ) == s_pendingActiveCaptureMaskNames.end() )
 			{
-				s_pendingActiveCaptureMaskNames.push_back( std::move( rawName ) );
+				s_pendingActiveCaptureMaskNames.emplace_back( rawName );
 			}
 		}
 	}
 
 	s_activeCaptureMaskBits = newActiveCaptureMask;
-	CCP_LOGWARN_CH( s_ch, "Active CaptureMask set to 0x%llx (%zu pending unresolved name(s))", static_cast<unsigned long long>( newActiveCaptureMask ), s_pendingActiveCaptureMaskNames.size() );
+	CCP_LOG_CH( s_ch, "Active CaptureMask set to 0x%llx (%zu pending unresolved name(s))", static_cast<unsigned long long>( newActiveCaptureMask ), s_pendingActiveCaptureMaskNames.size() );
+
+	return true;
 }
 
 uint64_t CcpGetActiveCaptureMask()
