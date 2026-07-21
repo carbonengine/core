@@ -66,7 +66,7 @@ CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name, CcpCol
 CARBON_CORE_API std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks();
 
 CARBON_CORE_API bool CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames );
-CARBON_CORE_API uint64_t CcpGetActiveCaptureMask();
+CARBON_CORE_API std::vector<std::string> CcpGetActiveCaptureMask();
 
 
 struct CcpTelemetryConfig

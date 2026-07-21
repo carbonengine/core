@@ -38,6 +38,30 @@
 // includes the AI-written, but human-reviewed test client.
 #include "TracyTestClient.h"
 
+// Helper for CaptureMasks to make sure it only has a single bit set to 1
+bool IsCaptureMaskSingleBit( uint64_t mask )
+{
+	return mask != 0 && ( mask & ( mask - 1 ) ) == 0;
+}
+
+// Helper for find a CaptureMask by name from the list of already registered CaptureMasks
+bool TryGetCaptureMaskNamed( const std::string& name, CcpCaptureMaskInfo& info )
+{
+	// CaptureMask is stored lower-case, make sure we compare it as such.
+	std::string lowerName( name );
+	std::transform( lowerName.begin(), lowerName.end(), lowerName.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
+
+	for( const CcpCaptureMaskInfo& mask : CcpGetRegisteredCaptureMasks() )
+	{
+		if( mask.name == lowerName )
+		{
+			info = mask;
+			return true;
+		}
+	}
+	return false;
+}
+
 class CcpTelemetryTest : public ::testing::Test
 {
 protected:
@@ -164,29 +188,6 @@ protected:
 		return m_tracyClient.TryGetLock( lockId, outLock );
 	}
 
-	// Helper for CaptureMasks to make sure it only has a single bit set to 1
-	bool IsCaptureMaskSingleBit( uint64_t mask )
-	{
-		return mask != 0 && ( mask & ( mask - 1 ) ) == 0;
-	}
-
-	// Helper for find a CaptureMask by name from the list of already registered CaptureMasks
-	bool TryGetCaptureMaskNamed( const std::string& name, CcpCaptureMaskInfo& info )
-	{
-		// CaptureMask is stored lower-case, make sure we compare it as such.
-		std::string lowerName( name );
-		std::transform( lowerName.begin(), lowerName.end(), lowerName.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
-
-		for( const CcpCaptureMaskInfo& mask : CcpGetRegisteredCaptureMasks() )
-		{
-			if( mask.name == lowerName )
-			{
-				info = mask;
-				return true;
-			}
-		}
-		return false;
-	}
 
 	const std::string expectedNoFiber;
 	const std::string expectedFiberName1{ "TestFiber1" };
@@ -394,7 +395,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneCaptureMaskBitConstructor )
 
 	// Test where componentMaskBit is NOT in the Active list - overwrite the Active list with only "general"
 	CcpSetActiveCaptureMask( {"general"} );
-	EXPECT_EQ( 0, CcpGetActiveCaptureMask() & componentMaskBit );
+	EXPECT_EQ( std::vector<std::string>{"general"}, CcpGetActiveCaptureMask() );
 	{
 		TelemetryZone inactiveZone( CaptureMaskBit, componentMaskBit, "Inactive_TelemetryZoneCaptureMaskBitConstructor", __FILE__, __LINE__ );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
@@ -431,7 +432,7 @@ TEST_F( CcpTelemetryTest, CcpTelemetryEnterZoneCaptureMaskBit )
 
 	// Test where componentMaskBit is NOT in the Active list - overwrite the Active list with only "general"
 	CcpSetActiveCaptureMask( {"general"} );
-	EXPECT_EQ( 0, CcpGetActiveCaptureMask() & componentMaskBit );
+	EXPECT_EQ( std::vector<std::string>{"general"}, CcpGetActiveCaptureMask() );
 	static int inactiveKey = 8002;
 	CcpTelemetryEnterZone( &inactiveKey, componentMaskBit, "Inactive_CcpTelemetryEnterZoneCaptureMaskBit", __FILE__, __LINE__ );
 	TickTelemetry( nullptr, std::chrono::milliseconds( 100 ) );
@@ -683,8 +684,18 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreTimedWaitTimesOut )
 // ---------------------------------------------------------------------------
 // CaptureMask tests:
 // ---------------------------------------------------------------------------
+class CcpTelemetryCaptureMaskTest : public ::testing::Test
+{
+	public:
+		void TearDown()
+		{
+			// Clear any active capture mask to let subsequent tests just work
+			CcpSetActiveCaptureMask({});
+			::testing::Test::TearDown();
+		}
+};
 
-TEST_F( CcpTelemetryTest, CaptureMaskRegisterReturnsNonDefaultBit )
+TEST_F( CcpTelemetryCaptureMaskTest, CaptureMaskRegisterReturnsNonDefaultBit )
 {
 	const uint64_t maskBit = CcpRegisterCaptureMask( "CaptureMaskRegisterReturnsNonDefaultBit" );
 	EXPECT_TRUE( IsCaptureMaskSingleBit( maskBit ) );
@@ -693,7 +704,7 @@ TEST_F( CcpTelemetryTest, CaptureMaskRegisterReturnsNonDefaultBit )
 	EXPECT_EQ( 0, maskBit & ( TMCM_GENERAL | TMCM_CPP ) );
 }
 
-TEST_F( CcpTelemetryTest, CaptureMaskRegisterDistinctBitPerName )
+TEST_F( CcpTelemetryCaptureMaskTest, CaptureMaskRegisterDistinctBitPerName )
 {
 	const uint64_t maskBitA = CcpRegisterCaptureMask( "CaptureMaskRegisterDistinctBitPerName_A" );
 	const uint64_t maskBitB = CcpRegisterCaptureMask( "CaptureMaskRegisterDistinctBitPerName_B", CcpColor::Tomato );
@@ -702,12 +713,25 @@ TEST_F( CcpTelemetryTest, CaptureMaskRegisterDistinctBitPerName )
 	EXPECT_NE( maskBitA, maskBitB );
 }
 
+TEST_F( CcpTelemetryCaptureMaskTest, EmptyActiveCaptureMask )
+{
+	EXPECT_EQ( std::vector<std::string>{}, CcpGetActiveCaptureMask() );
+}
+
 TEST_F( CcpTelemetryTest, CaptureMaskRegisterRejectEmpty )
 {
 	EXPECT_EQ( 0, CcpRegisterCaptureMask( "" ) );
 }
 
-TEST_F( CcpTelemetryTest, SetCaptureMaskRejectsTooManyMasks )
+TEST_F( CcpTelemetryCaptureMaskTest, SetEmptyCaptureMasksClearsMask )
+{
+	EXPECT_TRUE( CcpSetActiveCaptureMask( {"cpp"} ) );
+	EXPECT_NE( std::vector<std::string>{}, CcpGetActiveCaptureMask() );
+	EXPECT_TRUE( CcpSetActiveCaptureMask( {} ) );
+	EXPECT_EQ( std::vector<std::string>{}, CcpGetActiveCaptureMask() );
+}
+
+TEST_F( CcpTelemetryCaptureMaskTest, SetCaptureMaskRejectsTooManyMasks )
 {
 	const std::vector<std::string> numbers{
 		"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
@@ -724,7 +748,7 @@ TEST_F( CcpTelemetryTest, SetCaptureMaskRejectsTooManyMasks )
 	EXPECT_FALSE( CcpSetActiveCaptureMask( numbers ) ) << "Should have failed because more than the allowed number of masks was requested";
 }
 
-TEST_F( CcpTelemetryTest, CaptureMaskDefaultsAreRegistered )
+TEST_F( CcpTelemetryCaptureMaskTest, CaptureMaskDefaultsAreRegistered )
 {
 	// The default CaptureMasks must be available from the start.
 	CcpCaptureMaskInfo info;
@@ -743,7 +767,7 @@ TEST_F( CcpTelemetryTest, CaptureMaskDefaultsAreRegistered )
 	EXPECT_EQ( CcpColor::OrangeRed, info.color );
 }
 
-TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByNames )
+TEST_F( CcpTelemetryCaptureMaskTest, SetActiveCaptureMaskByNames )
 {
 	const std::string registeredName = "SetActiveCaptureMaskByNames_RegisteredName";
 	const std::string newName = "SetActiveCaptureMaskByNames_NewName";
@@ -754,21 +778,16 @@ TEST_F( CcpTelemetryTest, SetActiveCaptureMaskByNames )
 	const uint64_t registeredBit = CcpRegisterCaptureMask( registeredName );
 	EXPECT_TRUE( IsCaptureMaskSingleBit( registeredBit ) );
 	CcpSetActiveCaptureMask( activeMaskList );
-	EXPECT_EQ( registeredBit, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should only contain the registered bit, not the pending one";
+	EXPECT_EQ( std::vector<std::string>{registeredName}, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should only contain the registered mask, not the pending one";
 
 	// Register the new name
 	const uint64_t newBit = CcpRegisterCaptureMask( newName );
 	EXPECT_TRUE( IsCaptureMaskSingleBit( newBit ) );
-	EXPECT_EQ( registeredBit, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should still only contain the registered bit, not the new or pending one";
+	EXPECT_EQ( std::vector<std::string>{registeredName}, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should still only contain the registered mask, not the new or pending one";
 
 	// Now add the pending one
 	const uint64_t pendingBit = CcpRegisterCaptureMask( pendingName );
 	EXPECT_TRUE( IsCaptureMaskSingleBit( pendingBit ) );
 	const uint64_t activeBits = registeredBit | pendingBit;
-	EXPECT_EQ( activeBits, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should now contain both the registered and pending bits";
-
-	// Overwrite the active CaptureMask
-	CcpSetActiveCaptureMask( {"cpp"} );
-	EXPECT_EQ( static_cast<uint64_t>( TMCM_CPP ), CcpGetActiveCaptureMask() );
-	EXPECT_TRUE( IsCaptureMaskSingleBit( CcpGetActiveCaptureMask() ) );
+	EXPECT_EQ( activeMaskList, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should now contain both the registered and pending masks";
 }

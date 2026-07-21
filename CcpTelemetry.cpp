@@ -286,9 +286,22 @@ bool CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames )
 	return true;
 }
 
-uint64_t CcpGetActiveCaptureMask()
+std::vector<std::string> CcpGetActiveCaptureMask()
 {
-	return s_activeCaptureMaskBits;
+	std::vector<std::string> result;
+	size_t index{0};
+	for ( const auto& registeredEntry : s_registeredCaptureMasks )
+	{
+		uint64_t currentMaskBit = 1ULL << index;
+
+		if ( ( s_activeCaptureMaskBits & currentMaskBit ) != 0 )
+		{
+			result.push_back( registeredEntry.name );
+		}
+
+		++index;
+	}
+	return result;
 }
 
 bool CcpTelemetryIsConnected()
