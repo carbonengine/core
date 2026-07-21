@@ -67,13 +67,6 @@ typedef TrackableStdVector<std::pair<CcpOnTelemetryEventHandler, void*>> EventHa
 
 namespace
 {
-	std::string ToLower( const std::string& s )
-	{
-		std::string out( s );
-		std::transform( out.begin(), out.end(), out.begin(), []( unsigned char c ) { return static_cast<char>( std::tolower( c ) ); } );
-		return out;
-	}
-
 	uint32_t s_telemetryTick = 0;
 
 	CcpTelemetryConfig s_config;
@@ -103,79 +96,33 @@ namespace
 
 	CcpMutex s_captureMaskMutex( "CcpTelemetry", "CaptureMaskMutex" );
 
-	// Fixed size array for registered CaptureMasks.
-	// Allows for O(1) lookup based on single-bit CaptureMask value.
+	// Fixed size array of registered CaptureMasks.
 	std::array<CcpCaptureMaskInfo, CAPTURE_MASKS_MAX> s_registeredCaptureMasks{
-			CcpCaptureMaskInfo{ "general", TMCM_GENERAL, CcpColor::SteelBlue },
-			CcpCaptureMaskInfo{ "cpp", TMCM_CPP,     CcpColor::Yellow	},
+			CcpCaptureMaskInfo{ "core", CcpColor::LightGreen }, // Pre-allocated capture mask for core, should core ever need it. This also solves the problem that legacy `TMCM_GENERAL` and `TMCM_CPP` otherwise cause an off-by-one error.
+			CcpCaptureMaskInfo{ "general", CcpColor::SteelBlue }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
+			CcpCaptureMaskInfo{ "cpp", CcpColor::Yellow }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
 	};
 
-	// Currently-active CaptureMask. Defaults to "all" until
-	// narrowed in a later call to CcpSetActiveCaptureMask()
-	uint64_t s_activeCaptureMaskBits = UINT64_MAX;
+	uint64_t s_activeCaptureMaskBits{0};
 
 
 	// List of CaptureMask names that have yet to be registered.
 	// From a CcpSetActiveCaptureMask( vector<string> ) call.
 	std::vector<std::string> s_pendingActiveCaptureMaskNames;
 
-	// Returns the index [0..63] of the lowest set bit.
-	// Uses a de Bruijn sequence, thanks Claude Code.
-	// TODO: Can be replaced with std::countr_zero() once we upgrade to C++20.
-	constexpr int CountTrailingZeros64( uint64_t x ) noexcept
-	{
-		constexpr uint64_t deBruijn = 0x03f79d71b4cb0a89ULL;
-		constexpr uint8_t lookup[64] = {
-			 0,  1, 48,  2, 57, 49, 28,  3,
-			61, 58, 50, 42, 38, 29, 17,  4,
-			62, 55, 59, 36, 53, 51, 43, 22,
-			45, 39, 33, 30, 24, 18, 12,  5,
-			63, 47, 56, 27, 60, 41, 37, 16,
-			54, 35, 52, 21, 44, 32, 23, 11,
-			46, 26, 40, 15, 34, 20, 31, 10,
-			25, 14, 19,  9, 13,  8,  7,  6,
-		};
-		return lookup[( ( x & ( 0ULL - x ) ) * deBruijn ) >> 58];
-	}
-
-	// Store a registered CaptureMask into its array slot
-	void StoreRegisteredCaptureMask( uint64_t bit, const std::string& name, CcpColor color )
-	{
-		auto& entry = s_registeredCaptureMasks[CountTrailingZeros64( bit )];
-		entry.name    = name;
-		entry.maskBit = bit;
-		entry.color   = color;
-	}
-
-	uint64_t GetRegisteredCaptureMaskBits()
-	{
-		uint64_t registeredBits = 0;
-		for( const auto& entry : s_registeredCaptureMasks )
-		{
-			registeredBits |= entry.maskBit;
-		}
-		return registeredBits;
-	}
-
 	// Get the registered CaptureMask color for a given CaptureMask
-	// Default to CcpColor::White if not found
-	CcpColor GetCaptureMaskColor( uint64_t captureMaskBit )
+	CcpColor GetCaptureMaskColor( CcpCaptureMaskHandle handle )
 	{
-		if( captureMaskBit == 0 )
-		{
-			return CcpColor::White;
-		}
-		const auto& entry = s_registeredCaptureMasks[CountTrailingZeros64( captureMaskBit )];
-		return entry.maskBit == captureMaskBit ? entry.color : CcpColor::White;
+		return s_registeredCaptureMasks[handle].color;
 	}
 
-	bool IsCaptureMaskActive( uint64_t captureMaskBit )
+	bool IsCaptureMaskActive( CcpCaptureMaskHandle handle )
 	{
-		return ( s_activeCaptureMaskBits & captureMaskBit ) != 0;
+		return ( s_activeCaptureMaskBits & ( 1ULL<<handle ) ) != 0;
 	}
 }
 
-uint64_t CcpRegisterCaptureMask( const std::string& name, CcpColor color )
+CcpCaptureMaskHandle CcpRegisterCaptureMask( const std::string& name, CcpColor color )
 {
 		// Guard access to registered CaptureMasks while we add/update a new entry
 		CcpAutoMutex lock( s_captureMaskMutex );
@@ -186,40 +133,34 @@ uint64_t CcpRegisterCaptureMask( const std::string& name, CcpColor color )
 			return 0;
 		}
 
-		// Explicitly allow change of color on an existing registered
-		// CaptureMask entry in case of re-register on same name.
-		for( auto& registeredEntry : s_registeredCaptureMasks )
+		CcpCaptureMaskHandle handle{0};
+		for( auto& entry : s_registeredCaptureMasks )
 		{
-			if( registeredEntry.maskBit != 0 && registeredEntry.name == name )
+			if (entry.name.empty())
 			{
-				registeredEntry.color = color;
-				return registeredEntry.maskBit;
+				entry.name = name;
+				entry.color = color;
+				CCP_LOG_CH( s_ch, "Registered a new CaptureMask for '%s' -> %u with color %s", name.c_str(), handle, CcpColorToString( color ).data() );
+				break;
 			}
+			++handle;
 		}
 
-		const uint64_t alreadyRegisteredBits = GetRegisteredCaptureMaskBits();
-		if( alreadyRegisteredBits == UINT64_MAX )
+		if ( handle > CAPTURE_MASKS_MAX )
 		{
-			CCP_LOGERR_CH( s_ch, "Cannot register CaptureMask '%s' - all 64 bits are already in use", name.c_str() );
-			return 0;
+			return CCP_CAPTURE_MASK_INVALID_HANDLE;
 		}
-
-		// Allocate the lowest available free bit for the new CaptureMask
-		const uint64_t newMaskBit = ~alreadyRegisteredBits & ( alreadyRegisteredBits + 1 );
-
-		StoreRegisteredCaptureMask( newMaskBit, name, color );
-		CCP_LOGWARN_CH( s_ch, "Registered a new CaptureMask for '%s' -> 0x%llx with color %s", name.c_str(), static_cast<unsigned long long>( newMaskBit ), CcpColorToString( color ).data() );
 
 		// Make sure previously "pending active" CaptureMask is included
 		auto pendingIt = std::find( s_pendingActiveCaptureMaskNames.begin(), s_pendingActiveCaptureMaskNames.end(), name );
 		if( pendingIt != s_pendingActiveCaptureMaskNames.end() )
 		{
 			s_pendingActiveCaptureMaskNames.erase( pendingIt );
-			s_activeCaptureMaskBits |= newMaskBit;
-			CCP_LOGWARN_CH( s_ch, "Previously pending CaptureMask '%s' added to activeCaptureMask  -> 0x%llx", name.c_str(), static_cast<unsigned long long>( newMaskBit ) );
+			s_activeCaptureMaskBits |= ( 1ULL << handle );
+			CCP_LOG_CH( s_ch, "Previously pending CaptureMask '%s' added to activeCaptureMask  -> %u", name.c_str(), handle );
 		}
 
-		return newMaskBit;
+		return handle;
 }
 
 std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
@@ -231,7 +172,7 @@ std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
 	result.reserve( CAPTURE_MASKS_MAX );
 	for( const auto& registeredEntry : s_registeredCaptureMasks )
 	{
-		if( registeredEntry.maskBit != 0 )
+		if( ! registeredEntry.name.empty() )
 		{
 			result.push_back( registeredEntry );
 		}
@@ -260,14 +201,16 @@ bool CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames )
 		}
 
 		bool alreadyRegistered = false;
+		size_t index{0};
 		for( const auto& registeredEntry : s_registeredCaptureMasks )
 		{
-			if( registeredEntry.maskBit != 0 && registeredEntry.name == rawName )
+			if( registeredEntry.name == rawName )
 			{
-				newActiveCaptureMask |= registeredEntry.maskBit;
+				newActiveCaptureMask |= (1ULL << index);
 				alreadyRegistered = true;
 				break;
 			}
+			++index;
 		}
 
 		// This CaptureMask hasn't been registered (yet) so add it to the pending list
@@ -584,7 +527,7 @@ const std::string& CcpTelemetryGetActiveFiber()
 	return *t_activeFiber;
 }
 
-TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete ) : m_impl(std::make_unique<Private>())
+TelemetryZone::TelemetryZone( uint32_t handle, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete ) : m_impl(std::make_unique<Private>())
 {
 	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
 	{
@@ -594,8 +537,8 @@ TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filena
 	CCP_ASSERT( filename != nullptr );
 	CCP_ASSERT( name != nullptr );
 
-	auto color = GetCaptureMaskColor( ctx );
-	const int active = IsCaptureMaskActive( ctx );
+	auto color = GetCaptureMaskColor( handle );
+	const int active = IsCaptureMaskActive( handle );
 	auto data = ___tracy_alloc_srcloc( lineno, filename, strlen( filename ), name, strlen( name ), static_cast<uint32_t>( color ) );
 //	CCP_LOG_CH( s_ch, "[Fiber %p] Creating zone %s (%p)", t_activeFiber->c_str(), ret.first->c_str(), this );
 	m_impl->fiber = t_activeFiber;
@@ -703,12 +646,7 @@ void CcpRegisterThread( CcpThreadId_t threadId, const char* name )
 {
 }
 
-uint64_t CcpRegisterCaptureMask( const std::string& )
-{
-	return 0;
-}
-
-uint64_t CcpRegisterCaptureMask( const std::string&, CcpColor )
+CcpCaptureMaskHandle CcpRegisterCaptureMask( const std::string&, CcpColor )
 {
 	return 0;
 }
@@ -718,17 +656,13 @@ std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
 	return {};
 }
 
-void CcpSetActiveCaptureMask( uint64_t )
+bool CcpSetActiveCaptureMask( const std::vector<std::string>& )
 {
 }
 
-void CcpSetActiveCaptureMask( const std::vector<std::string>& )
+std::vector<std::string> CcpGetActiveCaptureMask()
 {
-}
-
-uint64_t CcpGetActiveCaptureMask()
-{
-	return 0;
+	return {};
 }
 
 bool CcpStartTelemetry( const char* server, int connectionType, uint32_t maxThreadCount )

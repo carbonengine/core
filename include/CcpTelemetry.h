@@ -58,11 +58,13 @@ CARBON_CORE_API void CcpRegisterThread( CcpThreadId_t threadId, const char* name
 struct CcpCaptureMaskInfo
 {
 	std::string name;    // The lower-case display name of the CaptureMask (carbon-component)
-	uint64_t maskBit{0}; // The single bit assigned to this CaptureMask during registration
 	CcpColor color{CcpColor::White}; // The chosen/allocated color for the CaptureMask
 };
 
-CARBON_CORE_API uint64_t CcpRegisterCaptureMask( const std::string& name, CcpColor color = CcpColor::Fuchsia );
+typedef uint32_t CcpCaptureMaskHandle;
+constexpr uint32_t CCP_CAPTURE_MASK_INVALID_HANDLE{ UINT32_MAX };
+
+CARBON_CORE_API CcpCaptureMaskHandle CcpRegisterCaptureMask( const std::string& name, CcpColor color = CcpColor::Fuchsia );
 CARBON_CORE_API std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks();
 
 CARBON_CORE_API bool CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames );
@@ -110,7 +112,7 @@ class TelemetryZone
 {
 public:
 	TelemetryZone() = delete;
-	CARBON_CORE_API TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete = CcpColor::SteelBlue );
+	CARBON_CORE_API TelemetryZone( CcpCaptureMaskHandle handle, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete = CcpColor::SteelBlue );
 	CARBON_CORE_API ~TelemetryZone();
 
 	TelemetryZone( TelemetryZone&& other ) noexcept;
