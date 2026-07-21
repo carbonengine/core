@@ -712,10 +712,6 @@ void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, u
 {
 }
 
-void CcpTelemetryEnterZone( void* key, uint64_t captureMaskBit, const char* name, const char* filename, uint32_t lineno )
-{
-}
-
 void CcpTelemetryLeaveZone( void* key )
 {
 }
