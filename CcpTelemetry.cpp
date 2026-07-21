@@ -527,7 +527,7 @@ const std::string& CcpTelemetryGetActiveFiber()
 	return *t_activeFiber;
 }
 
-TelemetryZone::TelemetryZone( uint32_t handle, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete ) : m_impl(std::make_unique<Private>())
+TelemetryZone::TelemetryZone( CcpCaptureMaskHandle handle, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete ) : m_impl(std::make_unique<Private>())
 {
 	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
 	{
