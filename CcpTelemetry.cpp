@@ -180,7 +180,7 @@ std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
 	return result;
 }
 
-bool CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames )
+bool CcpSetCaptureMask( const std::vector<std::string>& maskNames )
 {
 	// Guard access to all CaptureMasks members
 	CcpAutoMutex lock( s_captureMaskMutex );

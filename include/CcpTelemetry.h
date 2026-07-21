@@ -67,7 +67,7 @@ constexpr uint32_t CCP_CAPTURE_MASK_INVALID_HANDLE{ UINT32_MAX };
 CARBON_CORE_API CcpCaptureMaskHandle CcpRegisterCaptureMask( const std::string& name, CcpColor color = CcpColor::Fuchsia );
 CARBON_CORE_API std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks();
 
-CARBON_CORE_API bool CcpSetActiveCaptureMask( const std::vector<std::string>& maskNames );
+CARBON_CORE_API bool CcpSetCaptureMask( const std::vector<std::string>& maskNames );
 CARBON_CORE_API std::vector<std::string> CcpGetActiveCaptureMask();
 
 

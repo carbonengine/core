@@ -244,7 +244,7 @@ TEST_F( CcpTelemetryTest, SimpleZoneTest )
 
 	static int key = 4711;
 	const std::string zoneName{ "TestZone" };
-	CcpSetActiveCaptureMask( {"cpp"} );
+	CcpSetCaptureMask( {"cpp"} );
 	CcpTelemetryEnterZone( &key, zoneName.c_str(), __FILE__, __LINE__ );  // Original deprecated version
 	// Tracy's worker sleeps up to 10 ms between queue flushes, so give it
 	// time to process and send the zone event before asserting.
@@ -266,7 +266,7 @@ TEST_F( CcpTelemetryTest, StackedZones )
 {
 	// A stacked zone is a zone that has the same key as a previously created zone.
 	static int key = 4711;
-	CcpSetActiveCaptureMask( {"cpp"} );
+	CcpSetCaptureMask( {"cpp"} );
 	CcpTelemetryEnterZone( &key, "TestZone", __FILE__, __LINE__ );
 	CcpTelemetryEnterZone( &key, "TestZone2", __FILE__, __LINE__ );
 	TickTelemetry( [this] { return m_tracyClient.GetZones().size() == 2; } );
@@ -283,14 +283,14 @@ TEST_F( CcpTelemetryTest, StackedZones )
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry( [this] { return m_tracyClient.GetZones().empty(); } );
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
-	CcpSetActiveCaptureMask( {} );
+	CcpSetCaptureMask( {} );
 }
 
 TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 {
 	static int key1 = 1001;
 	const std::string zoneName1{ "FirstZone" };
-	CcpSetActiveCaptureMask( {"cpp"} );
+	CcpSetCaptureMask( {"cpp"} );
 	CcpTelemetryEnterZone( &key1, zoneName1.c_str(), __FILE__, __LINE__ );
 	TickTelemetry( [this, zoneName1] { return ZoneExists( zoneName1 ); } );
 	EXPECT_TRUE( ZoneExists( zoneName1 ) );
@@ -330,13 +330,13 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	TickTelemetry();
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() );
-	CcpSetActiveCaptureMask( {} );
+	CcpSetCaptureMask( {} );
 }
 
 TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 {
 	// Test where captureMask is in the Active list
-	CcpSetActiveCaptureMask( {"cpp", "general" } );
+	CcpSetCaptureMask( {"cpp", "general" } );
 	{
 		TelemetryZone activeZone( TMCM_CPP, "ZoneIsInActiveList", __FILE__, __LINE__ );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
@@ -353,7 +353,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 
 	// Test where captureMask is NOT in the Active list
-	CcpSetActiveCaptureMask( {"NotRegisteredCaptureMask", "ClearingPreviousGeneralAndCpp", "FromTheActiveCaptureMaskList"} );
+	CcpSetCaptureMask( {"NotRegisteredCaptureMask", "ClearingPreviousGeneralAndCpp", "FromTheActiveCaptureMaskList"} );
 	{
 		TelemetryZone inactiveZone( TMCM_CPP, "ZoneIsNotInActiveList", __FILE__, __LINE__, CcpColor::Blue );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
@@ -372,7 +372,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneCaptureMaskBitConstructor )
 	const CcpCaptureMaskHandle handle = CcpRegisterCaptureMask( "TelemetryZoneCaptureMaskBitConstructor", CcpColor::Orange );
 
 	// Test where componentMaskBit is in the Active list
-	CcpSetActiveCaptureMask( {"TelemetryZoneCaptureMaskBitConstructor"} );
+	CcpSetCaptureMask( {"TelemetryZoneCaptureMaskBitConstructor"} );
 	{
 		TelemetryZone activeZone( handle, "Active_TelemetryZoneCaptureMaskBitConstructor", __FILE__, __LINE__ );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
@@ -387,7 +387,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneCaptureMaskBitConstructor )
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 
 	// Test where componentMaskBit is NOT in the Active list - overwrite the Active list with only "general"
-	CcpSetActiveCaptureMask( {"general"} );
+	CcpSetCaptureMask( {"general"} );
 	EXPECT_EQ( std::vector<std::string>{"general"}, CcpGetActiveCaptureMask() );
 	{
 		TelemetryZone inactiveZone( handle, "Inactive_TelemetryZoneCaptureMaskBitConstructor", __FILE__, __LINE__ );
@@ -403,7 +403,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneCaptureMaskBitConstructor )
 
 TEST_F( CcpTelemetryTest, CcpTelemetryEnterZoneIsAlwaysCaptureMaskCpp )
 {
-	CcpSetActiveCaptureMask( {"cpp"} );
+	CcpSetCaptureMask( {"cpp"} );
 	EXPECT_EQ( std::vector<std::string>{"cpp"}, CcpGetActiveCaptureMask() );
 	static int inactiveKey = 8002;
 	CcpTelemetryEnterZone( &inactiveKey, "Active_CcpTelemetryEnterZoneCaptureMaskBit", __FILE__, __LINE__ );
@@ -661,7 +661,7 @@ class CcpTelemetryCaptureMaskTest : public ::testing::Test
 		void TearDown()
 		{
 			// Clear any active capture mask to let subsequent tests just work
-			CcpSetActiveCaptureMask({});
+			CcpSetCaptureMask({});
 			::testing::Test::TearDown();
 		}
 };
@@ -685,9 +685,9 @@ TEST_F( CcpTelemetryTest, CaptureMaskRegisterRejectEmpty )
 
 TEST_F( CcpTelemetryCaptureMaskTest, SetEmptyCaptureMasksClearsMask )
 {
-	EXPECT_TRUE( CcpSetActiveCaptureMask( {"cpp"} ) );
+	EXPECT_TRUE( CcpSetCaptureMask( {"cpp"} ) );
 	EXPECT_NE( std::vector<std::string>{}, CcpGetActiveCaptureMask() );
-	EXPECT_TRUE( CcpSetActiveCaptureMask( {} ) );
+	EXPECT_TRUE( CcpSetCaptureMask( {} ) );
 	EXPECT_EQ( std::vector<std::string>{}, CcpGetActiveCaptureMask() );
 }
 
@@ -705,7 +705,7 @@ TEST_F( CcpTelemetryCaptureMaskTest, SetCaptureMaskRejectsTooManyMasks )
 		"81", "82", "83", "84", "85", "86", "87", "88", "89", "90",
 		"91", "92", "93", "94", "95", "96", "97", "98", "99"
 	};
-	EXPECT_FALSE( CcpSetActiveCaptureMask( numbers ) ) << "Should have failed because more than the allowed number of masks was requested";
+	EXPECT_FALSE( CcpSetCaptureMask( numbers ) ) << "Should have failed because more than the allowed number of masks was requested";
 }
 
 TEST_F( CcpTelemetryCaptureMaskTest, CaptureMaskDefaultsAreRegistered )
@@ -726,7 +726,7 @@ TEST_F( CcpTelemetryCaptureMaskTest, SetActiveCaptureMaskByNames )
 
 	// Only register one name
 	const CcpCaptureMaskHandle handle = CcpRegisterCaptureMask( registeredName );
-	CcpSetActiveCaptureMask( activeMaskList );
+	CcpSetCaptureMask( activeMaskList );
 	EXPECT_EQ( std::vector<std::string>{registeredName}, CcpGetActiveCaptureMask() ) << "ActiveCaptureMask should only contain the registered mask, not the pending one";
 
 	// Register the new name
