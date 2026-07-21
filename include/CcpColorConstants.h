@@ -161,6 +161,6 @@ enum class CcpColor : uint32_t
 	YellowGreen = 0x9acd32,
 };
 
-std::string_view CcpColorToString( CcpColor color );
+CARBON_CORE_API std::string_view CcpColorToString( CcpColor color );
 
 #endif
