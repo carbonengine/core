@@ -579,7 +579,6 @@ void TelemetryZone::text( const char* text ) const
 	}
 }
 
-// Deprecated version
 void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, uint32_t lineno )
 {
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started )
