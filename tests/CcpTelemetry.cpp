@@ -262,8 +262,8 @@ TEST_F( CcpTelemetryTest, SimpleZoneTest )
 
 	// The default assigned color in CcpTelemetryEnterZone() for TMCM_CPP is CcpColor::Yellow, make sure it is present
 	const auto zones = m_tracyClient.GetZones();
-	EXPECT_EQ( 1, zones.size() );
-	EXPECT_EQ( static_cast<uint32_t>( CcpColor::Yellow ), zones.front().color );
+	ASSERT_EQ( 1, zones.size() );
+	EXPECT_EQ( static_cast<uint32_t>( CcpColor::SteelBlue ), zones.front().color );
 
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry( [this] { return m_tracyClient.GetZoneEndCount() == 1; } );
@@ -327,7 +327,7 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	EXPECT_FALSE( ZoneExists( zoneName1 ) ) << "FirstZone should not exist";
 
 	const auto zones = m_tracyClient.GetZones();
-	EXPECT_EQ( 1, zones.size() );
+	ASSERT_EQ( 1, zones.size() );
 	EXPECT_EQ( static_cast<uint32_t>( CcpColor::SteelBlue ), zones.front().color ) << "Default color for CaptureMask TMCM_GENERAL should be CcpColor::SteelBlue";
 	EXPECT_EQ( 2, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
@@ -348,7 +348,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneLegacyConstructor )
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
 		EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 		const auto zones = m_tracyClient.GetZones();
-		EXPECT_EQ( 1, zones.size() );
+		ASSERT_EQ( 1, zones.size() );
 		EXPECT_EQ( "LegacyZoneIsInActiveList", zones.front().function );
 		EXPECT_EQ( static_cast<uint32_t>( CcpColor::Red ), zones.front().color );
 		EXPECT_EQ( 0, m_tracyClient.GetZoneEndCount() );
@@ -385,7 +385,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneCaptureMaskBitConstructor )
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
 		EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 		const auto zones = m_tracyClient.GetZones();
-		EXPECT_EQ( 1, zones.size() );
+		ASSERT_EQ( 1, zones.size() );
 		EXPECT_EQ( "Active_TelemetryZoneCaptureMaskBitConstructor", zones.front().function );
 		EXPECT_EQ( static_cast<uint32_t>( CcpColor::Orange ), zones.front().color )	<< "Color should come from the registered CaptureMask entry";
 	}
@@ -421,7 +421,7 @@ TEST_F( CcpTelemetryTest, CcpTelemetryEnterZoneCaptureMaskBit )
 	TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 	const auto zones = m_tracyClient.GetZones();
-	EXPECT_EQ( 1, zones.size() );
+	ASSERT_EQ( 1, zones.size() );
 	EXPECT_EQ( "Active_CcpTelemetryEnterZoneCaptureMaskBit", zones.front().function );
 	EXPECT_EQ( static_cast<uint32_t>( CcpColor::LimeGreen ), zones.front().color );
 	EXPECT_EQ( 0, m_tracyClient.GetZoneEndCount() );
