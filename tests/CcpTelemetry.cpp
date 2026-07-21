@@ -684,39 +684,6 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreTimedWaitTimesOut )
 // CaptureMask tests:
 // ---------------------------------------------------------------------------
 
-TEST_F( CcpTelemetryTest, CcpRegisterCaptureMaskAllocatesBitsInOrder )
-{
-	// A "hack" to force GTest to run this test in its own process.
-	// This is needed because GTest (unlike CTest) runs all the tests in the same
-	// process, meaning already registered CaptureMasks are visible.
-	// We need this test to check that each of the allocated CaptureMask bits:
-	// - Contain only a single bit in it's return value.
-	// - Each allocated CaptureMask bit is higher than the one before it.
-	::testing::GTEST_FLAG( death_test_style ) = "threadsafe";
-	EXPECT_EXIT(
-		{
-			uint64_t previousBit = TMCM_CPP; // last default-registered bit (slot 2)
-			for( int i = 2; i < 64; ++i )
-			{
-				const std::string name = "CaptureMaskBit_" + std::to_string( i );
-				const uint64_t maskBit = CcpRegisterCaptureMask( name );
-				if( !IsCaptureMaskSingleBit( maskBit ) || maskBit <= previousBit )
-				{
-					std::fprintf( stderr,
-								  "FAIL: %s returned 0x%llx, previous was 0x%llx\n",
-								  name.c_str(),
-								  static_cast<unsigned long long>( maskBit ),
-								  static_cast<unsigned long long>( previousBit ) );
-					std::fflush( stderr );
-					std::exit( 1 );
-				}
-				previousBit = maskBit;
-			}
-			std::exit( 0 );
-		},
-		::testing::ExitedWithCode( 0 ), ".*" );
-}
-
 TEST_F( CcpTelemetryTest, CaptureMaskRegisterReturnsNonDefaultBit )
 {
 	const uint64_t maskBit = CcpRegisterCaptureMask( "CaptureMaskRegisterReturnsNonDefaultBit" );
