@@ -260,10 +260,9 @@ TEST_F( CcpTelemetryTest, SimpleZoneTest )
 	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_TRUE( ZoneExists( zoneName ) );
 
-	// The default assigned color in CcpTelemetryEnterZone() for TMCM_CPP is CcpColor::Yellow, make sure it is present
 	const auto zones = m_tracyClient.GetZones();
 	ASSERT_EQ( 1, zones.size() );
-	EXPECT_EQ( static_cast<uint32_t>( CcpColor::SteelBlue ), zones.front().color );
+	EXPECT_EQ( static_cast<uint32_t>( CcpColor::Yellow ), zones.front().color );
 
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry( [this] { return m_tracyClient.GetZoneEndCount() == 1; } );
@@ -275,8 +274,8 @@ TEST_F( CcpTelemetryTest, StackedZones )
 {
 	// A stacked zone is a zone that has the same key as a previously created zone.
 	static int key = 4711;
-	CcpTelemetryEnterZone( &key, "TestZone", __FILE__, __LINE__ ); // Original deprecated version
-	CcpTelemetryEnterZone( &key, TMCM_CPP, "TestZone2", __FILE__, __LINE__ ); // New CaptureMaskBit version
+	CcpTelemetryEnterZone( &key, "TestZone", __FILE__, __LINE__ );
+	CcpTelemetryEnterZone( &key, "TestZone2", __FILE__, __LINE__ );
 	TickTelemetry( [this] { return m_tracyClient.GetZones().size() == 2; } );
 	EXPECT_EQ( 2, m_tracyClient.GetZones().size() );
 	EXPECT_TRUE( ZoneExists( "TestZone" ) );
@@ -297,7 +296,7 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 {
 	static int key1 = 1001;
 	const std::string zoneName1{ "FirstZone" };
-	CcpTelemetryEnterZone( &key1, zoneName1.c_str(), __FILE__, __LINE__ ); // Original deprecated version
+	CcpTelemetryEnterZone( &key1, zoneName1.c_str(), __FILE__, __LINE__ );
 	TickTelemetry( [this, zoneName1] { return ZoneExists( zoneName1 ); } );
 	EXPECT_TRUE( ZoneExists( zoneName1 ) );
 	EXPECT_EQ( 1, m_tracyClient.GetZones().size() );
@@ -321,14 +320,14 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	// Emit a new Zone, on the 2nd Start and validate
 	static int key2 = 1002;
 	const std::string zoneName2{ "SecondZone" };
-	CcpTelemetryEnterZone( &key2, TMCM_GENERAL, zoneName2.c_str(), __FILE__, __LINE__ );  // New CaptureMaskBit version (CcpColor::SteelBlue)
+	CcpTelemetryEnterZone( &key2, zoneName2.c_str(), __FILE__, __LINE__ );
 	TickTelemetry( [this, zoneName2] { return ZoneExists( zoneName2 ); } );
 	EXPECT_TRUE( ZoneExists( zoneName2 ) );
 	EXPECT_FALSE( ZoneExists( zoneName1 ) ) << "FirstZone should not exist";
 
 	const auto zones = m_tracyClient.GetZones();
 	ASSERT_EQ( 1, zones.size() );
-	EXPECT_EQ( static_cast<uint32_t>( CcpColor::SteelBlue ), zones.front().color ) << "Default color for CaptureMask TMCM_GENERAL should be CcpColor::SteelBlue";
+	EXPECT_EQ( static_cast<uint32_t>( CcpColor::Yellow ), zones.front().color ) << "Default color for CaptureMask TMCM_GENERAL should be CcpColor::SteelBlue";
 	EXPECT_EQ( 2, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
 
@@ -338,19 +337,18 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() );
 }
 
-TEST_F( CcpTelemetryTest, TelemetryZoneLegacyConstructor )
+TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 {
 	// Test where captureMask is in the Active list
 	CcpSetActiveCaptureMask( {"cpp", "general" } );
 	{
-		// Make sure the "legacy deprecated" TelemetryZone constructor respects overwrites of color
-		TelemetryZone activeZone( TMCM_CPP, "LegacyZoneIsInActiveList", __FILE__, __LINE__, CcpColor::Red ); // Overwrite the default CcpColor::Yellow of TMCM_CPP
+		TelemetryZone activeZone( TMCM_CPP, "ZoneIsInActiveList", __FILE__, __LINE__ );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
 		EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 		const auto zones = m_tracyClient.GetZones();
 		ASSERT_EQ( 1, zones.size() );
-		EXPECT_EQ( "LegacyZoneIsInActiveList", zones.front().function );
-		EXPECT_EQ( static_cast<uint32_t>( CcpColor::Red ), zones.front().color );
+		EXPECT_EQ( "ZoneIsInActiveList", zones.front().function );
+		EXPECT_EQ( static_cast<uint32_t>( CcpColor::Yellow ), zones.front().color );
 		EXPECT_EQ( 0, m_tracyClient.GetZoneEndCount() );
 	}
 	// Now the activeZone has gone out of scope, so the zone should have ended
@@ -361,14 +359,14 @@ TEST_F( CcpTelemetryTest, TelemetryZoneLegacyConstructor )
 	// Test where captureMask is NOT in the Active list
 	CcpSetActiveCaptureMask( {"NotRegisteredCaptureMask", "ClearingPreviousGeneralAndCpp", "FromTheActiveCaptureMaskList"} );
 	{
-		TelemetryZone inactiveZone( TMCM_CPP, "LegacyZoneIsNotInActiveList", __FILE__, __LINE__, CcpColor::Blue );
+		TelemetryZone inactiveZone( TMCM_CPP, "ZoneIsNotInActiveList", __FILE__, __LINE__, CcpColor::Blue );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
 		EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() ) << "Because TMCM_CPP is now no longer in the ACTIVE CaptureMask list, we should not have emitted an event for it";
 		EXPECT_EQ( 0, m_tracyClient.GetZones().size() ) << "Zone list should therefore be empty";
 	}
 	TickTelemetry( nullptr, std::chrono::milliseconds( 100 ) );
-	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() ) << "Inactive legacy zone must not emit ZoneBegin, count should stay at 1";
-	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() ) << "Inactive legacy zone must not emit ZoneEnd, count should stay at 1";
+	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() ) << "Inactive zone must not emit ZoneBegin, count should stay at 1";
+	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() ) << "Inactive zone must not emit ZoneEnd, count should stay at 1";
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 }
 
@@ -381,7 +379,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneCaptureMaskBitConstructor )
 	// Test where componentMaskBit is in the Active list
 	CcpSetActiveCaptureMask( {"TelemetryZoneCaptureMaskBitConstructor"} );
 	{
-		TelemetryZone activeZone( CaptureMaskBit, componentMaskBit, "Active_TelemetryZoneCaptureMaskBitConstructor", __FILE__, __LINE__ );
+		TelemetryZone activeZone( componentMaskBit, "Active_TelemetryZoneCaptureMaskBitConstructor", __FILE__, __LINE__ );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
 		EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 		const auto zones = m_tracyClient.GetZones();
@@ -397,7 +395,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneCaptureMaskBitConstructor )
 	CcpSetActiveCaptureMask( {"general"} );
 	EXPECT_EQ( std::vector<std::string>{"general"}, CcpGetActiveCaptureMask() );
 	{
-		TelemetryZone inactiveZone( CaptureMaskBit, componentMaskBit, "Inactive_TelemetryZoneCaptureMaskBitConstructor", __FILE__, __LINE__ );
+		TelemetryZone inactiveZone( componentMaskBit, "Inactive_TelemetryZoneCaptureMaskBitConstructor", __FILE__, __LINE__ );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
 		EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() ) << "Because TMCM_GENERAL is now no longer in the ACTIVE CaptureMask list, we should not have emitted an event for it";
 		EXPECT_EQ( 0, m_tracyClient.GetZones().size() ) << "Zone list should therefore be empty";
@@ -408,38 +406,16 @@ TEST_F( CcpTelemetryTest, TelemetryZoneCaptureMaskBitConstructor )
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 }
 
-TEST_F( CcpTelemetryTest, CcpTelemetryEnterZoneCaptureMaskBit )
+TEST_F( CcpTelemetryTest, CcpTelemetryEnterZoneIsAlwaysCaptureMaskCpp )
 {
-	// Register a new component CaptureMask
-	const uint64_t componentMaskBit = CcpRegisterCaptureMask( "CcpTelemetryEnterZoneCaptureMaskBit", CcpColor::LimeGreen );
-	EXPECT_TRUE( IsCaptureMaskSingleBit( componentMaskBit ) );
-
-	// Test where componentMaskBit is in the Active list
-	CcpSetActiveCaptureMask( {"CcpTelemetryEnterZoneCaptureMaskBit"} );
-	static int activeKey = 8001;
-	CcpTelemetryEnterZone( &activeKey, componentMaskBit, "Active_CcpTelemetryEnterZoneCaptureMaskBit", __FILE__, __LINE__ );
-	TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
-	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
-	const auto zones = m_tracyClient.GetZones();
-	ASSERT_EQ( 1, zones.size() );
-	EXPECT_EQ( "Active_CcpTelemetryEnterZoneCaptureMaskBit", zones.front().function );
-	EXPECT_EQ( static_cast<uint32_t>( CcpColor::LimeGreen ), zones.front().color );
-	EXPECT_EQ( 0, m_tracyClient.GetZoneEndCount() );
-
-	CcpTelemetryLeaveZone( &activeKey );
-	TickTelemetry( [this] { return m_tracyClient.GetZoneEndCount() == 1; } );
-	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
-
-	// Test where componentMaskBit is NOT in the Active list - overwrite the Active list with only "general"
-	CcpSetActiveCaptureMask( {"general"} );
-	EXPECT_EQ( std::vector<std::string>{"general"}, CcpGetActiveCaptureMask() );
+	CcpSetActiveCaptureMask( {"cpp"} );
+	EXPECT_EQ( std::vector<std::string>{"cpp"}, CcpGetActiveCaptureMask() );
 	static int inactiveKey = 8002;
-	CcpTelemetryEnterZone( &inactiveKey, componentMaskBit, "Inactive_CcpTelemetryEnterZoneCaptureMaskBit", __FILE__, __LINE__ );
+	CcpTelemetryEnterZone( &inactiveKey, "Active_CcpTelemetryEnterZoneCaptureMaskBit", __FILE__, __LINE__ );
 	TickTelemetry( nullptr, std::chrono::milliseconds( 100 ) );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() ) << "Inactive CaptureMaskBit enter-zone must not emit ZoneBegin";
-	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() ) << "EndZone count should still be 1";
-	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
-
+	EXPECT_EQ( 0, m_tracyClient.GetZoneEndCount() );
+	EXPECT_FALSE( m_tracyClient.GetZones().empty() );
 	CcpTelemetryLeaveZone( &inactiveKey );
 	TickTelemetry( nullptr, std::chrono::milliseconds( 100 ) );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() ) << "Inactive CaptureMaskBit enter-zone must not emit ZoneEnd";

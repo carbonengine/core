@@ -584,8 +584,7 @@ const std::string& CcpTelemetryGetActiveFiber()
 	return *t_activeFiber;
 }
 
-// Deprecated version
-TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, CcpColor color ) : m_impl(std::make_unique<Private>())
+TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete ) : m_impl(std::make_unique<Private>())
 {
 	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
 	{
@@ -595,27 +594,10 @@ TelemetryZone::TelemetryZone( uint32_t ctx, const char* name, const char* filena
 	CCP_ASSERT( filename != nullptr );
 	CCP_ASSERT( name != nullptr );
 
-	const int active = ( ( ctx & TMCM_CPP ) != 0 ) && IsCaptureMaskActive( ctx );
+	auto color = GetCaptureMaskColor( ctx );
+	const int active = IsCaptureMaskActive( ctx );
 	auto data = ___tracy_alloc_srcloc( lineno, filename, strlen( filename ), name, strlen( name ), static_cast<uint32_t>( color ) );
 //	CCP_LOG_CH( s_ch, "[Fiber %p] Creating zone %s (%p)", t_activeFiber->c_str(), ret.first->c_str(), this );
-	m_impl->fiber = t_activeFiber;
-	m_impl->telemetryContext.emplace( ___tracy_emit_zone_begin_alloc( data, active ) );
-}
-
-// Preferred version
-TelemetryZone::TelemetryZone( CaptureMaskBitTag, uint64_t captureMaskBit, const char* name, const char* filename, uint32_t lineno ) : m_impl( std::make_unique<Private>() )
-{
-	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
-	{
-		return;
-	}
-
-	CCP_ASSERT( filename != nullptr );
-	CCP_ASSERT( name != nullptr );
-
-	const CcpColor color = GetCaptureMaskColor( captureMaskBit );
-	const int active = IsCaptureMaskActive( captureMaskBit );
-	auto data = ___tracy_alloc_srcloc( lineno, filename, strlen( filename ), name, strlen( name ), static_cast<uint32_t>( color ) );
 	m_impl->fiber = t_activeFiber;
 	m_impl->telemetryContext.emplace( ___tracy_emit_zone_begin_alloc( data, active ) );
 }
@@ -657,16 +639,10 @@ void TelemetryZone::text( const char* text ) const
 // Deprecated version
 void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, uint32_t lineno )
 {
-	CcpTelemetryEnterZone( key, TMCM_CPP, name, filename, lineno ); // The default assigned color for TMCM_CPP is CcpColor::Yellow
-}
-
-// Preferred version
-void CcpTelemetryEnterZone( void* key, uint64_t captureMaskBit, const char* name, const char* filename, uint32_t lineno )
-{
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started )
 	{
 		t_manuallyTrackedZones.emplace( key );
-		t_activeTaskletZoneStore->second.emplace( CaptureMaskBit, captureMaskBit, name, filename, lineno );
+		t_activeTaskletZoneStore->second.emplace( TMCM_CPP, name, filename, lineno );
 	}
 }
 
