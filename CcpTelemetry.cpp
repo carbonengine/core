@@ -99,7 +99,7 @@ namespace
 	// -------------------------------
 	// CaptureMask specifics:
 	// -------------------------------
-	#define CAPTURE_MASKS_MAX 64
+	constexpr size_t CAPTURE_MASKS_MAX{64};
 
 	CcpMutex s_captureMaskMutex( "CcpTelemetry", "CaptureMaskMutex" );
 
