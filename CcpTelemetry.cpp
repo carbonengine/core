@@ -59,7 +59,7 @@ thread_local TaskletZoneStore::iterator t_activeTaskletZoneStore{ t_taskletZoneS
 thread_local std::set<void*> t_manuallyTrackedZones; // Keep track of zones created through `CcpTelemetryEnterZone` to ensure that we only pop off the zone store's stack when leaving a manually created zone
 
 constexpr std::chrono::milliseconds s_cleanupDelay{5000};
-std::queue<std::pair<FiberNameStore::const_iterator, std::chrono::steady_clock::time_point>> s_fiberEraseMap; // Map of fibers scheduled for erasure
+std::map<FiberNameStore::const_iterator, std::chrono::steady_clock::time_point> s_fiberEraseMap; // Map of fibers scheduled for erasure
 
 typedef TrackableStdMap<CcpMutex*, std::pair<const char*,const char*>> MutexNameMap_t;
 typedef TrackableStdMap<CcpThreadId_t , const char*> ThreadNameMap_t;
@@ -360,23 +360,24 @@ void CcpTelemetryTick()
 			FrameMark;
 			++s_telemetryTick;
 
-			// Give the profiler a few seconds to receive information from the fiber name store before deallocating
-			// the underlying string
-			if ( !s_fiberEraseMap.empty() )
+			auto now = std::chrono::steady_clock::now();
+
+			// Check if there are any pending fiber name erases
+			for (auto it = s_fiberEraseMap.begin(); it != s_fiberEraseMap.end(); )
 			{
-				auto now = std::chrono::steady_clock::now();
-				auto elem = s_fiberEraseMap.front();
-				while ( !s_fiberEraseMap.empty() && elem.second >= now )
+				if ( now >= it->second )
 				{
-					s_fiberNameStore.erase( elem.first );
-					s_fiberEraseMap.pop();
-					elem = s_fiberEraseMap.front();
+					s_fiberNameStore.erase( it->first );
+					it = s_fiberEraseMap.erase( it );
+				} else
+				{
+					++it;
 				}
 			}
 
 			if( s_config.captureDuration != std::chrono::milliseconds::zero() ) // Check if we have passed our timed sample time
 			{
-				auto timeSinceStart = std::chrono::steady_clock::now() - s_profilerStartTime;
+				auto timeSinceStart = now - s_profilerStartTime;
 				if( timeSinceStart >= s_config.captureDuration )
 				{
 					CCP_LOG_CH( s_ch, "Finalizing timed profiler run" );
@@ -494,6 +495,7 @@ void CcpTelemetrySetActiveFiber( FiberNameStore::const_iterator elem )
 void CcpTelemetrySetActiveFiber( const std::string& name )
 {
 	auto elem = s_fiberNameStore.insert( name );
+	s_fiberEraseMap.erase( elem.first ); // cancel any pending deletion of this name
 //	if ( elem.second )
 //	{
 //		CCP_LOG_CH( s_ch, "Registered new [Fiber %p]", elem.first->c_str() );

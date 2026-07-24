@@ -213,6 +213,24 @@ TEST_F( CcpTelemetryTest, RemovingActiveFiberClearsIt )
 	EXPECT_EQ( CcpTelemetryGetActiveFiber(), expectedNoFiber );
 }
 
+TEST_F( CcpTelemetryTest, RemovingElementsFromFiberNameStoreDoesNotCrash )
+{
+	// There was a crash when the same fiber was queued multiple times for
+	// deletion. Additionally, some silent data corruption could occur when
+	// inserting a fiber name again that was about to be deleted.
+	// This isn't the best test to properly validate both scenarios, but it
+	// is at least good enough to reproduce the observed crash.
+	CcpTelemetrySetActiveFiber( expectedFiberName1 );
+	CcpTelemetryRemoveFiber( expectedFiberName1 );
+	CcpTelemetrySetActiveFiber( expectedFiberName1 );
+	CcpTelemetryRemoveFiber( expectedFiberName1 );
+	TickTelemetry( nullptr );
+	CcpTelemetrySetActiveFiber( expectedFiberName1 );
+	CcpTelemetryRemoveFiber( expectedFiberName1 );
+	CcpTelemetrySetActiveFiber( expectedFiberName1 );
+	TickTelemetry( nullptr );
+}
+
 TEST_F( CcpTelemetryTest, RemainingCaptureDuration )
 {
 	// The test fixture starts telemetry without a specific capture duration.
