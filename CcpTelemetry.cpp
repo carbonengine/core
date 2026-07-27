@@ -535,6 +535,12 @@ TelemetryZone::TelemetryZone( CcpProfilerZoneHandle handle, const char* name, co
 		return;
 	}
 
+	if ( handle >= PROFILER_ZONES_MAX )
+	{
+		CCP_LOGERR_CH( s_ch, "Invalid profiler zone handle %d - skipping creation of zone named %s", handle, name );
+		return;
+	}
+
 	CCP_ASSERT( filename != nullptr );
 	CCP_ASSERT( name != nullptr );
 
