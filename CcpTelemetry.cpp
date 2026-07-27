@@ -97,7 +97,7 @@ namespace
 	CcpMutex s_captureMaskMutex( "CcpTelemetry", "ProfilerZoneMutex" );
 
 	// Fixed size array of registered ProfilerZones.
-	std::array<CcpProfilerZoneInfo, PROFILER_ZONES_MAX> s_registeredProfilerZones{
+	std::array<std::optional<CcpProfilerZoneInfo>, PROFILER_ZONES_MAX> s_registeredProfilerZones{
 			CcpProfilerZoneInfo{ "core", CcpColor::LightGreen }, // Pre-allocated profiler zone for core, should core ever need it. This also solves the problem that legacy `TMCM_GENERAL` and `TMCM_CPP` otherwise cause an off-by-one error.
 			CcpProfilerZoneInfo{ "general", CcpColor::SteelBlue }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
 			CcpProfilerZoneInfo{ "cpp", CcpColor::Yellow }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
@@ -113,7 +113,7 @@ namespace
 	// Get the registered ProfilerZone color for a given ProfilerZone
 	CcpColor GetProfilerZoneColor( CcpProfilerZoneHandle handle )
 	{
-		return s_registeredProfilerZones[handle].color;
+		return s_registeredProfilerZones[handle]->color;
 	}
 
 	bool IsProfilerZoneActive( CcpProfilerZoneHandle handle )
@@ -136,10 +136,10 @@ CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfilerZoneInfo& zone )
 		CcpProfilerZoneHandle handle{0};
 		for( auto& entry : s_registeredProfilerZones )
 		{
-			if (entry.name.empty())
+			if (!entry)
 			{
 				entry = zone;
-				CCP_LOG_CH( s_ch, "Registered a new profiler zone for '%s' -> %u with color %s", entry.name.c_str(), handle, CcpColorToString( entry.color ).data() );
+				CCP_LOG_CH( s_ch, "Registered a new profiler zone for '%s' -> %u with color %s", entry->name.c_str(), handle, CcpColorToString( entry->color ).data() );
 				break;
 			}
 			++handle;
@@ -156,7 +156,7 @@ CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfilerZoneInfo& zone )
 		{
 			s_pendingProfilerZoneNames.erase( pendingIt );
 			s_activeProfilerZoneBits |= ( 1ULL << handle );
-			CCP_LOG_CH( s_ch, "Previously pending ProfilerZone '%s' added to activeProfilerZone  -> %u", zone.name.c_str(), handle );
+			CCP_LOG_CH( s_ch, "Previously pending ProfilerZone '%s' added to active ProfilerZones  -> %u", zone.name.c_str(), handle );
 		}
 
 		return handle;
@@ -171,9 +171,9 @@ std::vector<CcpProfilerZoneInfo> CcpGetRegisteredProfilerZones()
 	result.reserve( PROFILER_ZONES_MAX );
 	for( const auto& registeredEntry : s_registeredProfilerZones )
 	{
-		if( ! registeredEntry.name.empty() )
+		if( ! registeredEntry->name.empty() )
 		{
-			result.push_back( registeredEntry );
+			result.push_back( *registeredEntry );
 		}
 	}
 	return result;
@@ -203,7 +203,7 @@ bool CcpSetActiveProfilerZones( const std::vector<std::string>& maskNames )
 		size_t index{0};
 		for( const auto& registeredEntry : s_registeredProfilerZones )
 		{
-			if( registeredEntry.name == rawName )
+			if( registeredEntry->name == rawName )
 			{
 				newActiveProfilerZone |= (1ULL << index);
 				alreadyRegistered = true;
@@ -238,7 +238,7 @@ std::vector<std::string> CcpGetActiveProfilerZones()
 
 		if ( ( s_activeProfilerZoneBits & currentMaskBit ) != 0 )
 		{
-			result.push_back( registeredEntry.name );
+			result.push_back( registeredEntry->name );
 		}
 
 		++index;
