@@ -3,7 +3,6 @@
 enable_testing()
 
 find_package(GTest CONFIG REQUIRED)
-find_package(lz4 CONFIG REQUIRED)
 add_executable(CcpCoreTest
     CCPCallstack.cpp
     CcpCoreTest.cpp
@@ -14,15 +13,22 @@ add_executable(CcpCoreTest
     CCPMemoryTracker.cpp
     CcpSecureCrt.cpp
     CcpStatistics.cpp
-    CcpTelemetry.cpp
     CcpThread.cpp
     CcpTime.cpp
     StringConversions.cpp
     TempFile.cpp
     CCPLog.cpp
-    TracyTestClient.cpp
 )
-target_link_libraries(CcpCoreTest PRIVATE CcpCore GTest::gtest GTest::gtest_main lz4::lz4 Tracy::TracyClient)
+target_link_libraries(CcpCoreTest PRIVATE CcpCore GTest::gtest GTest::gtest_main)
+
+if(WITH_TELEMETRY)
+    find_package(lz4 CONFIG REQUIRED)
+    target_sources(CcpCoreTest PRIVATE
+        CcpTelemetry.cpp
+        TracyTestClient.cpp
+    )
+    target_link_libraries(CcpCoreTest PRIVATE lz4::lz4 Tracy::TracyClient)
+endif()
 if(WIN32)
     target_link_libraries(CcpCoreTest PRIVATE ws2_32)
 endif()

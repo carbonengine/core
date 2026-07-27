@@ -1,6 +1,5 @@
 // Copyright © 2025 CCP ehf.
 
-#if CCP_TELEMETRY_ENABLED
 #include <gtest/gtest.h>
 
 #include <algorithm>
@@ -705,4 +704,3 @@ TEST_F( CcpTelemetryProfilerZoneTest, SetActiveProfilerZoneByNames )
 	const CcpProfilerZoneHandle pendingHandle = CcpRegisterProfilerZone( {pendingName} );
 	EXPECT_EQ( activeMaskList, CcpGetActiveProfilerZone() ) << "ActiveProfilerZone should now contain both the registered and pending masks";
 }
-#endif
