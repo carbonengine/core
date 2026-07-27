@@ -90,87 +90,86 @@ namespace
 	}
 
 	// -------------------------------
-	// CaptureMask specifics:
+	// ProfilerZone specifics:
 	// -------------------------------
-	constexpr size_t CAPTURE_MASKS_MAX{64};
+	constexpr size_t PROFILER_ZONES_MAX{64};
 
-	CcpMutex s_captureMaskMutex( "CcpTelemetry", "CaptureMaskMutex" );
+	CcpMutex s_captureMaskMutex( "CcpTelemetry", "ProfilerZoneMutex" );
 
-	// Fixed size array of registered CaptureMasks.
-	std::array<CcpCaptureMaskInfo, CAPTURE_MASKS_MAX> s_registeredCaptureMasks{
-			CcpCaptureMaskInfo{ "core", CcpColor::LightGreen }, // Pre-allocated capture mask for core, should core ever need it. This also solves the problem that legacy `TMCM_GENERAL` and `TMCM_CPP` otherwise cause an off-by-one error.
-			CcpCaptureMaskInfo{ "general", CcpColor::SteelBlue }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
-			CcpCaptureMaskInfo{ "cpp", CcpColor::Yellow }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
+	// Fixed size array of registered ProfilerZones.
+	std::array<CcpProfilerZoneInfo, PROFILER_ZONES_MAX> s_registeredProfilerZones{
+			CcpProfilerZoneInfo{ "core", CcpColor::LightGreen }, // Pre-allocated profiler zone for core, should core ever need it. This also solves the problem that legacy `TMCM_GENERAL` and `TMCM_CPP` otherwise cause an off-by-one error.
+			CcpProfilerZoneInfo{ "general", CcpColor::SteelBlue }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
+			CcpProfilerZoneInfo{ "cpp", CcpColor::Yellow }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
 	};
 
-	uint64_t s_activeCaptureMaskBits{0};
+	uint64_t s_activeProfilerZoneBits{0};
 
 
-	// List of CaptureMask names that have yet to be registered.
-	// From a CcpSetActiveCaptureMask( vector<string> ) call.
-	std::vector<std::string> s_pendingActiveCaptureMaskNames;
+	// List of ProfilerZone names that have yet to be registered.
+	// From a CcpSetActiveProfilerZones( vector<string> ) call.
+	std::vector<std::string> s_pendingProfilerZoneNames;
 
-	// Get the registered CaptureMask color for a given CaptureMask
-	CcpColor GetCaptureMaskColor( CcpCaptureMaskHandle handle )
+	// Get the registered ProfilerZone color for a given ProfilerZone
+	CcpColor GetProfilerZoneColor( CcpProfilerZoneHandle handle )
 	{
-		return s_registeredCaptureMasks[handle].color;
+		return s_registeredProfilerZones[handle].color;
 	}
 
-	bool IsCaptureMaskActive( CcpCaptureMaskHandle handle )
+	bool IsProfilerZoneActive( CcpProfilerZoneHandle handle )
 	{
-		return ( s_activeCaptureMaskBits & ( 1ULL<<handle ) ) != 0;
+		return ( s_activeProfilerZoneBits & ( 1ULL<<handle ) ) != 0;
 	}
 }
 
-CcpCaptureMaskHandle CcpRegisterCaptureMask( const std::string& name, CcpColor color )
+CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfilerZoneInfo& zone )
 {
-		// Guard access to registered CaptureMasks while we add/update a new entry
+		// Guard access to registered ProfilerZones while we add/update a new entry
 		CcpAutoMutex lock( s_captureMaskMutex );
 
-		if( name.empty() )
+		if( zone.name.empty() )
 		{
-			CCP_LOGERR_CH( s_ch, "Cannot register a CaptureMask without a name" );
+			CCP_LOGERR_CH( s_ch, "Cannot register a profiler zone without a name" );
 			return 0;
 		}
 
-		CcpCaptureMaskHandle handle{0};
-		for( auto& entry : s_registeredCaptureMasks )
+		CcpProfilerZoneHandle handle{0};
+		for( auto& entry : s_registeredProfilerZones )
 		{
 			if (entry.name.empty())
 			{
-				entry.name = name;
-				entry.color = color;
-				CCP_LOG_CH( s_ch, "Registered a new CaptureMask for '%s' -> %u with color %s", name.c_str(), handle, CcpColorToString( color ).data() );
+				entry = zone;
+				CCP_LOG_CH( s_ch, "Registered a new profiler zone for '%s' -> %u with color %s", entry.name.c_str(), handle, CcpColorToString( entry.color ).data() );
 				break;
 			}
 			++handle;
 		}
 
-		if ( handle > CAPTURE_MASKS_MAX )
+		if ( handle > PROFILER_ZONES_MAX )
 		{
-			return CCP_CAPTURE_MASK_INVALID_HANDLE;
+			return CCP_PROFILER_ZONE_HANDLE_INVALID;
 		}
 
-		// Make sure previously "pending active" CaptureMask is included
-		auto pendingIt = std::find( s_pendingActiveCaptureMaskNames.begin(), s_pendingActiveCaptureMaskNames.end(), name );
-		if( pendingIt != s_pendingActiveCaptureMaskNames.end() )
+		// Make sure previously "pending active" ProfilerZone is included
+		auto pendingIt = std::find( s_pendingProfilerZoneNames.begin(), s_pendingProfilerZoneNames.end(), zone.name );
+		if( pendingIt != s_pendingProfilerZoneNames.end() )
 		{
-			s_pendingActiveCaptureMaskNames.erase( pendingIt );
-			s_activeCaptureMaskBits |= ( 1ULL << handle );
-			CCP_LOG_CH( s_ch, "Previously pending CaptureMask '%s' added to activeCaptureMask  -> %u", name.c_str(), handle );
+			s_pendingProfilerZoneNames.erase( pendingIt );
+			s_activeProfilerZoneBits |= ( 1ULL << handle );
+			CCP_LOG_CH( s_ch, "Previously pending ProfilerZone '%s' added to activeProfilerZone  -> %u", zone.name.c_str(), handle );
 		}
 
 		return handle;
 }
 
-std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
+std::vector<CcpProfilerZoneInfo> CcpGetRegisteredProfilerZones()
 {
-	// Guard access to registered CaptureMasks while return list is populated.
+	// Guard access to registered ProfilerZones while return list is populated.
 	CcpAutoMutex lock( s_captureMaskMutex );
 
-	std::vector<CcpCaptureMaskInfo> result;
-	result.reserve( CAPTURE_MASKS_MAX );
-	for( const auto& registeredEntry : s_registeredCaptureMasks )
+	std::vector<CcpProfilerZoneInfo> result;
+	result.reserve( PROFILER_ZONES_MAX );
+	for( const auto& registeredEntry : s_registeredProfilerZones )
 	{
 		if( ! registeredEntry.name.empty() )
 		{
@@ -180,19 +179,19 @@ std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
 	return result;
 }
 
-bool CcpSetCaptureMask( const std::vector<std::string>& maskNames )
+bool CcpSetActiveProfilerZones( const std::vector<std::string>& maskNames )
 {
-	// Guard access to all CaptureMasks members
+	// Guard access to all ProfilerZones members
 	CcpAutoMutex lock( s_captureMaskMutex );
 
-	if ( maskNames.size() > CAPTURE_MASKS_MAX )
+	if ( maskNames.size() > PROFILER_ZONES_MAX )
 	{
-		CCP_LOGERR_CH( s_ch, "Failed setting active capture mask because more %lu maskNames were passed in, but only %lu are allowed", maskNames.size(), CAPTURE_MASKS_MAX );
+		CCP_LOGERR_CH( s_ch, "Failed setting active profiler zone because more %lu maskNames were passed in, but only %lu are allowed", maskNames.size(), PROFILER_ZONES_MAX );
 		return false;
 	}
 
-	s_pendingActiveCaptureMaskNames.clear();
-	uint64_t newActiveCaptureMask = 0;
+	s_pendingProfilerZoneNames.clear();
+	uint64_t newActiveProfilerZone = 0;
 	for( const auto& rawName : maskNames )
 	{
 		if( rawName.empty() )
@@ -202,42 +201,42 @@ bool CcpSetCaptureMask( const std::vector<std::string>& maskNames )
 
 		bool alreadyRegistered = false;
 		size_t index{0};
-		for( const auto& registeredEntry : s_registeredCaptureMasks )
+		for( const auto& registeredEntry : s_registeredProfilerZones )
 		{
 			if( registeredEntry.name == rawName )
 			{
-				newActiveCaptureMask |= (1ULL << index);
+				newActiveProfilerZone |= (1ULL << index);
 				alreadyRegistered = true;
 				break;
 			}
 			++index;
 		}
 
-		// This CaptureMask hasn't been registered (yet) so add it to the pending list
+		// This ProfilerZone hasn't been registered (yet) so add it to the pending list
 		if( !alreadyRegistered )
 		{
-			if( std::find( s_pendingActiveCaptureMaskNames.begin(), s_pendingActiveCaptureMaskNames.end(), rawName ) == s_pendingActiveCaptureMaskNames.end() )
+			if( std::find( s_pendingProfilerZoneNames.begin(), s_pendingProfilerZoneNames.end(), rawName ) == s_pendingProfilerZoneNames.end() )
 			{
-				s_pendingActiveCaptureMaskNames.emplace_back( rawName );
+				s_pendingProfilerZoneNames.emplace_back( rawName );
 			}
 		}
 	}
 
-	s_activeCaptureMaskBits = newActiveCaptureMask;
-	CCP_LOG_CH( s_ch, "Active CaptureMask set to 0x%llx (%zu pending unresolved name(s))", static_cast<unsigned long long>( newActiveCaptureMask ), s_pendingActiveCaptureMaskNames.size() );
+	s_activeProfilerZoneBits = newActiveProfilerZone;
+	CCP_LOG_CH( s_ch, "Active ProfilerZone set to 0x%llx (%zu pending unresolved name(s))", static_cast<unsigned long long>( newActiveProfilerZone ), s_pendingProfilerZoneNames.size() );
 
 	return true;
 }
 
-std::vector<std::string> CcpGetActiveCaptureMask()
+std::vector<std::string> CcpGetActiveProfilerZone()
 {
 	std::vector<std::string> result;
 	size_t index{0};
-	for ( const auto& registeredEntry : s_registeredCaptureMasks )
+	for ( const auto& registeredEntry : s_registeredProfilerZones )
 	{
 		uint64_t currentMaskBit = 1ULL << index;
 
-		if ( ( s_activeCaptureMaskBits & currentMaskBit ) != 0 )
+		if ( ( s_activeProfilerZoneBits & currentMaskBit ) != 0 )
 		{
 			result.push_back( registeredEntry.name );
 		}
@@ -529,7 +528,7 @@ const std::string& CcpTelemetryGetActiveFiber()
 	return *t_activeFiber;
 }
 
-TelemetryZone::TelemetryZone( CcpCaptureMaskHandle handle, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete ) : m_impl(std::make_unique<Private>())
+TelemetryZone::TelemetryZone( CcpProfilerZoneHandle handle, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete ) : m_impl(std::make_unique<Private>())
 {
 	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
 	{
@@ -539,8 +538,8 @@ TelemetryZone::TelemetryZone( CcpCaptureMaskHandle handle, const char* name, con
 	CCP_ASSERT( filename != nullptr );
 	CCP_ASSERT( name != nullptr );
 
-	auto color = GetCaptureMaskColor( handle );
-	const int active = IsCaptureMaskActive( handle );
+	auto color = GetProfilerZoneColor( handle );
+	const int active = IsProfilerZoneActive( handle );
 	auto data = ___tracy_alloc_srcloc( lineno, filename, strlen( filename ), name, strlen( name ), static_cast<uint32_t>( color ) );
 //	CCP_LOG_CH( s_ch, "[Fiber %p] Creating zone %s (%p)", t_activeFiber->c_str(), ret.first->c_str(), this );
 	m_impl->fiber = t_activeFiber;
@@ -647,21 +646,21 @@ void CcpRegisterThread( CcpThreadId_t threadId, const char* name )
 {
 }
 
-CcpCaptureMaskHandle CcpRegisterCaptureMask( const std::string&, CcpColor )
+CcpProfilerZoneHandle CcpRegisterProfilerZone( const std::string&, CcpColor )
 {
 	return 0;
 }
 
-std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks()
+std::vector<CcpProfilerZoneInfo> CcpGetRegisteredProfilerZones()
 {
 	return {};
 }
 
-bool CcpSetActiveCaptureMask( const std::vector<std::string>& )
+bool CcpSetActiveProfilerZone( const std::vector<std::string>& )
 {
 }
 
-std::vector<std::string> CcpGetActiveCaptureMask()
+std::vector<std::string> CcpGetActiveProfilerZone()
 {
 	return {};
 }

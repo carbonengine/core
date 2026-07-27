@@ -39,36 +39,36 @@
 CARBON_CORE_API void CcpRegisterThread( CcpThreadId_t threadId, const char* name );
 
 // ---------------------------------------------------------------------------
-// CaptureMasks:
-// - CaptureMask(s) are used to determine if a given Zone should be emitted to
+// ProfilerZones:
+// - ProfilerZone(s) are used to determine if a given Zone should be emitted to
 //   Telemetry tracking or not based on its origin, i.e. carbon component.
 // - Each carbon component, core/blue/scheduler/etc..., will register for a
-//   CaptureMask with their chosen "component display name" and be assigned an
-//   available CaptureMask bit from a 64bit integer mask.
-// - A Telemetry display color is also associated with the chosen CaptureMask bit,
+//   ProfilerZone with their chosen "component display name" and be assigned an
+//   available ProfilerZone bit from a 64bit integer mask.
+// - A Telemetry display color is also associated with the chosen ProfilerZone bit,
 //   either manually or automatically allocated based on "best available fit".
-// - An active CaptureMask defaults to "all" but can be set/narrowed before or
+// - An active ProfilerZone defaults to "all" but can be set/narrowed before or
 //   during a Telemetry session is started using either:
-//   - a numerical bit mask value of the active CaptureMask
+//   - a numerical bit mask value of the active ProfilerZone
 //   - list of "component display names" ("all" is allowed)
-// - Setting active CaptureMask is available for both:
+// - Setting active ProfilerZone is available for both:
 //   - already registered components
 //   - "pending" (yet to be registered) components
 // ---------------------------------------------------------------------------
-struct CcpCaptureMaskInfo
+struct CcpProfilerZoneInfo
 {
-	std::string name;    // The lower-case display name of the CaptureMask (carbon-component)
-	CcpColor color{CcpColor::White}; // The chosen/allocated color for the CaptureMask
+	std::string name;    // The lower-case display name of the ProfilerZone (carbon-component)
+	CcpColor color{CcpColor::White}; // The chosen/allocated color for the ProfilerZone
 };
 
-typedef uint32_t CcpCaptureMaskHandle;
-constexpr uint32_t CCP_CAPTURE_MASK_INVALID_HANDLE{ UINT32_MAX };
+typedef uint32_t CcpProfilerZoneHandle;
+constexpr uint32_t CCP_PROFILER_ZONE_HANDLE_INVALID{ UINT32_MAX };
 
-CARBON_CORE_API CcpCaptureMaskHandle CcpRegisterCaptureMask( const std::string& name, CcpColor color = CcpColor::Fuchsia );
-CARBON_CORE_API std::vector<CcpCaptureMaskInfo> CcpGetRegisteredCaptureMasks();
+CARBON_CORE_API CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfilerZoneInfo& zone );
+CARBON_CORE_API std::vector<CcpProfilerZoneInfo> CcpGetRegisteredProfilerZones();
 
-CARBON_CORE_API bool CcpSetCaptureMask( const std::vector<std::string>& maskNames );
-CARBON_CORE_API std::vector<std::string> CcpGetActiveCaptureMask();
+CARBON_CORE_API bool CcpSetActiveProfilerZones( const std::vector<std::string>& maskNames );
+CARBON_CORE_API std::vector<std::string> CcpGetActiveProfilerZone();
 
 
 struct CcpTelemetryConfig
@@ -112,7 +112,7 @@ class TelemetryZone
 {
 public:
 	TelemetryZone() = delete;
-	CARBON_CORE_API TelemetryZone( CcpCaptureMaskHandle handle, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete = CcpColor::SteelBlue );
+	CARBON_CORE_API TelemetryZone( CcpProfilerZoneHandle handle, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete = CcpColor::SteelBlue );
 	CARBON_CORE_API ~TelemetryZone();
 
 	TelemetryZone( TelemetryZone&& other ) noexcept;
