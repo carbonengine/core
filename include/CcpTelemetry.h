@@ -55,20 +55,21 @@ CARBON_CORE_API void CcpRegisterThread( CcpThreadId_t threadId, const char* name
 //   - already registered components
 //   - "pending" (yet to be registered) components
 // ---------------------------------------------------------------------------
-struct CcpProfilerZoneInfo
+struct CcpProfilerZone
 {
-	std::string name;    // The lower-case display name of the ProfilerZone (carbon-component)
-	CcpColor color{CcpColor::White}; // The chosen/allocated color for the ProfilerZone
+	std::string name;
+	CcpColor color{CcpColor::White};
 };
+CARBON_CORE_API bool operator==( const CcpProfilerZone& lhs, const CcpProfilerZone& rhs );
 
 typedef uint32_t CcpProfilerZoneHandle;
 constexpr uint32_t CCP_PROFILER_ZONE_HANDLE_INVALID{ UINT32_MAX };
 
-CARBON_CORE_API CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfilerZoneInfo& zone );
-CARBON_CORE_API std::vector<CcpProfilerZoneInfo> CcpGetRegisteredProfilerZones();
+CARBON_CORE_API CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfilerZone& zone );
+CARBON_CORE_API std::vector<CcpProfilerZone> CcpGetRegisteredProfilerZones();
 
 CARBON_CORE_API bool CcpSetActiveProfilerZones( const std::vector<std::string>& maskNames );
-CARBON_CORE_API std::vector<std::string> CcpGetActiveProfilerZones();
+CARBON_CORE_API std::vector<CcpProfilerZone> CcpGetActiveProfilerZones();
 
 
 struct CcpTelemetryConfig

@@ -39,9 +39,9 @@
 #include "TracyTestClient.h"
 
 // Helper for find a ProfilerZone by name from the list of already registered ProfilerZones
-bool TryGetProfilerZoneNamed( const std::string& name, CcpProfilerZoneInfo& info )
+bool TryGetProfilerZoneNamed( const std::string& name, CcpProfilerZone& info )
 {
-	for( const CcpProfilerZoneInfo& mask : CcpGetRegisteredProfilerZones() )
+	for( const CcpProfilerZone& mask : CcpGetRegisteredProfilerZones() )
 	{
 		if( mask.name == name )
 		{
@@ -642,7 +642,7 @@ TEST_F( CcpTelemetryProfilerZoneTest, ProfilerZoneRegisterDistinctBitPerName )
 
 TEST_F( CcpTelemetryProfilerZoneTest, EmptyActiveProfilerZone )
 {
-	EXPECT_EQ( std::vector<std::string>{}, CcpGetActiveProfilerZones() );
+	EXPECT_EQ( std::vector<CcpProfilerZone>{}, CcpGetActiveProfilerZones() );
 }
 
 TEST_F( CcpTelemetryTest, ProfilerZoneRegisterRejectEmpty )
@@ -653,9 +653,9 @@ TEST_F( CcpTelemetryTest, ProfilerZoneRegisterRejectEmpty )
 TEST_F( CcpTelemetryProfilerZoneTest, SetEmptyProfilerZonesClearsMask )
 {
 	EXPECT_TRUE( CcpSetActiveProfilerZones( {"cpp"} ) );
-	EXPECT_NE( std::vector<std::string>{}, CcpGetActiveProfilerZones() );
+	EXPECT_NE( std::vector<CcpProfilerZone>{}, CcpGetActiveProfilerZones() );
 	EXPECT_TRUE( CcpSetActiveProfilerZones( {} ) );
-	EXPECT_EQ( std::vector<std::string>{}, CcpGetActiveProfilerZones() );
+	EXPECT_EQ( std::vector<CcpProfilerZone>{}, CcpGetActiveProfilerZones() );
 }
 
 TEST_F( CcpTelemetryProfilerZoneTest, SetProfilerZoneRejectsTooManyMasks )
@@ -678,7 +678,7 @@ TEST_F( CcpTelemetryProfilerZoneTest, SetProfilerZoneRejectsTooManyMasks )
 TEST_F( CcpTelemetryProfilerZoneTest, ProfilerZoneDefaultsAreRegistered )
 {
 	// The default ProfilerZones must be available from the start.
-	CcpProfilerZoneInfo info;
+	CcpProfilerZone info;
 	EXPECT_TRUE( TryGetProfilerZoneNamed( "core", info ) );
 	EXPECT_TRUE( TryGetProfilerZoneNamed( "general", info ) );
 	EXPECT_TRUE( TryGetProfilerZoneNamed( "cpp", info ) );
@@ -689,18 +689,18 @@ TEST_F( CcpTelemetryProfilerZoneTest, SetActiveProfilerZoneByNames )
 	const std::string registeredName = "SetActiveProfilerZoneByNames_RegisteredName";
 	const std::string newName = "SetActiveProfilerZoneByNames_NewName";
 	const std::string pendingName = "SetActiveProfilerZoneByNames_PendingName";
-	const std::vector<std::string> activeMaskList = { registeredName, pendingName };
+	const std::vector<CcpProfilerZone> activeProfilerZones = { { registeredName }, { pendingName } };
 
 	// Only register one name
 	const CcpProfilerZoneHandle handle = CcpRegisterProfilerZone( {registeredName} );
-	CcpSetActiveProfilerZones( activeMaskList );
-	EXPECT_EQ( std::vector<std::string>{registeredName}, CcpGetActiveProfilerZones() ) << "ActiveProfilerZone should only contain the registered mask, not the pending one";
+	CcpSetActiveProfilerZones( { registeredName, pendingName } );
+	EXPECT_EQ( std::vector<CcpProfilerZone>{ { registeredName } }, CcpGetActiveProfilerZones() ) << "ActiveProfilerZone should only contain the registered mask, not the pending one";
 
 	// Register the new name
 	const CcpProfilerZoneHandle newHandle = CcpRegisterProfilerZone( {newName} );
-	EXPECT_EQ( std::vector<std::string>{registeredName}, CcpGetActiveProfilerZones() ) << "ActiveProfilerZone should still only contain the registered mask, not the new or pending one";
+	EXPECT_EQ( std::vector<CcpProfilerZone>{ { registeredName } }, CcpGetActiveProfilerZones() ) << "ActiveProfilerZone should still only contain the registered mask, not the new or pending one";
 
 	// Now add the pending one
 	const CcpProfilerZoneHandle pendingHandle = CcpRegisterProfilerZone( {pendingName} );
-	EXPECT_EQ( activeMaskList, CcpGetActiveProfilerZones() ) << "ActiveProfilerZone should now contain both the registered and pending masks";
+	EXPECT_EQ( activeProfilerZones, CcpGetActiveProfilerZones() ) << "ActiveProfilerZone should now contain both the registered and pending masks";
 }

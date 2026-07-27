@@ -97,10 +97,10 @@ namespace
 	CcpMutex s_captureMaskMutex( "CcpTelemetry", "ProfilerZoneMutex" );
 
 	// Fixed size array of registered ProfilerZones.
-	std::array<std::optional<CcpProfilerZoneInfo>, PROFILER_ZONES_MAX> s_registeredProfilerZones{
-			CcpProfilerZoneInfo{ "core", CcpColor::LightGreen }, // Pre-allocated profiler zone for core, should core ever need it. This also solves the problem that legacy `TMCM_GENERAL` and `TMCM_CPP` otherwise cause an off-by-one error.
-			CcpProfilerZoneInfo{ "general", CcpColor::SteelBlue }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
-			CcpProfilerZoneInfo{ "cpp", CcpColor::Yellow }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
+	std::array<std::optional<CcpProfilerZone>, PROFILER_ZONES_MAX> s_registeredProfilerZones{
+			CcpProfilerZone{ "core", CcpColor::LightGreen }, // Pre-allocated profiler zone for core, should core ever need it. This also solves the problem that legacy `TMCM_GENERAL` and `TMCM_CPP` otherwise cause an off-by-one error.
+			CcpProfilerZone{ "general", CcpColor::SteelBlue }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
+			CcpProfilerZone{ "cpp", CcpColor::Yellow }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
 	};
 
 	uint64_t s_activeProfilerZoneBits{0};
@@ -122,7 +122,13 @@ namespace
 	}
 }
 
-CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfilerZoneInfo& zone )
+bool operator==( const CcpProfilerZone& lhs, const CcpProfilerZone& rhs )
+{
+	// Profiler Zones need to be unique by name
+	return lhs.name == rhs.name;
+}
+
+CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfilerZone& zone )
 {
 		// Guard access to registered ProfilerZones while we add/update a new entry
 		CcpAutoMutex lock( s_captureMaskMutex );
@@ -142,6 +148,13 @@ CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfilerZoneInfo& zone )
 				CCP_LOG_CH( s_ch, "Registered a new profiler zone for '%s' -> %u with color %s", entry->name.c_str(), handle, CcpColorToString( entry->color ).data() );
 				break;
 			}
+
+			if ( entry->name == zone.name )
+			{
+				CCP_LOGERR_CH( s_ch, "A profiler zone with the name %s already exists.", entry->name.c_str() );
+				return CCP_PROFILER_ZONE_HANDLE_INVALID;
+			}
+
 			++handle;
 		}
 
@@ -162,12 +175,12 @@ CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfilerZoneInfo& zone )
 		return handle;
 }
 
-std::vector<CcpProfilerZoneInfo> CcpGetRegisteredProfilerZones()
+std::vector<CcpProfilerZone> CcpGetRegisteredProfilerZones()
 {
 	// Guard access to registered ProfilerZones while return list is populated.
 	CcpAutoMutex lock( s_captureMaskMutex );
 
-	std::vector<CcpProfilerZoneInfo> result;
+	std::vector<CcpProfilerZone> result;
 	result.reserve( PROFILER_ZONES_MAX );
 	for( const auto& registeredEntry : s_registeredProfilerZones )
 	{
@@ -228,17 +241,17 @@ bool CcpSetActiveProfilerZones( const std::vector<std::string>& maskNames )
 	return true;
 }
 
-std::vector<std::string> CcpGetActiveProfilerZones()
+std::vector<CcpProfilerZone> CcpGetActiveProfilerZones()
 {
-	std::vector<std::string> result;
+	std::vector<CcpProfilerZone> result;
 	size_t index{0};
 	for ( const auto& registeredEntry : s_registeredProfilerZones )
 	{
 		uint64_t currentMaskBit = 1ULL << index;
 
-		if ( ( s_activeProfilerZoneBits & currentMaskBit ) != 0 )
+		if ( registeredEntry && ( s_activeProfilerZoneBits & currentMaskBit ) != 0 )
 		{
-			result.push_back( registeredEntry->name );
+			result.push_back( *registeredEntry );
 		}
 
 		++index;
@@ -657,7 +670,7 @@ CcpProfilerZoneHandle CcpRegisterProfilerZone( const std::string&, CcpColor )
 	return 0;
 }
 
-std::vector<CcpProfilerZoneInfo> CcpGetRegisteredProfilerZones()
+std::vector<CcpProfilerZone> CcpGetRegisteredProfilerZones()
 {
 	return {};
 }
