@@ -68,7 +68,7 @@ CARBON_CORE_API CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfiler
 CARBON_CORE_API std::vector<CcpProfilerZoneInfo> CcpGetRegisteredProfilerZones();
 
 CARBON_CORE_API bool CcpSetActiveProfilerZones( const std::vector<std::string>& maskNames );
-CARBON_CORE_API std::vector<std::string> CcpGetActiveProfilerZone();
+CARBON_CORE_API std::vector<std::string> CcpGetActiveProfilerZones();
 
 
 struct CcpTelemetryConfig

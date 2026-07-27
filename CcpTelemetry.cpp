@@ -228,7 +228,7 @@ bool CcpSetActiveProfilerZones( const std::vector<std::string>& maskNames )
 	return true;
 }
 
-std::vector<std::string> CcpGetActiveProfilerZone()
+std::vector<std::string> CcpGetActiveProfilerZones()
 {
 	std::vector<std::string> result;
 	size_t index{0};
