@@ -184,7 +184,7 @@ std::vector<CcpProfilerZone> CcpGetRegisteredProfilerZones()
 	result.reserve( PROFILER_ZONES_MAX );
 	for( const auto& registeredEntry : s_registeredProfilerZones )
 	{
-		if( ! registeredEntry->name.empty() )
+		if( registeredEntry )
 		{
 			result.push_back( *registeredEntry );
 		}
@@ -213,16 +213,19 @@ bool CcpSetActiveProfilerZones( const std::vector<std::string>& maskNames )
 		}
 
 		bool alreadyRegistered = false;
-		size_t index{0};
-		for( const auto& registeredEntry : s_registeredProfilerZones )
+		for ( size_t index = 0; index < s_registeredProfilerZones.size(); ++index )
 		{
+			const auto& registeredEntry = s_registeredProfilerZones[index];
+			if ( !registeredEntry )
+			{
+				break;
+			}
 			if( registeredEntry->name == rawName )
 			{
 				newActiveProfilerZone |= (1ULL << index);
 				alreadyRegistered = true;
 				break;
 			}
-			++index;
 		}
 
 		// This ProfilerZone hasn't been registered (yet) so add it to the pending list
