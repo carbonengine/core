@@ -90,99 +90,99 @@ namespace
 	}
 
 	// -------------------------------
-	// ProfilerZone specifics:
+	// ProfilerCategory specifics:
 	// -------------------------------
-	constexpr size_t PROFILER_ZONES_MAX{64};
+	constexpr size_t PROFILER_CATEGORYS_MAX{64};
 
-	CcpMutex s_captureMaskMutex( "CcpTelemetry", "ProfilerZoneMutex" );
+	CcpMutex s_profilerCategoryRegistryLock( "CcpTelemetry", "ProfilerCategoryRegistry" );
 
-	// Fixed size array of registered ProfilerZones.
-	std::array<std::optional<CcpProfilerZone>, PROFILER_ZONES_MAX> s_registeredProfilerZones{
-			CcpProfilerZone{ "core", CcpColor::LightGreen }, // Pre-allocated profiler zone for core, should core ever need it. This also solves the problem that legacy `TMCM_GENERAL` and `TMCM_CPP` otherwise cause an off-by-one error.
-			CcpProfilerZone{ "general", CcpColor::SteelBlue }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
-			CcpProfilerZone{ "cpp", CcpColor::Yellow }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
+	// Fixed size array of registered ProfilerCategories.
+	std::array<std::optional<CcpProfilerCategory>, PROFILER_CATEGORYS_MAX> s_registeredProfilerCategories{
+			CcpProfilerCategory{ "core", CcpColor::LightGreen }, // Pre-allocated Profiler Category for core, should core ever need it. This also solves the problem that legacy `TMCM_GENERAL` and `TMCM_CPP` otherwise cause an off-by-one error.
+			CcpProfilerCategory{ "general", CcpColor::SteelBlue }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
+			CcpProfilerCategory{ "cpp", CcpColor::Yellow }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
 	};
 
-	uint64_t s_activeProfilerZoneBits{0};
+	uint64_t s_activeProfilerCategoryBits{0};
 
 
-	// List of ProfilerZone names that have yet to be registered.
-	// From a CcpSetActiveProfilerZones( vector<string> ) call.
-	std::vector<std::string> s_pendingProfilerZoneNames;
+	// List of ProfilerCategory names that have yet to be registered.
+	// From a CcpSetActiveProfilerCategories( vector<string> ) call.
+	std::vector<std::string> s_pendingProfilerCategoryNames;
 
-	// Get the registered ProfilerZone color for a given ProfilerZone
-	CcpColor GetProfilerZoneColor( CcpProfilerZoneHandle handle )
+	// Get the registered ProfilerCategory color for a given ProfilerCategory
+	CcpColor GetProfilerCategoryColor( CcpProfilerCategoryHandle handle )
 	{
-		return s_registeredProfilerZones[handle]->color;
+		return s_registeredProfilerCategories[handle]->color;
 	}
 
-	bool IsProfilerZoneActive( CcpProfilerZoneHandle handle )
+	bool IsProfilerCategoryActive( CcpProfilerCategoryHandle handle )
 	{
-		return ( s_activeProfilerZoneBits & ( 1ULL<<handle ) ) != 0;
+		return ( s_activeProfilerCategoryBits & ( 1ULL<<handle ) ) != 0;
 	}
 }
 
-bool operator==( const CcpProfilerZone& lhs, const CcpProfilerZone& rhs )
+bool operator==( const CcpProfilerCategory& lhs, const CcpProfilerCategory& rhs )
 {
-	// Profiler Zones need to be unique by name
+	// Profiler Categories need to be unique by name
 	return lhs.name == rhs.name;
 }
 
-CcpProfilerZoneHandle CcpRegisterProfilerZone( const CcpProfilerZone& zone )
+CcpProfilerCategoryHandle CcpRegisterProfilerCategory( const CcpProfilerCategory& category )
 {
-		// Guard access to registered ProfilerZones while we add/update a new entry
-		CcpAutoMutex lock( s_captureMaskMutex );
+		// Guard access to registered ProfilerCategories while we add/update a new entry
+		CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
-		if( zone.name.empty() )
+		if( category.name.empty() )
 		{
-			CCP_LOGERR_CH( s_ch, "Cannot register a profiler zone without a name" );
-			return 0;
+			CCP_LOGERR_CH( s_ch, "Cannot register a Profiler Category without a name" );
+			return CCP_PROFILER_CATEGORY_HANDLE_INVALID;
 		}
 
-		CcpProfilerZoneHandle handle{0};
-		for( auto& entry : s_registeredProfilerZones )
+		CcpProfilerCategoryHandle handle{0};
+		for( auto& entry : s_registeredProfilerCategories )
 		{
 			if (!entry)
 			{
-				entry = zone;
-				CCP_LOG_CH( s_ch, "Registered a new profiler zone for '%s' -> %u with color %s", entry->name.c_str(), handle, CcpColorToString( entry->color ).data() );
+				entry = category;
+				CCP_LOG_CH( s_ch, "Registered a new Profiler Category for '%s' -> %u with color %s", entry->name.c_str(), handle, CcpColorToString( entry->color ).data() );
 				break;
 			}
 
-			if ( entry->name == zone.name )
+			if ( entry->name == category.name )
 			{
-				CCP_LOGERR_CH( s_ch, "A profiler zone with the name %s already exists.", entry->name.c_str() );
-				return CCP_PROFILER_ZONE_HANDLE_INVALID;
+				CCP_LOGERR_CH( s_ch, "A Profiler Category with the name %s already exists.", entry->name.c_str() );
+				return CCP_PROFILER_CATEGORY_HANDLE_INVALID;
 			}
 
 			++handle;
 		}
 
-		if ( handle > PROFILER_ZONES_MAX )
+		if ( handle > PROFILER_CATEGORYS_MAX )
 		{
-			return CCP_PROFILER_ZONE_HANDLE_INVALID;
+			return CCP_PROFILER_CATEGORY_HANDLE_INVALID;
 		}
 
-		// Make sure previously "pending active" ProfilerZone is included
-		auto pendingIt = std::find( s_pendingProfilerZoneNames.begin(), s_pendingProfilerZoneNames.end(), zone.name );
-		if( pendingIt != s_pendingProfilerZoneNames.end() )
+		// Make sure previously "pending active" ProfilerCategory is included
+		auto pendingIt = std::find( s_pendingProfilerCategoryNames.begin(), s_pendingProfilerCategoryNames.end(), category.name );
+		if( pendingIt != s_pendingProfilerCategoryNames.end() )
 		{
-			s_pendingProfilerZoneNames.erase( pendingIt );
-			s_activeProfilerZoneBits |= ( 1ULL << handle );
-			CCP_LOG_CH( s_ch, "Previously pending ProfilerZone '%s' added to active ProfilerZones  -> %u", zone.name.c_str(), handle );
+			s_pendingProfilerCategoryNames.erase( pendingIt );
+			s_activeProfilerCategoryBits |= ( 1ULL << handle );
+			CCP_LOG_CH( s_ch, "Previously pending ProfilerCategory '%s' added to active ProfilerCategories  -> %u", category.name.c_str(), handle );
 		}
 
 		return handle;
 }
 
-std::vector<CcpProfilerZone> CcpGetRegisteredProfilerZones()
+std::vector<CcpProfilerCategory> CcpGetRegisteredProfilerCategories()
 {
-	// Guard access to registered ProfilerZones while return list is populated.
-	CcpAutoMutex lock( s_captureMaskMutex );
+	// Guard access to registered ProfilerCategories while return list is populated.
+	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
-	std::vector<CcpProfilerZone> result;
-	result.reserve( PROFILER_ZONES_MAX );
-	for( const auto& registeredEntry : s_registeredProfilerZones )
+	std::vector<CcpProfilerCategory> result;
+	result.reserve( PROFILER_CATEGORYS_MAX );
+	for( const auto& registeredEntry : s_registeredProfilerCategories )
 	{
 		if( registeredEntry )
 		{
@@ -192,19 +192,19 @@ std::vector<CcpProfilerZone> CcpGetRegisteredProfilerZones()
 	return result;
 }
 
-bool CcpSetActiveProfilerZones( const std::vector<std::string>& maskNames )
+bool CcpSetActiveProfilerCategories( const std::vector<std::string>& maskNames )
 {
-	// Guard access to all ProfilerZones members
-	CcpAutoMutex lock( s_captureMaskMutex );
+	// Guard access to all ProfilerCategories members
+	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
-	if ( maskNames.size() > PROFILER_ZONES_MAX )
+	if ( maskNames.size() > PROFILER_CATEGORYS_MAX )
 	{
-		CCP_LOGERR_CH( s_ch, "Failed setting active profiler zone because more %lu maskNames were passed in, but only %lu are allowed", maskNames.size(), PROFILER_ZONES_MAX );
+		CCP_LOGERR_CH( s_ch, "Failed setting active Profiler Category because more %lu maskNames were passed in, but only %lu are allowed", maskNames.size(), PROFILER_CATEGORYS_MAX );
 		return false;
 	}
 
-	s_pendingProfilerZoneNames.clear();
-	uint64_t newActiveProfilerZone = 0;
+	s_pendingProfilerCategoryNames.clear();
+	uint64_t newActiveProfilerCategory = 0;
 	for( const auto& rawName : maskNames )
 	{
 		if( rawName.empty() )
@@ -213,46 +213,46 @@ bool CcpSetActiveProfilerZones( const std::vector<std::string>& maskNames )
 		}
 
 		bool alreadyRegistered = false;
-		for ( size_t index = 0; index < s_registeredProfilerZones.size(); ++index )
+		for ( size_t index = 0; index < s_registeredProfilerCategories.size(); ++index )
 		{
-			const auto& registeredEntry = s_registeredProfilerZones[index];
+			const auto& registeredEntry = s_registeredProfilerCategories[index];
 			if ( !registeredEntry )
 			{
 				break;
 			}
 			if( registeredEntry->name == rawName )
 			{
-				newActiveProfilerZone |= (1ULL << index);
+				newActiveProfilerCategory |= (1ULL << index);
 				alreadyRegistered = true;
 				break;
 			}
 		}
 
-		// This ProfilerZone hasn't been registered (yet) so add it to the pending list
+		// This ProfilerCategory hasn't been registered (yet) so add it to the pending list
 		if( !alreadyRegistered )
 		{
-			if( std::find( s_pendingProfilerZoneNames.begin(), s_pendingProfilerZoneNames.end(), rawName ) == s_pendingProfilerZoneNames.end() )
+			if( std::find( s_pendingProfilerCategoryNames.begin(), s_pendingProfilerCategoryNames.end(), rawName ) == s_pendingProfilerCategoryNames.end() )
 			{
-				s_pendingProfilerZoneNames.emplace_back( rawName );
+				s_pendingProfilerCategoryNames.emplace_back( rawName );
 			}
 		}
 	}
 
-	s_activeProfilerZoneBits = newActiveProfilerZone;
-	CCP_LOG_CH( s_ch, "Active ProfilerZone set to 0x%llx (%zu pending unresolved name(s))", static_cast<unsigned long long>( newActiveProfilerZone ), s_pendingProfilerZoneNames.size() );
+	s_activeProfilerCategoryBits = newActiveProfilerCategory;
+	CCP_LOG_CH( s_ch, "Active ProfilerCategory set to 0x%llx (%zu pending unresolved name(s))", static_cast<unsigned long long>( newActiveProfilerCategory ), s_pendingProfilerCategoryNames.size() );
 
 	return true;
 }
 
-std::vector<CcpProfilerZone> CcpGetActiveProfilerZones()
+std::vector<CcpProfilerCategory> CcpGetActiveProfilerCategories()
 {
-	std::vector<CcpProfilerZone> result;
+	std::vector<CcpProfilerCategory> result;
 	size_t index{0};
-	for ( const auto& registeredEntry : s_registeredProfilerZones )
+	for ( const auto& registeredEntry : s_registeredProfilerCategories )
 	{
 		uint64_t currentMaskBit = 1ULL << index;
 
-		if ( registeredEntry && ( s_activeProfilerZoneBits & currentMaskBit ) != 0 )
+		if ( registeredEntry && ( s_activeProfilerCategoryBits & currentMaskBit ) != 0 )
 		{
 			result.push_back( *registeredEntry );
 		}
@@ -544,24 +544,24 @@ const std::string& CcpTelemetryGetActiveFiber()
 	return *t_activeFiber;
 }
 
-TelemetryZone::TelemetryZone( CcpProfilerZoneHandle handle, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete ) : m_impl(std::make_unique<Private>())
+TelemetryZone::TelemetryZone( CcpProfilerCategoryHandle handle, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete ) : m_impl(std::make_unique<Private>())
 {
 	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
 	{
 		return;
 	}
 
-	if ( handle >= PROFILER_ZONES_MAX )
+	if ( handle >= PROFILER_CATEGORYS_MAX )
 	{
-		CCP_LOGERR_CH( s_ch, "Invalid profiler zone handle %d - skipping creation of zone named %s", handle, name );
+		CCP_LOGERR_CH( s_ch, "Invalid Profiler Category handle %d - skipping creation of zone named %s", handle, name );
 		return;
 	}
 
 	CCP_ASSERT( filename != nullptr );
 	CCP_ASSERT( name != nullptr );
 
-	auto color = GetProfilerZoneColor( handle );
-	const int active = IsProfilerZoneActive( handle );
+	auto color = GetProfilerCategoryColor( handle );
+	const int active = IsProfilerCategoryActive( handle );
 	auto data = ___tracy_alloc_srcloc( lineno, filename, strlen( filename ), name, strlen( name ), static_cast<uint32_t>( color ) );
 //	CCP_LOG_CH( s_ch, "[Fiber %p] Creating zone %s (%p)", t_activeFiber->c_str(), ret.first->c_str(), this );
 	m_impl->fiber = t_activeFiber;
@@ -668,21 +668,21 @@ void CcpRegisterThread( CcpThreadId_t threadId, const char* name )
 {
 }
 
-CcpProfilerZoneHandle CcpRegisterProfilerZone( const std::string&, CcpColor )
+CcpProfilerCategoryHandle CcpRegisterProfilerCategory( const std::string&, CcpColor )
 {
 	return 0;
 }
 
-std::vector<CcpProfilerZone> CcpGetRegisteredProfilerZones()
+std::vector<CcpProfilerCategory> CcpGetRegisteredProfilerCategories()
 {
 	return {};
 }
 
-bool CcpSetActiveProfilerZone( const std::vector<std::string>& )
+bool CcpSetActiveProfilerCategory( const std::vector<std::string>& )
 {
 }
 
-std::vector<std::string> CcpGetActiveProfilerZone()
+std::vector<std::string> CcpGetActiveProfilerCategory()
 {
 	return {};
 }
