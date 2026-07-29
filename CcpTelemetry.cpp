@@ -92,12 +92,12 @@ namespace
 	// -------------------------------
 	// ProfilerCategory specifics:
 	// -------------------------------
-	constexpr size_t PROFILER_CATEGORYS_MAX{64};
+	constexpr size_t PROFILER_CATEGORIES_MAX{64};
 
 	CcpMutex s_profilerCategoryRegistryLock( "CcpTelemetry", "ProfilerCategoryRegistry" );
 
 	// Fixed size array of registered ProfilerCategories.
-	std::array<std::optional<CcpProfilerCategory>, PROFILER_CATEGORYS_MAX> s_registeredProfilerCategories{
+	std::array<std::optional<CcpProfilerCategory>, PROFILER_CATEGORIES_MAX> s_registeredProfilerCategories{
 			CcpProfilerCategory{ "core", CcpColor::LightGreen }, // Pre-allocated Profiler Category for core, should core ever need it. This also solves the problem that legacy `TMCM_GENERAL` and `TMCM_CPP` otherwise cause an off-by-one error.
 			CcpProfilerCategory{ "general", CcpColor::SteelBlue }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
 			CcpProfilerCategory{ "cpp", CcpColor::Yellow }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
@@ -158,7 +158,7 @@ CcpProfilerCategoryHandle CcpRegisterProfilerCategory( const CcpProfilerCategory
 			++handle;
 		}
 
-		if ( handle > PROFILER_CATEGORYS_MAX )
+		if ( handle > PROFILER_CATEGORIES_MAX )
 		{
 			return CCP_PROFILER_CATEGORY_HANDLE_INVALID;
 		}
@@ -181,7 +181,7 @@ std::vector<CcpProfilerCategory> CcpGetRegisteredProfilerCategories()
 	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
 	std::vector<CcpProfilerCategory> result;
-	result.reserve( PROFILER_CATEGORYS_MAX );
+	result.reserve( PROFILER_CATEGORIES_MAX );
 	for( const auto& registeredEntry : s_registeredProfilerCategories )
 	{
 		if( registeredEntry )
@@ -197,7 +197,7 @@ bool CcpSetActiveProfilerCategories( const std::vector<std::string>& maskNames )
 	// Guard access to all ProfilerCategories members
 	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
-	if ( maskNames.size() > PROFILER_CATEGORYS_MAX )
+	if ( maskNames.size() > PROFILER_CATEGORIES_MAX )
 	{
 		CCP_LOGERR_CH( s_ch, "Failed setting active Profiler Category because more %lu maskNames were passed in, but only %lu are allowed", maskNames.size(), PROFILER_CATEGORYS_MAX );
 		return false;
@@ -551,7 +551,7 @@ TelemetryZone::TelemetryZone( CcpProfilerCategoryHandle handle, const char* name
 		return;
 	}
 
-	if ( handle >= PROFILER_CATEGORYS_MAX )
+	if ( handle >= PROFILER_CATEGORIES_MAX )
 	{
 		CCP_LOGERR_CH( s_ch, "Invalid Profiler Category handle %d - skipping creation of zone named %s", handle, name );
 		return;
