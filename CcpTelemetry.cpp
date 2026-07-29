@@ -182,10 +182,12 @@ std::vector<CcpProfilerCategory> CcpGetRegisteredProfilerCategories()
 	result.reserve( PROFILER_CATEGORIES_MAX );
 	for( const auto& registeredEntry : s_registeredProfilerCategories )
 	{
-		if( registeredEntry )
+		if( ! registeredEntry )
 		{
-			result.push_back( *registeredEntry );
+			break;
 		}
+
+		result.push_back( *registeredEntry );
 	}
 	return result;
 }
