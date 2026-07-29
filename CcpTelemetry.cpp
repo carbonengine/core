@@ -130,7 +130,6 @@ bool operator==( const CcpProfilerCategory& lhs, const CcpProfilerCategory& rhs 
 
 CcpProfilerCategoryHandle CcpRegisterProfilerCategory( const CcpProfilerCategory& category )
 {
-		// Guard access to registered ProfilerCategories while we add/update a new entry
 		CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
 		if( category.name.empty() )
@@ -163,13 +162,13 @@ CcpProfilerCategoryHandle CcpRegisterProfilerCategory( const CcpProfilerCategory
 			return CCP_PROFILER_CATEGORY_HANDLE_INVALID;
 		}
 
-		// Make sure previously "pending active" ProfilerCategory is included
+		// Make sure previously "pending active" ProfilerCategory is added to the active ProfilerCategories
 		auto pendingIt = std::find( s_pendingProfilerCategoryNames.begin(), s_pendingProfilerCategoryNames.end(), category.name );
 		if( pendingIt != s_pendingProfilerCategoryNames.end() )
 		{
 			s_pendingProfilerCategoryNames.erase( pendingIt );
 			s_activeProfilerCategoryBits |= ( 1ULL << handle );
-			CCP_LOG_CH( s_ch, "Previously pending ProfilerCategory '%s' added to active ProfilerCategories  -> %u", category.name.c_str(), handle );
+			CCP_LOG_CH( s_ch, "Previously pending ProfilerCategory '%s' added to active ProfilerCategories", category.name.c_str() );
 		}
 
 		return handle;
@@ -177,7 +176,6 @@ CcpProfilerCategoryHandle CcpRegisterProfilerCategory( const CcpProfilerCategory
 
 std::vector<CcpProfilerCategory> CcpGetRegisteredProfilerCategories()
 {
-	// Guard access to registered ProfilerCategories while return list is populated.
 	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
 	std::vector<CcpProfilerCategory> result;
@@ -199,7 +197,7 @@ bool CcpSetActiveProfilerCategories( const std::vector<std::string>& maskNames )
 
 	if ( maskNames.size() > PROFILER_CATEGORIES_MAX )
 	{
-		CCP_LOGERR_CH( s_ch, "Failed setting active Profiler Category because more %lu maskNames were passed in, but only %lu are allowed", maskNames.size(), PROFILER_CATEGORYS_MAX );
+		CCP_LOGERR_CH( s_ch, "Failed setting active Profiler Category because more %lu maskNames were passed in, but only %lu are allowed", maskNames.size(), PROFILER_CATEGORIES_MAX );
 		return false;
 	}
 
@@ -239,7 +237,7 @@ bool CcpSetActiveProfilerCategories( const std::vector<std::string>& maskNames )
 	}
 
 	s_activeProfilerCategoryBits = newActiveProfilerCategory;
-	CCP_LOG_CH( s_ch, "Active ProfilerCategory set to 0x%llx (%zu pending unresolved name(s))", static_cast<unsigned long long>( newActiveProfilerCategory ), s_pendingProfilerCategoryNames.size() );
+	CCP_LOG_CH( s_ch, "Active ProfilerCategory set to %llu (%zu pending unresolved name(s))", static_cast<unsigned long long>( newActiveProfilerCategory ), s_pendingProfilerCategoryNames.size() );
 
 	return true;
 }
