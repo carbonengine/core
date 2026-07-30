@@ -38,38 +38,17 @@
 
 CARBON_CORE_API void CcpRegisterThread( CcpThreadId_t threadId, const char* name );
 
-// ---------------------------------------------------------------------------
-// ProfilerCategories:
-// - ProfilerCategory(s) are used to determine if a given Zone should be emitted to
-//   Telemetry tracking or not based on its origin, i.e. carbon component.
-// - Each carbon component, core/blue/scheduler/etc..., will register for a
-//   ProfilerCategory with their chosen "component display name" and be assigned an
-//   available ProfilerCategory bit from a 64bit integer mask.
-// - A Telemetry display color is also associated with the chosen ProfilerCategory bit,
-//   either manually or automatically allocated based on "best available fit".
-// - An active ProfilerCategory defaults to "all" but can be set/narrowed before or
-//   during a Telemetry session is started using either:
-//   - a numerical bit mask value of the active ProfilerCategory
-//   - list of "component display names" ("all" is allowed)
-// - Setting active ProfilerCategory is available for both:
-//   - already registered components
-//   - "pending" (yet to be registered) components
-// ---------------------------------------------------------------------------
-struct CcpProfilerCategory
-{
-	std::string name;
-	CcpColor color{CcpColor::White};
-};
+struct CcpProfilerCategory;
+using CcpProfilerCategories = std::vector<std::reference_wrapper<const CcpProfilerCategory>>;
 CARBON_CORE_API bool operator==( const CcpProfilerCategory& lhs, const CcpProfilerCategory& rhs );
+CARBON_CORE_API const std::string& CcpProfilerCategory_GetName( const CcpProfilerCategory& category );
+CARBON_CORE_API CcpColor CcpProfilerCategory_GetColor( const CcpProfilerCategory& category );
 
-typedef uint32_t CcpProfilerCategoryHandle;
-constexpr uint32_t CCP_PROFILER_CATEGORY_HANDLE_INVALID{ UINT32_MAX };
-
-CARBON_CORE_API CcpProfilerCategoryHandle CcpRegisterProfilerCategory( const CcpProfilerCategory& category );
-CARBON_CORE_API std::vector<CcpProfilerCategory> CcpGetRegisteredProfilerCategories();
+CARBON_CORE_API std::pair<const CcpProfilerCategory&, bool> CcpRegisterProfilerCategory( const std::string& name, CcpColor color = CcpColor::SteelBlue );
+CARBON_CORE_API CcpProfilerCategories CcpGetRegisteredProfilerCategories();
 
 CARBON_CORE_API bool CcpSetActiveProfilerCategories( const std::vector<std::string>& maskNames );
-CARBON_CORE_API std::vector<CcpProfilerCategory> CcpGetActiveProfilerCategories();
+CARBON_CORE_API CcpProfilerCategories CcpGetActiveProfilerCategories();
 
 
 struct CcpTelemetryConfig
@@ -113,7 +92,8 @@ class TelemetryZone
 {
 public:
 	TelemetryZone() = delete;
-	CARBON_CORE_API TelemetryZone( CcpProfilerCategoryHandle handle, const char* name, const char* filename, uint32_t lineno, CcpColor obsolete = CcpColor::SteelBlue );
+	CARBON_CORE_API TelemetryZone( uint32_t handle, const char* name, const char* filename, uint32_t lineno, CcpColor color = CcpColor::SteelBlue );
+	CARBON_CORE_API TelemetryZone( const CcpProfilerCategory& category, const char* name, const char* filename, uint32_t lineno );
 	CARBON_CORE_API ~TelemetryZone();
 
 	TelemetryZone( TelemetryZone&& other ) noexcept;

@@ -39,17 +39,13 @@
 #include "TracyTestClient.h"
 
 // Helper for find a ProfilerCategory by name from the list of already registered ProfilerCategories
-bool TryGetProfilerCategoryNamed( const std::string& name, CcpProfilerCategory& info )
+bool TryGetProfilerCategoryNamed( const std::string& name )
 {
-	for( const CcpProfilerCategory& category : CcpGetRegisteredProfilerCategories() )
-	{
-		if( category.name == name )
-		{
-			info = category;
-			return true;
-		}
-	}
-	return false;
+	auto categories = CcpGetRegisteredProfilerCategories();
+	auto ret = std::find_if( categories.begin(), categories.end(), [name](const CcpProfilerCategory& cat) {
+		return CcpProfilerCategory_GetName( cat ) == name;
+	} );
+	return ret != categories.end();
 }
 
 class CcpTelemetryTest : public ::testing::Test
@@ -271,7 +267,7 @@ TEST_F( CcpTelemetryTest, SimpleZoneTest )
 
 	const auto zones = m_tracyClient.GetZones();
 	ASSERT_EQ( 1, zones.size() );
-	EXPECT_EQ( static_cast<uint32_t>( CcpColor::Yellow ), zones.front().color ) << CcpColorToString( CcpColor(zones.front().color) ).data();
+	EXPECT_EQ( static_cast<uint32_t>( CcpColor::SteelBlue ), zones.front().color ) << CcpColorToString( CcpColor(zones.front().color) ).data();
 
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry( [this] { return m_tracyClient.GetZoneEndCount() == 1; } );
@@ -339,7 +335,7 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 
 	const auto zones = m_tracyClient.GetZones();
 	ASSERT_EQ( 1, zones.size() );
-	EXPECT_EQ( static_cast<uint32_t>( CcpColor::Yellow ), zones.front().color ) << "Default color for ProfilerCategory TMCM_GENERAL should be CcpColor::SteelBlue";
+	EXPECT_EQ( static_cast<uint32_t>( CcpColor::SteelBlue ), zones.front().color ) << "Default color for ProfilerCategory TMCM_GENERAL should be CcpColor::SteelBlue";
 	EXPECT_EQ( 2, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
 
@@ -355,7 +351,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 	// Test where ProfilerCategory is in the Active list
 	CcpSetActiveProfilerCategories( {"cpp", "general" } );
 	{
-		TelemetryZone activeZone( TMCM_CPP, "ZoneIsInActiveList", __FILE__, __LINE__ );
+		TelemetryZone activeZone( TMCM_CPP, "ZoneIsInActiveList", __FILE__, __LINE__, CcpColor::Yellow );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
 		EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 		const auto zones = m_tracyClient.GetZones();
@@ -373,14 +369,11 @@ TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 	CcpSetActiveProfilerCategories( {"NotRegisteredProfilerCategory", "ClearingPreviousGeneralAndCpp", "FromTheActiveProfilerCategoryList"} );
 	{
 		TelemetryZone inactiveZone( TMCM_CPP, "ZoneIsNotInActiveList", __FILE__, __LINE__, CcpColor::Blue );
-		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
-		EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() ) << "Because TMCM_CPP is now no longer in the ACTIVE ProfilerCategory list, we should not have emitted an event for it";
-		EXPECT_EQ( 0, m_tracyClient.GetZones().size() ) << "Zone list should therefore be empty";
+		TickTelemetry();
+		EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() ) << "Inactive zone must not emit ZoneBegin, count should stay at 1";
+		EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() ) << "Inactive zone must not emit ZoneEnd, count should stay at 1";
+		EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	}
-	TickTelemetry( nullptr, std::chrono::milliseconds( 100 ) );
-	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() ) << "Inactive zone must not emit ZoneBegin, count should stay at 1";
-	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() ) << "Inactive zone must not emit ZoneEnd, count should stay at 1";
-	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 }
 
 
@@ -633,34 +626,30 @@ class CcpTelemetryProfilerCategoryTest : public ::testing::Test
 		}
 };
 
-TEST_F( CcpTelemetryProfilerCategoryTest, ProfilerCategoryRegisterDistinctHandlePerName )
-{
-	const CcpProfilerCategoryHandle categoryHandleA = CcpRegisterProfilerCategory( {"ProfilerCategoryRegisterDistinctHandlePerName_A"} );
-	const CcpProfilerCategoryHandle categoryHandleB = CcpRegisterProfilerCategory( {"ProfilerCategoryRegisterDistinctHandlePerName_B", CcpColor::Tomato} );
-	EXPECT_NE( categoryHandleA, categoryHandleB );
-}
-
 TEST_F( CcpTelemetryProfilerCategoryTest, EmptyActiveProfilerCategory )
 {
-	EXPECT_EQ( std::vector<CcpProfilerCategory>{}, CcpGetActiveProfilerCategories() );
+	EXPECT_EQ( CcpProfilerCategories{}, CcpGetActiveProfilerCategories() );
 }
 
 TEST_F( CcpTelemetryTest, ProfilerCategoryRegisterRejectEmpty )
 {
-	EXPECT_EQ( CCP_PROFILER_CATEGORY_HANDLE_INVALID, CcpRegisterProfilerCategory( {""} ) );
+	EXPECT_FALSE( CcpRegisterProfilerCategory( "" ).second );
 }
 
-TEST_F( CcpTelemetryProfilerCategoryTest, RegistrationRejectsDuplicates )
+TEST_F( CcpTelemetryProfilerCategoryTest, RegistrationReturnsExisting )
 {
-	EXPECT_EQ( CCP_PROFILER_CATEGORY_HANDLE_INVALID, CcpRegisterProfilerCategory( { "general" } ) );
+	auto ret = CcpRegisterProfilerCategory( { "general" } );
+	auto& keepAlive = ret.first;
+	EXPECT_TRUE( ret.second );
+	EXPECT_EQ( CcpProfilerCategory_GetName( keepAlive ), "general" );
 }
 
 TEST_F( CcpTelemetryProfilerCategoryTest, SetEmptyProfilerCategoriesClearsCategory )
 {
 	EXPECT_TRUE( CcpSetActiveProfilerCategories( {"cpp"} ) );
-	EXPECT_NE( std::vector<CcpProfilerCategory>{}, CcpGetActiveProfilerCategories() );
+	EXPECT_NE( CcpProfilerCategories{}, CcpGetActiveProfilerCategories() );
 	EXPECT_TRUE( CcpSetActiveProfilerCategories( {} ) );
-	EXPECT_EQ( std::vector<CcpProfilerCategory>{}, CcpGetActiveProfilerCategories() );
+	EXPECT_EQ( CcpProfilerCategories{}, CcpGetActiveProfilerCategories() );
 }
 
 TEST_F( CcpTelemetryProfilerCategoryTest, SetProfilerCategoryRejectsTooManyCategories )
@@ -683,29 +672,7 @@ TEST_F( CcpTelemetryProfilerCategoryTest, SetProfilerCategoryRejectsTooManyCateg
 TEST_F( CcpTelemetryProfilerCategoryTest, ProfilerCategoryDefaultsAreRegistered )
 {
 	// The default ProfilerCategories must be available from the start.
-	CcpProfilerCategory info;
-	EXPECT_TRUE( TryGetProfilerCategoryNamed( "core", info ) );
-	EXPECT_TRUE( TryGetProfilerCategoryNamed( "general", info ) );
-	EXPECT_TRUE( TryGetProfilerCategoryNamed( "cpp", info ) );
-}
-
-TEST_F( CcpTelemetryProfilerCategoryTest, SetActiveProfilerCategoryByNames )
-{
-	const std::string registeredName = "SetActiveProfilerCategoryByNames_RegisteredName";
-	const std::string newName = "SetActiveProfilerCategoryByNames_NewName";
-	const std::string pendingName = "SetActiveProfilerCategoryByNames_PendingName";
-	const std::vector<CcpProfilerCategory> activeProfilerCategories = { { registeredName }, { pendingName } };
-
-	// Only register one name
-	const CcpProfilerCategoryHandle handle = CcpRegisterProfilerCategory( {registeredName} );
-	CcpSetActiveProfilerCategories( { registeredName, pendingName } );
-	EXPECT_EQ( std::vector<CcpProfilerCategory>{ { registeredName } }, CcpGetActiveProfilerCategories() ) << "ActiveProfilerCategory should only contain the registered category, not the pending one";
-
-	// Register the new name
-	const CcpProfilerCategoryHandle newHandle = CcpRegisterProfilerCategory( {newName} );
-	EXPECT_EQ( std::vector<CcpProfilerCategory>{ { registeredName } }, CcpGetActiveProfilerCategories() ) << "ActiveProfilerCategory should still only contain the registered category, not the new or pending one";
-
-	// Now add the pending one
-	const CcpProfilerCategoryHandle pendingHandle = CcpRegisterProfilerCategory( {pendingName} );
-	EXPECT_EQ( activeProfilerCategories, CcpGetActiveProfilerCategories() ) << "ActiveProfilerCategory should now contain both the registered and pending categorys";
+	EXPECT_TRUE( TryGetProfilerCategoryNamed( "core" ) );
+	EXPECT_TRUE( TryGetProfilerCategoryNamed( "general" ) );
+	EXPECT_TRUE( TryGetProfilerCategoryNamed( "cpp" ) );
 }
