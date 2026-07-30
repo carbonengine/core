@@ -38,17 +38,17 @@
 
 CARBON_CORE_API void CcpRegisterThread( CcpThreadId_t threadId, const char* name );
 
-struct CcpProfilerCategory;
-using CcpProfilerCategories = std::vector<std::reference_wrapper<const CcpProfilerCategory>>;
-CARBON_CORE_API bool operator==( const CcpProfilerCategory& lhs, const CcpProfilerCategory& rhs );
-CARBON_CORE_API const std::string& CcpProfilerCategory_GetName( const CcpProfilerCategory& category );
-CARBON_CORE_API CcpColor CcpProfilerCategory_GetColor( const CcpProfilerCategory& category );
+struct CcpTelemetryCategory;
+using CcpTelemetryCategories = std::vector<std::reference_wrapper<const CcpTelemetryCategory>>;
+CARBON_CORE_API bool operator==( const CcpTelemetryCategory& lhs, const CcpTelemetryCategory& rhs );
+CARBON_CORE_API const std::string& CcpTelemetryCategoryGetName( const CcpTelemetryCategory& category );
+CARBON_CORE_API CcpColor CcpTelemetryCategoryGetColor( const CcpTelemetryCategory& category );
 
-CARBON_CORE_API std::pair<const CcpProfilerCategory&, bool> CcpRegisterProfilerCategory( const std::string& name, CcpColor color = CcpColor::SteelBlue );
-CARBON_CORE_API CcpProfilerCategories CcpGetRegisteredProfilerCategories();
+CARBON_CORE_API std::pair<const CcpTelemetryCategory&, bool> CcpTelemetryCategoryRegister( const std::string& name, CcpColor color = CcpColor::SteelBlue );
+CARBON_CORE_API CcpTelemetryCategories CcpTelemetryGetRegisteredCategories();
 
-CARBON_CORE_API bool CcpSetActiveProfilerCategories( const std::vector<std::string>& maskNames );
-CARBON_CORE_API CcpProfilerCategories CcpGetActiveProfilerCategories();
+CARBON_CORE_API bool CcpTelemetrySetActiveCategories( const std::vector<std::string>& maskNames );
+CARBON_CORE_API CcpTelemetryCategories CcpTelemetryGetActiveCategories();
 
 
 struct CcpTelemetryConfig
@@ -93,7 +93,7 @@ class TelemetryZone
 public:
 	TelemetryZone() = delete;
 	CARBON_CORE_API TelemetryZone( uint32_t handle, const char* name, const char* filename, uint32_t lineno, CcpColor color = CcpColor::SteelBlue );
-	CARBON_CORE_API TelemetryZone( const CcpProfilerCategory& category, const char* name, const char* filename, uint32_t lineno );
+	CARBON_CORE_API TelemetryZone( const CcpTelemetryCategory& category, const char* name, const char* filename, uint32_t lineno );
 	CARBON_CORE_API ~TelemetryZone();
 
 	TelemetryZone( TelemetryZone&& other ) noexcept;

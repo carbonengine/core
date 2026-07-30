@@ -41,9 +41,9 @@
 // Helper for find a ProfilerCategory by name from the list of already registered ProfilerCategories
 bool TryGetProfilerCategoryNamed( const std::string& name )
 {
-	auto categories = CcpGetRegisteredProfilerCategories();
-	auto ret = std::find_if( categories.begin(), categories.end(), [name](const CcpProfilerCategory& cat) {
-		return CcpProfilerCategory_GetName( cat ) == name;
+	auto categories = CcpTelemetryGetRegisteredCategories();
+	auto ret = std::find_if( categories.begin(), categories.end(), [name](const CcpTelemetryCategory& cat) {
+		return CcpTelemetryCategoryGetName( cat ) == name;
 	} );
 	return ret != categories.end();
 }
@@ -257,7 +257,7 @@ TEST_F( CcpTelemetryTest, SimpleZoneTest )
 
 	static int key = 4711;
 	const std::string zoneName{ "TestZone" };
-	CcpSetActiveProfilerCategories( {"cpp"} );
+	CcpTelemetrySetActiveCategories( {"cpp"} );
 	CcpTelemetryEnterZone( &key, zoneName.c_str(), __FILE__, __LINE__ );  // Original deprecated version
 	// Tracy's worker sleeps up to 10 ms between queue flushes, so give it
 	// time to process and send the zone event before asserting.
@@ -279,7 +279,7 @@ TEST_F( CcpTelemetryTest, StackedZones )
 {
 	// A stacked zone is a zone that has the same key as a previously created zone.
 	static int key = 4711;
-	CcpSetActiveProfilerCategories( {"cpp"} );
+	CcpTelemetrySetActiveCategories( {"cpp"} );
 	CcpTelemetryEnterZone( &key, "TestZone", __FILE__, __LINE__ );
 	CcpTelemetryEnterZone( &key, "TestZone2", __FILE__, __LINE__ );
 	TickTelemetry( [this] { return m_tracyClient.GetZones().size() == 2; } );
@@ -296,14 +296,14 @@ TEST_F( CcpTelemetryTest, StackedZones )
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry( [this] { return m_tracyClient.GetZones().empty(); } );
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
-	CcpSetActiveProfilerCategories( {} );
+	CcpTelemetrySetActiveCategories( {} );
 }
 
 TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 {
 	static int key1 = 1001;
 	const std::string zoneName1{ "FirstZone" };
-	CcpSetActiveProfilerCategories( {"cpp"} );
+	CcpTelemetrySetActiveCategories( {"cpp"} );
 	CcpTelemetryEnterZone( &key1, zoneName1.c_str(), __FILE__, __LINE__ );
 	TickTelemetry( [this, zoneName1] { return ZoneExists( zoneName1 ); } );
 	EXPECT_TRUE( ZoneExists( zoneName1 ) );
@@ -343,13 +343,13 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	TickTelemetry();
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() );
-	CcpSetActiveProfilerCategories( {} );
+	CcpTelemetrySetActiveCategories( {} );
 }
 
 TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 {
 	// Test where ProfilerCategory is in the Active list
-	CcpSetActiveProfilerCategories( {"cpp", "general" } );
+	CcpTelemetrySetActiveCategories( {"cpp", "general" } );
 	{
 		TelemetryZone activeZone( TMCM_CPP, "ZoneIsInActiveList", __FILE__, __LINE__, CcpColor::Yellow );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
@@ -366,7 +366,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 
 	// Test where ProfilerCategory is NOT in the Active list
-	CcpSetActiveProfilerCategories( {"NotRegisteredProfilerCategory", "ClearingPreviousGeneralAndCpp", "FromTheActiveProfilerCategoryList"} );
+	CcpTelemetrySetActiveCategories( {"NotRegisteredProfilerCategory", "ClearingPreviousGeneralAndCpp", "FromTheActiveProfilerCategoryList"} );
 	{
 		TelemetryZone inactiveZone( TMCM_CPP, "ZoneIsNotInActiveList", __FILE__, __LINE__, CcpColor::Blue );
 		TickTelemetry();
@@ -621,35 +621,35 @@ class CcpTelemetryProfilerCategoryTest : public ::testing::Test
 		void TearDown()
 		{
 			// Clear any active Profiler Category to let subsequent tests just work
-			CcpSetActiveProfilerCategories({});
+			CcpTelemetrySetActiveCategories({});
 			::testing::Test::TearDown();
 		}
 };
 
 TEST_F( CcpTelemetryProfilerCategoryTest, EmptyActiveProfilerCategory )
 {
-	EXPECT_EQ( CcpProfilerCategories{}, CcpGetActiveProfilerCategories() );
+	EXPECT_EQ( CcpTelemetryCategories{}, CcpTelemetryGetActiveCategories() );
 }
 
 TEST_F( CcpTelemetryTest, ProfilerCategoryRegisterRejectEmpty )
 {
-	EXPECT_FALSE( CcpRegisterProfilerCategory( "" ).second );
+	EXPECT_FALSE( CcpTelemetryCategoryRegister( "" ).second );
 }
 
 TEST_F( CcpTelemetryProfilerCategoryTest, RegistrationReturnsExisting )
 {
-	auto ret = CcpRegisterProfilerCategory( { "general" } );
+	auto ret = CcpTelemetryCategoryRegister( { "general" } );
 	auto& keepAlive = ret.first;
 	EXPECT_TRUE( ret.second );
-	EXPECT_EQ( CcpProfilerCategory_GetName( keepAlive ), "general" );
+	EXPECT_EQ( CcpTelemetryCategoryGetName( keepAlive ), "general" );
 }
 
 TEST_F( CcpTelemetryProfilerCategoryTest, SetEmptyProfilerCategoriesClearsCategory )
 {
-	EXPECT_TRUE( CcpSetActiveProfilerCategories( {"cpp"} ) );
-	EXPECT_NE( CcpProfilerCategories{}, CcpGetActiveProfilerCategories() );
-	EXPECT_TRUE( CcpSetActiveProfilerCategories( {} ) );
-	EXPECT_EQ( CcpProfilerCategories{}, CcpGetActiveProfilerCategories() );
+	EXPECT_TRUE( CcpTelemetrySetActiveCategories( {"cpp"} ) );
+	EXPECT_NE( CcpTelemetryCategories{}, CcpTelemetryGetActiveCategories() );
+	EXPECT_TRUE( CcpTelemetrySetActiveCategories( {} ) );
+	EXPECT_EQ( CcpTelemetryCategories{}, CcpTelemetryGetActiveCategories() );
 }
 
 TEST_F( CcpTelemetryProfilerCategoryTest, SetProfilerCategoryRejectsTooManyCategories )
@@ -666,7 +666,7 @@ TEST_F( CcpTelemetryProfilerCategoryTest, SetProfilerCategoryRejectsTooManyCateg
 		"81", "82", "83", "84", "85", "86", "87", "88", "89", "90",
 		"91", "92", "93", "94", "95", "96", "97", "98", "99"
 	};
-	EXPECT_FALSE( CcpSetActiveProfilerCategories( numbers ) ) << "Should have failed because more than the allowed number of categories was requested";
+	EXPECT_FALSE( CcpTelemetrySetActiveCategories( numbers ) ) << "Should have failed because more than the allowed number of categories was requested";
 }
 
 TEST_F( CcpTelemetryProfilerCategoryTest, ProfilerCategoryDefaultsAreRegistered )

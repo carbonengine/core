@@ -30,7 +30,7 @@ struct TelemetryZone::Private
 	FiberNameStore::const_iterator fiber;
 };
 
-struct CcpProfilerCategory
+struct CcpTelemetryCategory
 {
 	std::string name;
 	CcpColor color{CcpColor::White};
@@ -104,10 +104,10 @@ namespace
 	CcpMutex s_profilerCategoryRegistryLock( "CcpTelemetry", "ProfilerCategoryRegistry" );
 
 	// Fixed size array of registered ProfilerCategories.
-	std::array<std::optional<CcpProfilerCategory>, PROFILER_CATEGORIES_MAX> s_registeredProfilerCategories{
-		CcpProfilerCategory{ "general", CcpColor::SteelBlue, TMCM_GENERAL }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
-		CcpProfilerCategory{ "cpp", CcpColor::Yellow, TMCM_CPP }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
-		CcpProfilerCategory{ "core", CcpColor::LightGreen, 1<<2 }
+	std::array<std::optional<CcpTelemetryCategory>, PROFILER_CATEGORIES_MAX> s_registeredProfilerCategories{
+		CcpTelemetryCategory{ "general", CcpColor::SteelBlue, TMCM_GENERAL }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
+		CcpTelemetryCategory{ "cpp", CcpColor::Yellow, TMCM_CPP }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
+		CcpTelemetryCategory{ "core", CcpColor::LightGreen, 1<<2 }
 	};
 
 	uint64_t s_profilerCategoryCaptureMask{0};
@@ -118,23 +118,23 @@ namespace
 	}
 }
 
-bool operator==( const CcpProfilerCategory& lhs, const CcpProfilerCategory& rhs )
+bool operator==( const CcpTelemetryCategory& lhs, const CcpTelemetryCategory& rhs )
 {
 	// Profiler Categories need to be unique by name only
 	return lhs.name == rhs.name;
 }
-const std::string& CcpProfilerCategory_GetName( const CcpProfilerCategory& category )
+const std::string& CcpTelemetryCategoryGetName( const CcpTelemetryCategory& category )
 {
 	return category.name;
 }
-CcpColor CcpProfilerCategory_GetColor( const CcpProfilerCategory& category )
+CcpColor CcpTelemetryCategoryGetColor( const CcpTelemetryCategory& category )
 {
 	return category.color;
 }
 
-std::pair<const CcpProfilerCategory&, bool> CcpRegisterProfilerCategory( const std::string& name, CcpColor color )
+std::pair<const CcpTelemetryCategory&, bool> CcpTelemetryCategoryRegister( const std::string& name, CcpColor color )
 {
-	static const CcpProfilerCategory empty;
+	static const CcpTelemetryCategory empty;
 	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
 	if( name.empty() )
@@ -164,11 +164,11 @@ std::pair<const CcpProfilerCategory&, bool> CcpRegisterProfilerCategory( const s
 	return { empty, false };
 }
 
-CcpProfilerCategories CcpGetRegisteredProfilerCategories()
+CcpTelemetryCategories CcpTelemetryGetRegisteredCategories()
 {
 	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
-	CcpProfilerCategories result;
+	CcpTelemetryCategories result;
 	result.reserve( PROFILER_CATEGORIES_MAX );
 	for( const auto& registeredEntry : s_registeredProfilerCategories )
 	{
@@ -182,7 +182,7 @@ CcpProfilerCategories CcpGetRegisteredProfilerCategories()
 	return result;
 }
 
-bool CcpSetActiveProfilerCategories( const std::vector<std::string>& maskNames )
+bool CcpTelemetrySetActiveCategories( const std::vector<std::string>& maskNames )
 {
 	// Guard access to all ProfilerCategories members
 	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
@@ -221,9 +221,9 @@ bool CcpSetActiveProfilerCategories( const std::vector<std::string>& maskNames )
 	return true;
 }
 
-CcpProfilerCategories CcpGetActiveProfilerCategories()
+CcpTelemetryCategories CcpTelemetryGetActiveCategories()
 {
-	CcpProfilerCategories result;
+	CcpTelemetryCategories result;
 	size_t index{0};
 	for ( const auto& registeredEntry : s_registeredProfilerCategories )
 	{
@@ -537,7 +537,7 @@ TelemetryZone::TelemetryZone( uint32_t handle, const char* name, const char* fil
 	m_impl->fiber = t_activeFiber;
 	m_impl->telemetryContext.emplace( ___tracy_emit_zone_begin_alloc( data, active ) );
 }
-TelemetryZone::TelemetryZone( const CcpProfilerCategory& category, const char* name, const char* filename, uint32_t lineno )
+TelemetryZone::TelemetryZone( const CcpTelemetryCategory& category, const char* name, const char* filename, uint32_t lineno )
 {
 	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
 	{
@@ -656,7 +656,7 @@ CcpProfilerCategoryHandle CcpRegisterProfilerCategory( const std::string&, CcpCo
 	return 0;
 }
 
-std::vector<CcpProfilerCategory> CcpGetRegisteredProfilerCategories()
+std::vector<CcpTelemetryCategory> CcpGetRegisteredProfilerCategories()
 {
 	return {};
 }
