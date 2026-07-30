@@ -92,7 +92,10 @@ class TelemetryZone
 {
 public:
 	TelemetryZone() = delete;
+
+	[[deprecated("Use the `TelemetryZone( const CcpTelemetryCategory&, const char*, const char*, uint32_t, CcpColor )` constructor instead.")]]
 	CARBON_CORE_API TelemetryZone( uint32_t handle, const char* name, const char* filename, uint32_t lineno, CcpColor color = CcpColor::SteelBlue );
+
 	CARBON_CORE_API TelemetryZone( const CcpTelemetryCategory& category, const char* name, const char* filename, uint32_t lineno );
 	CARBON_CORE_API ~TelemetryZone();
 
@@ -108,8 +111,11 @@ private:
 	std::unique_ptr<Private> m_impl;
 };
 
+[[deprecated("Use a `TelemetryZone` instead.")]]
 CARBON_CORE_API void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, uint32_t lineno );
+[[deprecated("Use a `TelemetryZone` instead.")]]
 CARBON_CORE_API void CcpTelemetryLeaveZone( void* key );
+[[deprecated("Use a `TelemetryZone` instead.")]]
 CARBON_CORE_API void CcpTelemetryZoneAddText( void* key, const char* text );
 
 void CcpTelemetryTrackAllocation( void*, size_t );

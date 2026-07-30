@@ -15,6 +15,8 @@
 
 #include <CcpCore.h>
 
+#include "SilenceDeprecationWarnings.h"
+
 // How can we test telemetry-related functionality to ensure our bookkeeping
 // there is sane?
 // The problem is that such tests need `ProfilerState::Started` in order to
@@ -251,6 +253,9 @@ TEST_F( CcpTelemetryTest, RemainingCaptureDuration )
 	EXPECT_TRUE( CcpTelemetryIsStopped() );
 }
 
+// The following tests cover deprecated functionality. We don't care about the noisy warning here, since the tests will break when the functionality is removed.
+CCP_DISABLE_DEPRECATED_BEGIN
+
 TEST_F( CcpTelemetryTest, SimpleZoneTest )
 {
 	EXPECT_TRUE( CcpTelemetryIsConnected() );
@@ -375,6 +380,8 @@ TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 		EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	}
 }
+
+CCP_DISABLE_DEPRECATED_END  // Nothing deprecated is used after this point
 
 
 // ---------------------------------------------------------------------------
