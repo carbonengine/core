@@ -32,11 +32,11 @@
 extern const char* g_moduleName;
 
 typedef short TLOGCHANNELID;
-typedef long TLOGSOURCEID;
+typedef int32_t TLOGSOURCEID;
 
 struct CcpLogChannel_t
 {
-	long oktocall;
+	int32_t oktocall;
 	const char *facility;
 	const char *object;
 	TLOGCHANNELID		channel;			// index into channel buffer
@@ -73,12 +73,12 @@ enum LogType
 CARBON_CORE_API uint32_t& GetLogCounter( CCP::LogType type );
 
 // Logs to a default channel
-CARBON_CORE_API void LogFunc( LogType type, unsigned long userData, CCPLOG_PRINTF_FORMAT const char* format, ... ) CCPLOG_PRINTF_FORMAT_ATTR( 3, 4 );
-CARBON_CORE_API void LogFunc_v( LogType type, unsigned long userData, const char* format, va_list args );
+CARBON_CORE_API void LogFunc( LogType type, uint32_t userData, CCPLOG_PRINTF_FORMAT const char* format, ... ) CCPLOG_PRINTF_FORMAT_ATTR( 3, 4 );
+CARBON_CORE_API void LogFunc_v( LogType type, uint32_t userData, const char* format, va_list args );
 
 // Logs to the given channel
-CARBON_CORE_API void LogFuncChannel( CcpLogChannel_t& logObject, LogType type, unsigned long userData, CCPLOG_PRINTF_FORMAT const char* format, ... ) CCPLOG_PRINTF_FORMAT_ATTR( 4, 5 );
-CARBON_CORE_API void LogFuncChannel_v( CcpLogChannel_t& logObject, LogType type, unsigned long userData, const char* format, va_list args );
+CARBON_CORE_API void LogFuncChannel( CcpLogChannel_t& logObject, LogType type, uint32_t userData, CCPLOG_PRINTF_FORMAT const char* format, ... ) CCPLOG_PRINTF_FORMAT_ATTR( 4, 5 );
+CARBON_CORE_API void LogFuncChannel_v( CcpLogChannel_t& logObject, LogType type, uint32_t userData, const char* format, va_list args );
 
 // Only logs from the same thread as this are allowed through, unless
 // the log functions is tagged as thread safe.
@@ -200,7 +200,7 @@ inline void ThrowLastError()
 	throw std::runtime_error( GetLastErrorMessage() );
 }
 
-typedef void (*LogEchoFunc)( CcpLogChannel_t& channel, LogType type, unsigned long userData, const char* message );
+typedef void (*LogEchoFunc)( CcpLogChannel_t& channel, LogType type, uint32_t userData, const char* message );
 
 // Register a log echo function. Future logging requests will be passed to this function. Note that
 // multiple log echo functions can be registered - this adds the function to a list, rather than replacing
@@ -217,7 +217,7 @@ CARBON_CORE_API void UnregisterLogEcho( LogEchoFunc cb );
 CARBON_CORE_API bool IsLogging( LogType threshold = LOGTYPE_INFO );
 
 // Let's offer a standard callback (for convenience) that can be registered:
-CARBON_CORE_API void LogToDebugger( CcpLogChannel_t& logObject, LogType type, unsigned long userData, const char* message );
+CARBON_CORE_API void LogToDebugger( CcpLogChannel_t& logObject, LogType type, uint32_t userData, const char* message );
 
 // Sets info type logs to be privileged and returns the previous value
 CARBON_CORE_API bool SetLogtypeInfoIsPrivileged(bool privileged);

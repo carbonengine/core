@@ -206,13 +206,13 @@ CcpTime TimeNow()
 
 
 
-long TimeInMs( CcpTime time )
+int32_t TimeInMs( CcpTime time )
 {
 	time /= 10000;
 
 	CCP_ASSERT( time <= LONG_MAX );
 
-	return (long)time;
+	return (int32_t)time;
 }
 
 
@@ -262,7 +262,7 @@ CcpTime TimeFromDouble( double time )
 
 	return t;
 }
-CcpTime TimeFromMS( long time )
+CcpTime TimeFromMS( int32_t time )
 {
 	CcpTime t = ( CcpTime )( time * 10000 );
 	return t;

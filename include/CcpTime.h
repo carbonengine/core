@@ -35,12 +35,12 @@ struct CcpDateTime
 };
 
 
-CARBON_CORE_API long TimeInMs( CcpTime time );
+CARBON_CORE_API int32_t TimeInMs( CcpTime time );
 CARBON_CORE_API double TimeAsDouble( CcpTime time );
 CARBON_CORE_API float TimeAsFloat( CcpTime time );
 CARBON_CORE_API bool TimeIsUTC( CcpTime time );
 CARBON_CORE_API CcpTime TimeFromDouble( double time );
-CARBON_CORE_API CcpTime TimeFromMS( long time );
+CARBON_CORE_API CcpTime TimeFromMS( int32_t time );
 
 CARBON_CORE_API bool TimeAsDateTime( CcpDateTime& dateTime, CcpTime time );
 CARBON_CORE_API bool TimeFromDateTime( CcpTime& timeStamp, const CcpDateTime& dateTime );

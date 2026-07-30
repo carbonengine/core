@@ -52,7 +52,7 @@ public:
 		return m_result;
 	}
 
-    static unsigned long __stdcall MessageBoxThreadProc( void* p )
+    static uint32_t __stdcall MessageBoxThreadProc( void* p )
 	{
 		CCPAssertDialogThread* pThis = static_cast<CCPAssertDialogThread*>( p );
 

@@ -65,7 +65,7 @@ void TestAlignedRealloc()
 
 std::vector<std::pair<CCP::LogType, std::string>> s_logMessages;
 
-void LogCallback( CcpLogChannel_t& channel, CCP::LogType type, unsigned long userData, const char* message )
+void LogCallback( CcpLogChannel_t& channel, CCP::LogType type, uint32_t userData, const char* message )
 {
 	s_logMessages.push_back( std::make_pair( type, std::string( message ) ) );
 }

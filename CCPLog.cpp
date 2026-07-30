@@ -127,7 +127,7 @@ bool IsLogging( LogType threshold )
 
 static CcpLogChannel_t s_logObject = { 1, "carbon-core", "Main", 0 };
 
-void LogToDebugger( CcpLogChannel_t& logObject, LogType type, unsigned long userData, const char* message )
+void LogToDebugger( CcpLogChannel_t& logObject, LogType type, uint32_t userData, const char* message )
 {
 #if defined( _WIN32 )
 	static const char* s_logType2string[ CCP::LOGTYPE_COUNT ] = { "[I] ", "[N] ", "[W] ", "[E] " };	
@@ -142,7 +142,7 @@ void LogToDebugger( CcpLogChannel_t& logObject, LogType type, unsigned long user
 #endif
 }
 
-CARBON_CORE_API void LogFuncChannel( CcpLogChannel_t& logObject, LogType type, unsigned long userData, CCPLOG_PRINTF_FORMAT const char* format, ... )
+CARBON_CORE_API void LogFuncChannel( CcpLogChannel_t& logObject, LogType type, uint32_t userData, CCPLOG_PRINTF_FORMAT const char* format, ... )
 {
 	va_list args;
 	va_start( args, format );
@@ -151,7 +151,7 @@ CARBON_CORE_API void LogFuncChannel( CcpLogChannel_t& logObject, LogType type, u
 }
 
 
-void LogFuncChannelRaw( CcpLogChannel_t& logObject, LogType type, unsigned long userData, const char* text )
+void LogFuncChannelRaw( CcpLogChannel_t& logObject, LogType type, uint32_t userData, const char* text )
 {
 	LogEchoList& callbacks = GetLogEchos( type );
 
@@ -187,7 +187,7 @@ void LogFuncChannelRaw( CcpLogChannel_t& logObject, LogType type, unsigned long 
 	}
 }
 
-CARBON_CORE_API void LogFuncChannel_v( CcpLogChannel_t& logObject, LogType type, unsigned long userData, const char* format, va_list args )
+CARBON_CORE_API void LogFuncChannel_v( CcpLogChannel_t& logObject, LogType type, uint32_t userData, const char* format, va_list args )
 {
 	if( !format )
 	{
@@ -240,7 +240,7 @@ CARBON_CORE_API void LogFuncChannel_v( CcpLogChannel_t& logObject, LogType type,
 #endif
 }
 
-void LogFunc( LogType type, unsigned long userData, CCPLOG_PRINTF_FORMAT const char* format, ... )
+void LogFunc( LogType type, uint32_t userData, CCPLOG_PRINTF_FORMAT const char* format, ... )
 {
 	va_list args;
 	va_start( args, format );
@@ -248,7 +248,7 @@ void LogFunc( LogType type, unsigned long userData, CCPLOG_PRINTF_FORMAT const c
 	va_end( args );
 }
 
-void LogFunc_v( LogType type, unsigned long userData, const char* format, va_list args )
+void LogFunc_v( LogType type, uint32_t userData, const char* format, va_list args )
 {
 	LogFuncChannel_v( s_logObject, type, userData, format, args );
 }

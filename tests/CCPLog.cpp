@@ -8,14 +8,14 @@
 struct LogEntry
 {
 	CCP::LogType type;
-	unsigned long userData;
+	uint32_t userData;
 	char message[1024];
 };
 
 std::stack<LogEntry> logstack;
 
 
-void LogTracker( CcpLogChannel_t& logObject, CCP::LogType type, unsigned long userData, const char* message )
+void LogTracker( CcpLogChannel_t& logObject, CCP::LogType type, uint32_t userData, const char* message )
 {
 	LogEntry entry;
 	strncpy(entry.message, message, std::extent_v<decltype(entry.message)>);
