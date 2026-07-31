@@ -178,6 +178,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         set(SPHINX_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/doc/source)
         set(SPHINX_BUILD ${CMAKE_CURRENT_BINARY_DIR}/doc/build)
 
+        get_target_property(CORE_COMPILE_DEFINITIONS CcpCore COMPILE_DEFINITIONS)
+        list(TRANSFORM CORE_COMPILE_DEFINITIONS GENEX_STRIP)
+        list(JOIN CORE_COMPILE_DEFINITIONS " \\\n" CORE_COMPILE_DEFINITIONS)
+
         create_carbon_docs_sphinx_target(
             PYTHON_EXE ${Python3_EXECUTABLE}
             VENV_NAME docs_generation_venv
@@ -188,6 +192,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
             SPHINX_TARGET_NAME Sphinx
             DOXYGEN_TARGET_NAME Doxygen
             INSTALL_DESTINATION documentation/carbon-core
+            EXTRA_COMPILE_DEFINITIONS ${CORE_COMPILE_DEFINITIONS}
         )
     endif()
 
