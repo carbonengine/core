@@ -47,7 +47,7 @@ CARBON_CORE_API CcpColor CcpTelemetryCategoryGetColor( const CcpTelemetryCategor
 CARBON_CORE_API std::pair<const CcpTelemetryCategory&, bool> CcpTelemetryCategoryRegister( const std::string& name, CcpColor color = CcpColor::SteelBlue );
 CARBON_CORE_API CcpTelemetryCategories CcpTelemetryGetRegisteredCategories();
 
-CARBON_CORE_API bool CcpTelemetrySetActiveCategories( const std::vector<std::string>& maskNames );
+CARBON_CORE_API bool CcpTelemetrySetActiveCategories( const CcpTelemetryCategories& categories );
 CARBON_CORE_API CcpTelemetryCategories CcpTelemetryGetActiveCategories();
 
 

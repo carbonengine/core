@@ -41,13 +41,13 @@
 #include "TracyTestClient.h"
 
 // Helper for find a ProfilerCategory by name from the list of already registered ProfilerCategories
-bool TryGetProfilerCategoryNamed( const std::string& name )
+bool TryGetProfilerCategoryNamed( const std::string& name, CcpTelemetryCategories::const_iterator& out )
 {
 	auto categories = CcpTelemetryGetRegisteredCategories();
-	auto ret = std::find_if( categories.begin(), categories.end(), [name](const CcpTelemetryCategory& cat) {
+	out = std::find_if( categories.begin(), categories.end(), [name](const CcpTelemetryCategory& cat) {
 		return CcpTelemetryCategoryGetName( cat ) == name;
 	} );
-	return ret != categories.end();
+	return out != categories.end();
 }
 
 class CcpTelemetryTest : public ::testing::Test
@@ -262,7 +262,11 @@ TEST_F( CcpTelemetryTest, SimpleZoneTest )
 
 	static int key = 4711;
 	const std::string zoneName{ "TestZone" };
-	CcpTelemetrySetActiveCategories( {"cpp"} );
+
+	auto [cat, ok] = CcpTelemetryCategoryRegister( "cpp" );
+	EXPECT_TRUE( ok );
+	CcpTelemetrySetActiveCategories( {cat} );
+
 	CcpTelemetryEnterZone( &key, zoneName.c_str(), __FILE__, __LINE__ );  // Original deprecated version
 	// Tracy's worker sleeps up to 10 ms between queue flushes, so give it
 	// time to process and send the zone event before asserting.
@@ -284,7 +288,9 @@ TEST_F( CcpTelemetryTest, StackedZones )
 {
 	// A stacked zone is a zone that has the same key as a previously created zone.
 	static int key = 4711;
-	CcpTelemetrySetActiveCategories( {"cpp"} );
+	auto cppCategory = CcpTelemetryCategoryRegister( "cpp" );
+	EXPECT_TRUE( cppCategory.second );
+	CcpTelemetrySetActiveCategories( {cppCategory.first} );
 	CcpTelemetryEnterZone( &key, "TestZone", __FILE__, __LINE__ );
 	CcpTelemetryEnterZone( &key, "TestZone2", __FILE__, __LINE__ );
 	TickTelemetry( [this] { return m_tracyClient.GetZones().size() == 2; } );
@@ -308,7 +314,10 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 {
 	static int key1 = 1001;
 	const std::string zoneName1{ "FirstZone" };
-	CcpTelemetrySetActiveCategories( {"cpp"} );
+
+	auto cppCategory = CcpTelemetryCategoryRegister( "cpp" );
+	EXPECT_TRUE( cppCategory.second );
+	CcpTelemetrySetActiveCategories( {cppCategory.first} );
 	CcpTelemetryEnterZone( &key1, zoneName1.c_str(), __FILE__, __LINE__ );
 	TickTelemetry( [this, zoneName1] { return ZoneExists( zoneName1 ); } );
 	EXPECT_TRUE( ZoneExists( zoneName1 ) );
@@ -354,7 +363,11 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 {
 	// Test where ProfilerCategory is in the Active list
-	CcpTelemetrySetActiveCategories( {"cpp", "general" } );
+	auto cppCategory = CcpTelemetryCategoryRegister( "cpp" );
+	auto generalCategory = CcpTelemetryCategoryRegister( "general" );
+	EXPECT_TRUE( cppCategory.second );
+	EXPECT_TRUE( generalCategory.second );
+	CcpTelemetrySetActiveCategories( { cppCategory.first, generalCategory.first } );
 	{
 		TelemetryZone activeZone( TMCM_CPP, "ZoneIsInActiveList", __FILE__, __LINE__, CcpColor::Yellow );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
@@ -371,7 +384,7 @@ TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 
 	// Test where ProfilerCategory is NOT in the Active list
-	CcpTelemetrySetActiveCategories( {"NotRegisteredProfilerCategory", "ClearingPreviousGeneralAndCpp", "FromTheActiveProfilerCategoryList"} );
+	CcpTelemetrySetActiveCategories( {} );
 	{
 		TelemetryZone inactiveZone( TMCM_CPP, "ZoneIsNotInActiveList", __FILE__, __LINE__, CcpColor::Blue );
 		TickTelemetry();
@@ -653,7 +666,9 @@ TEST_F( CcpTelemetryProfilerCategoryTest, RegistrationReturnsExisting )
 
 TEST_F( CcpTelemetryProfilerCategoryTest, SetEmptyProfilerCategoriesClearsCategory )
 {
-	EXPECT_TRUE( CcpTelemetrySetActiveCategories( {"cpp"} ) );
+	auto [cpp, ok] = CcpTelemetryCategoryRegister( "cpp" );
+	EXPECT_TRUE( ok );
+	EXPECT_TRUE( CcpTelemetrySetActiveCategories( {cpp} ) );
 	EXPECT_NE( CcpTelemetryCategories{}, CcpTelemetryGetActiveCategories() );
 	EXPECT_TRUE( CcpTelemetrySetActiveCategories( {} ) );
 	EXPECT_EQ( CcpTelemetryCategories{}, CcpTelemetryGetActiveCategories() );
@@ -661,25 +676,21 @@ TEST_F( CcpTelemetryProfilerCategoryTest, SetEmptyProfilerCategoriesClearsCatego
 
 TEST_F( CcpTelemetryProfilerCategoryTest, SetProfilerCategoryRejectsTooManyCategories )
 {
-	const std::vector<std::string> numbers{
-		"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
-		"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
-		"21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
-		"31", "32", "33", "34", "35", "36", "37", "38", "39", "40",
-		"41", "42", "43", "44", "45", "46", "47", "48", "49", "50",
-		"51", "52", "53", "54", "55", "56", "57", "58", "59", "60",
-		"61", "62", "63", "64", "65", "66", "67", "68", "69", "70",
-		"71", "72", "73", "74", "75", "76", "77", "78", "79", "80",
-		"81", "82", "83", "84", "85", "86", "87", "88", "89", "90",
-		"91", "92", "93", "94", "95", "96", "97", "98", "99"
-	};
-	EXPECT_FALSE( CcpTelemetrySetActiveCategories( numbers ) ) << "Should have failed because more than the allowed number of categories was requested";
+	auto [cat, ok] = CcpTelemetryCategoryRegister( "cpp" );
+	EXPECT_TRUE( ok );
+	CcpTelemetryCategories cats;
+	for ( int i = 0; i < 10000; ++i )
+	{
+		cats.emplace_back( cat );
+	}
+	EXPECT_FALSE( CcpTelemetrySetActiveCategories( cats ) ) << "Should have failed because more than the allowed number of categories was requested";
 }
 
 TEST_F( CcpTelemetryProfilerCategoryTest, ProfilerCategoryDefaultsAreRegistered )
 {
+	CcpTelemetryCategories::const_iterator unused;
 	// The default ProfilerCategories must be available from the start.
-	EXPECT_TRUE( TryGetProfilerCategoryNamed( "core" ) );
-	EXPECT_TRUE( TryGetProfilerCategoryNamed( "general" ) );
-	EXPECT_TRUE( TryGetProfilerCategoryNamed( "cpp" ) );
+	EXPECT_TRUE( TryGetProfilerCategoryNamed( "core", unused ) );
+	EXPECT_TRUE( TryGetProfilerCategoryNamed( "general", unused ) );
+	EXPECT_TRUE( TryGetProfilerCategoryNamed( "cpp", unused ) );
 }

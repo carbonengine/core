@@ -99,12 +99,12 @@ namespace
 	// -------------------------------
 	// ProfilerCategory specifics:
 	// -------------------------------
-	constexpr size_t PROFILER_CATEGORIES_MAX{64};
+	constexpr size_t CCP_TELEMETRY_CATEGORIES_MAX{64};
 
 	CcpMutex s_profilerCategoryRegistryLock( "CcpTelemetry", "ProfilerCategoryRegistry" );
 
 	// Fixed size array of registered ProfilerCategories.
-	std::array<std::optional<CcpTelemetryCategory>, PROFILER_CATEGORIES_MAX> s_registeredProfilerCategories{
+	std::array<std::optional<CcpTelemetryCategory>, CCP_TELEMETRY_CATEGORIES_MAX> s_registeredProfilerCategories{
 		CcpTelemetryCategory{ "general", CcpColor::SteelBlue, TMCM_GENERAL }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
 		CcpTelemetryCategory{ "cpp", CcpColor::Yellow, TMCM_CPP }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
 		CcpTelemetryCategory{ "core", CcpColor::LightGreen, 1<<2 }
@@ -143,7 +143,7 @@ std::pair<const CcpTelemetryCategory&, bool> CcpTelemetryCategoryRegister( const
 		return { empty, false };
 	}
 
-	for( uint64_t i = 0; i < PROFILER_CATEGORIES_MAX; ++i )
+	for( uint64_t i = 0; i < s_registeredProfilerCategories.size(); ++i )
 	{
 		auto& entry = s_registeredProfilerCategories[i];
 
@@ -169,7 +169,7 @@ CcpTelemetryCategories CcpTelemetryGetRegisteredCategories()
 	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
 	CcpTelemetryCategories result;
-	result.reserve( PROFILER_CATEGORIES_MAX );
+	result.reserve( s_registeredProfilerCategories.size() );
 	for( const auto& registeredEntry : s_registeredProfilerCategories )
 	{
 		if( ! registeredEntry )
@@ -183,37 +183,21 @@ CcpTelemetryCategories CcpTelemetryGetRegisteredCategories()
 }
 
 bool CcpTelemetrySetActiveCategories( const std::vector<std::string>& maskNames )
+bool CcpTelemetrySetActiveCategories( const CcpTelemetryCategories& categories )
 {
 	// Guard access to all ProfilerCategories members
 	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
-	if ( maskNames.size() > PROFILER_CATEGORIES_MAX )
+	if ( categories.size() > s_registeredProfilerCategories.size() )
 	{
-		CCP_LOGERR_CH( s_ch, "Failed setting active Profiler Category because more %lu maskNames were passed in, but only %lu are allowed", maskNames.size(), PROFILER_CATEGORIES_MAX );
+		CCP_LOGERR_CH( s_ch, "Failed setting active Profiler Category because more %lu maskNames were passed in, but only %lu are allowed", categories.size(), s_registeredProfilerCategories.size() );
 		return false;
 	}
 
 	uint64_t newActiveProfilerCategory = 0;
-	for( const auto& rawName : maskNames )
+	for( const auto& category : categories )
 	{
-		if( rawName.empty() )
-		{
-			continue;
-		}
-
-		for ( size_t index = 0; index < s_registeredProfilerCategories.size(); ++index )
-		{
-			const auto& registeredEntry = s_registeredProfilerCategories[index];
-			if ( !registeredEntry )
-			{
-				break;
-			}
-			if( registeredEntry->name == rawName )
-			{
-				newActiveProfilerCategory |= (1ULL << index);
-				break;
-			}
-		}
+		newActiveProfilerCategory |= category.get().captureBit;
 	}
 
 	s_profilerCategoryCaptureMask = newActiveProfilerCategory;
