@@ -10,7 +10,7 @@ Everything the header exposes falls into one of four groups:
 | Group | Purpose | Key entry points |
 | --- | --- | --- |
 | Session control | Start, stop and pump a capture | `CcpStartTelemetry`, `CcpStopTelemetry`, `CcpTelemetryTick` |
-| Instrumentation | Describe what the program is doing | `TelemetryZone`, `CcpRegisterThread`, `CcpTelemetrySetActiveFiber` |
+| Instrumentation | Describe what the program is doing | `TelemetryZone`, `CcpTelemetrySetActiveFiber` |
 | Categories | Group zones by subsystem | `CcpTelemetryCategoryRegister`, `CcpTelemetryGetRegisteredCategories` |
 | Capture masks | Choose which categories are recorded | `CcpTelemetrySetActiveCategories`, `CcpTelemetryGetActiveCategories` |
 
@@ -21,24 +21,15 @@ The option defines `CCP_TELEMETRY_ENABLED` as a `PUBLIC` compile definition on t
 consumers that link against `CcpCore` automatically agree with the library on whether telemetry is
 compiled in:
 
-```cmake
+```shell
 cmake --preset <preset> -DWITH_TELEMETRY=OFF
 ```
-
-If `CCP_TELEMETRY_ENABLED` is not defined at all — for instance when `CcpTelemetry.h` is included
-without linking against `CcpCore` — the header falls back to `1` on MSVC and `0` on every other
-compiler.
 
 ```{important}
 Instrumentation code should not be wrapped in `#if CCP_TELEMETRY_ENABLED` guards by callers. The
 declarations in `CcpTelemetry.h` are always visible, and `CcpRegisterMutex` degrades into an empty
 macro when telemetry is disabled.
 ```
-
-The Tracy client is pulled in through vcpkg with the `fibers`, `on-demand`, `no-callstack`,
-`manual-lifetime`, `delayed-init` and `no-crash-handler` features. Those features are what make
-on-demand profiling possible, and they are the reason the session has to be pumped explicitly (see
-below).
 
 ## On-demand profiling
 
@@ -97,14 +88,6 @@ while( isRunning )
 }
 ```
 
-Each tick, while a capture is running, `CcpTelemetryTick()`:
-
-- emits a frame mark, so the profiler can align data to frame boundaries,
-- increments the counter returned by `CcpTelemetryGetTickCount()` (reset to `1` on every successful start),
-- retires fiber names that were scheduled for removal,
-- stops the capture if `captureDuration` has elapsed, and
-- stops the capture if the profiler client disconnected.
-
 ```{warning}
 Without a regular `CcpTelemetryTick()`, a requested capture never becomes active, no frame marks are
 produced, and timed captures never expire.
@@ -112,8 +95,8 @@ produced, and timed captures never expire.
 
 ### Reacting to session changes
 
-Register an event handler to hook subsystems into the session lifecycle — this is the natural place to
-apply a capture mask, name threads, or reset per-capture bookkeeping:
+Register an event handler to hook subsystems into the session lifecycle. This is the natural place to
+reset per-capture bookkeeping.
 
 ```cpp
 void OnTelemetryEvent( CcpTelemetryEvent event, void* userData )
@@ -121,10 +104,10 @@ void OnTelemetryEvent( CcpTelemetryEvent event, void* userData )
     switch( event )
     {
     case CCP_TELEMETRY_STARTED:
-        CcpTelemetrySetActiveCategories( CcpTelemetryGetRegisteredCategories() );
+        // your code, f.e. toggle some UI state
         break;
     case CCP_TELEMETRY_STOPPED:
-        CcpTelemetrySetActiveCategories( {} );
+        // your code, f.e. toggle some UI state
         break;
     }
 }
@@ -178,7 +161,7 @@ The constructor takes the category, the name to display, and the source location
 | `filename` | `__FILE__`. |
 | `lineno` | `__LINE__`. |
 
-Zones nest naturally with the call stack — a zone created inside another zone's scope is shown as a
+Zones nest naturally with the call stack. A zone created inside another zone's scope is shown as a
 child of it in the profiler. The zone's color comes from its category, so all zones belonging to one
 subsystem are visually grouped.
 
@@ -241,21 +224,6 @@ capture stays a no-op for its whole lifetime, even if a capture starts before it
 Keep zones short-lived, and prefer creating them inside the scope being measured.
 ```
 
-### Naming threads
-
-Associate a readable name with a thread id, so that telemetry consumers have something better than a
-raw id to work with:
-
-```cpp
-CcpRegisterThread( CcpGetCurrentThreadId(), "RenderThread" );
-```
-
-```{note}
-`CcpRegisterThread()` currently only records the name in *carbon-core*'s own bookkeeping; it does not
-forward it to the connected profiler. Threads that should be identifiable in the profiler UI still need
-to be named through the platform's thread-naming facility.
-```
-
 ### Fibers and tasklets
 
 Code that runs on fibers (or Python tasklets) can be resumed on a different OS thread than the one it
@@ -313,8 +281,7 @@ const std::string& name = CcpTelemetryCategoryGetName( category );
 CcpColor color = CcpTelemetryCategoryGetColor( category );
 ```
 
-To hold several of them, use `CcpTelemetryCategories` — a `std::vector` of
-`std::reference_wrapper<const CcpTelemetryCategory>` — which is also the type the registry and mask
+To hold several of them, use `CcpTelemetryCategories` which is also the type the registry and mask
 functions speak.
 
 ### Registering a category
@@ -330,10 +297,12 @@ auto [category, ok] = CcpTelemetryCategoryRegister( "rendering", CcpColor::Green
 auto [same, stillOk] = CcpTelemetryCategoryRegister( "rendering" );
 ```
 
-Categories are compared by name only; their color and internal capture bit take no part in `operator==`.
+```{note}
+Category names are case-sensitive.
+```
 
-The `bool` is `false` in exactly two cases: the name was empty, or all 64 category slots are taken. On
-failure the returned reference refers to a shared, empty placeholder category.
+The `bool` is `false` when a category cannot be registered. This can happen, for example, when the name was empty, or 
+all 64 category slots are taken. On failure the returned reference refers to a shared, empty placeholder category.
 
 ```{warning}
 Always check the `bool`. Zones tagged with the placeholder category returned on failure can never be
