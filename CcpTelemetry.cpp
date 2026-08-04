@@ -606,6 +606,40 @@ void CcpTelemetryZoneAddText( void* key, const char* text )
 
 #else
 
+// With telemetry compiled out, every entry point below is a no-op, and every query reports that
+// nothing is registered, nothing is active and nothing is being captured. The declarations in
+// `CcpTelemetry.h` remain visible in this configuration, so call sites need no guarding.
+
+struct CcpTelemetryCategory
+{
+	std::string name;
+	CcpColor color{CcpColor::White};
+};
+
+struct TelemetryZone::Private
+{
+};
+
+namespace
+{
+	const CcpTelemetryCategory s_emptyCategory;
+}
+
+bool operator==( const CcpTelemetryCategory& lhs, const CcpTelemetryCategory& rhs )
+{
+	return lhs.name == rhs.name;
+}
+
+const std::string& CcpTelemetryCategoryGetName( const CcpTelemetryCategory& category )
+{
+	return category.name;
+}
+
+CcpColor CcpTelemetryCategoryGetColor( const CcpTelemetryCategory& category )
+{
+	return category.color;
+}
+
 bool CcpTelemetryIsConnectionRequested()
 {
 	return false;
@@ -619,6 +653,16 @@ bool CcpTelemetryIsConnected()
 bool CcpTelemetryIsStarted()
 {
 	return false;
+}
+
+bool CcpTelemetryIsStopped()
+{
+	return true;
+}
+
+std::chrono::milliseconds CcpTelemetryRemainingCaptureDuration()
+{
+	return std::chrono::milliseconds::zero();
 }
 
 bool CcpTelemetryMemoryTrackingIsEnabled()
@@ -635,21 +679,22 @@ void CcpRegisterThread( CcpThreadId_t threadId, const char* name )
 {
 }
 
-CcpProfilerCategoryHandle CcpRegisterProfilerCategory( const std::string&, CcpColor )
+std::pair<const CcpTelemetryCategory&, bool> CcpTelemetryCategoryRegister( const std::string&, CcpColor )
 {
-	return 0;
+	return { s_emptyCategory, false };
 }
 
-std::vector<CcpTelemetryCategory> CcpGetRegisteredProfilerCategories()
+CcpTelemetryCategories CcpTelemetryGetRegisteredCategories()
 {
 	return {};
 }
 
-bool CcpSetActiveProfilerCategory( const std::vector<std::string>& )
+bool CcpTelemetrySetActiveCategories( const CcpTelemetryCategories& )
 {
+	return false;
 }
 
-std::vector<std::string> CcpGetActiveProfilerCategory()
+CcpTelemetryCategories CcpTelemetryGetActiveCategories()
 {
 	return {};
 }
@@ -691,10 +736,27 @@ void CcpTelemetrySetActiveFiber( const std::string& )
 
 const std::string& CcpTelemetryGetActiveFiber()
 {
-	return "";
+	static const std::string s_noFiber;
+	return s_noFiber;
 }
 
 void CcpTelemetryRemoveFiber( const std::string& )
+{
+}
+
+TelemetryZone::TelemetryZone( uint32_t, const char*, const char*, uint32_t, CcpColor )
+{
+}
+
+TelemetryZone::TelemetryZone( const CcpTelemetryCategory&, const char*, const char*, uint32_t )
+{
+}
+
+TelemetryZone::TelemetryZone( TelemetryZone&& ) noexcept = default;
+
+TelemetryZone::~TelemetryZone() = default;
+
+void TelemetryZone::text( const char* ) const
 {
 }
 
@@ -707,6 +769,14 @@ void CcpTelemetryLeaveZone( void* key )
 }
 
 void CcpTelemetryZoneAddText( void* key, const char* text )
+{
+}
+
+void CcpTelemetryTrackAllocation( void*, size_t )
+{
+}
+
+void CcpTelemetryTrackDeallocation( void* )
 {
 }
 

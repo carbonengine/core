@@ -2,7 +2,9 @@
 
 #include "include/CcpSemaphore.h"
 
+#if CCP_TELEMETRY_ENABLED
 #include "tracy/TracyC.h"
+#endif
 
 // OS specific includes:
 #ifdef _WIN32
@@ -15,6 +17,8 @@
 #else
 	using NativeHandle = sem_t;
 #endif
+
+#include "include/CcpSecureCrt.h"
 
 struct CcpSemaphore::Private
 {
@@ -60,6 +64,7 @@ CcpSemaphore::CcpSemaphore( const char* semaphoreName, uint32_t initialCount, ui
 
 namespace
 {
+#if CCP_TELEMETRY_ENABLED
 	void AnnounceSemaphoreToTelemetry( TracyCLockCtx& ctx, const char* name )
 	{
 		// Lazy initialization pattern because there are many instances which are created statically,
@@ -72,6 +77,7 @@ namespace
 			}
 		}
 	}
+#endif
 }
 
 // Preferred constructor, with default value overloads (see header file for details)

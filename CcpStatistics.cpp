@@ -2,9 +2,11 @@
 
 #include "include/CcpStatistics.h"
 
-#include <tracy/Tracy.hpp>
-
 #include "CcpTelemetry.h"
+
+#if CCP_TELEMETRY_ENABLED
+#include <tracy/Tracy.hpp>
+#endif
 
 static double SCALING_FACTOR_FOR_TIME = 1000000.0;
 

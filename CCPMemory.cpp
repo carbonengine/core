@@ -3,6 +3,7 @@
 #include "include/CCPMemory.h"
 #include "include/CCPMemoryTracker.h"
 #include "include/CCPAssert.h"
+#include "include/CcpSecureCrt.h"
 #include "include/CcpTelemetry.h"
 #include "CcpMemoryTrackerMutex.h"
 
