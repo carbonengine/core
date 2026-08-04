@@ -45,8 +45,8 @@ typedef std::set<std::string> FiberNameStore;
 
 struct TelemetryZone::Private
 {
-	std::optional<TracyCZoneCtx> telemetryContext;
-	FiberNameStore::const_iterator fiber;
+	std::optional<TracyCZoneCtx> telemetryContext; //!< If active, this contains the context object required for the Tracy integration.
+	FiberNameStore::const_iterator fiber; //!< The fiber the zone belongs to.
 };
 
 /*!

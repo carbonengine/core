@@ -180,6 +180,12 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
         get_target_property(CORE_COMPILE_DEFINITIONS CcpCore COMPILE_DEFINITIONS)
         list(TRANSFORM CORE_COMPILE_DEFINITIONS GENEX_STRIP)
+        list(APPEND CORE_COMPILE_DEFINITIONS
+                CARBON_CORE_API=
+                CARBON_CORE_DEPRECATED_EXPORT=
+                NOINLINE=
+                CCPLOG_PRINTF_FORMAT=
+        )
         list(JOIN CORE_COMPILE_DEFINITIONS " \\\n" CORE_COMPILE_DEFINITIONS)
 
         create_carbon_docs_sphinx_target(
