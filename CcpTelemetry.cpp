@@ -22,6 +22,25 @@ static CcpLogChannel_t s_ch = CCP_LOG_DEFINE_CHANNEL( "Telemetry" );
 #pragma warning(pop)
 #include <tracy/TracyC.h>
 
+/*!
+	\def TMCM_GENERAL
+	\brief Legacy index into the registered profiler category array, denoting the default "general" category.
+
+	This used to be a bitmask value back when categories were selected via a bitmask rather than an index into
+	`CcpTelemetryGetRegisteredCategories()`. It is kept around for source compatibility with older call sites
+	that still pass it to the deprecated `TelemetryZone( uint32_t, ... )` constructor.
+
+	\see TMCM_CPP
+	\see CcpTelemetryCategoryRegister
+*/
+
+/*!
+	\def TMCM_CPP
+	\brief Legacy index into the registered profiler category array, denoting the built-in "cpp" category.
+
+	\see TMCM_GENERAL
+*/
+
 typedef std::set<std::string> FiberNameStore;
 
 struct TelemetryZone::Private
@@ -30,6 +49,29 @@ struct TelemetryZone::Private
 	FiberNameStore::const_iterator fiber;
 };
 
+/*!
+	\struct CcpTelemetryCategory
+	\brief Opaque, registered category that zones can be tagged with.
+
+	A `CcpTelemetryCategory` groups related `TelemetryZone` instances (e.g. "rendering", "physics", "scripting")
+	so that they can be shown in a distinct color and selectively captured at runtime via
+	`CcpTelemetrySetActiveCategories()`. Instances are only ever handed out by reference from
+	`CcpTelemetryCategoryRegister()` and `CcpTelemetryGetRegisteredCategories()` - the type itself is opaque to
+	consumers of the header, which only ever see a forward declaration.
+
+	\par Example
+	\code
+	auto [category, ok] = CcpTelemetryCategoryRegister( "physics", CcpColor::Orange );
+	if( ok )
+	{
+		TelemetryZone zone( category, "StepSimulation", __FILE__, __LINE__ );
+		// ... simulate ...
+	}
+	\endcode
+
+	\see CcpTelemetryCategoryRegister
+	\see CcpTelemetrySetActiveCategories
+*/
 struct CcpTelemetryCategory
 {
 	std::string name;
@@ -118,20 +160,84 @@ namespace
 	}
 }
 
+/*!
+	\brief Compares two `CcpTelemetryCategory` instances for equality.
+
+	Categories are considered equal purely based on their registered name; the color and internal capture bit
+	are not taken into account.
+
+	\param lhs First category to compare.
+	\param rhs Second category to compare.
+	\return `true` if both categories share the same name, `false` otherwise.
+*/
 bool operator==( const CcpTelemetryCategory& lhs, const CcpTelemetryCategory& rhs )
 {
 	// Profiler Categories need to be unique by name only
 	return lhs.name == rhs.name;
 }
+
+/*!
+	\brief Returns the display name a `CcpTelemetryCategory` was registered with.
+
+	\param category Category to query, as obtained from `CcpTelemetryCategoryRegister()` or
+	                 `CcpTelemetryGetRegisteredCategories()`.
+	\return The category's name.
+
+	\par Example
+	\code
+	auto categories = CcpTelemetryGetRegisteredCategories();
+	for( const CcpTelemetryCategory& category : categories )
+	{
+		printf( "%s\n", CcpTelemetryCategoryGetName( category ).c_str() );
+	}
+	\endcode
+*/
 const std::string& CcpTelemetryCategoryGetName( const CcpTelemetryCategory& category )
 {
 	return category.name;
 }
+
+/*!
+	\brief Returns the color a `CcpTelemetryCategory` should be rendered with in the profiler UI.
+
+	\param category Category to query, as obtained from `CcpTelemetryCategoryRegister()` or
+	                 `CcpTelemetryGetRegisteredCategories()`.
+	\return The category's display color.
+*/
 CcpColor CcpTelemetryCategoryGetColor( const CcpTelemetryCategory& category )
 {
 	return category.color;
 }
 
+/*!
+	\brief Registers a new telemetry category, or returns the existing one if `name` is already registered.
+
+	Categories are used to group `TelemetryZone` instances (e.g. by subsystem) and to let consumers selectively
+	enable capture for only a subset of zones via `CcpTelemetrySetActiveCategories()`. Up to
+	`PROFILER_CATEGORIES_MAX` (64) categories can be registered for the lifetime of the process; three of them
+	("general", "cpp", "core") are pre-registered by default.
+
+	\param name  Unique, human-readable name for the category. Must not be empty.
+	\param color Color the category's zones should be rendered with. Defaults to `CcpColor::SteelBlue`.
+	\return A pair of a reference to the (newly or previously) registered category, and a `bool` that is `true`
+	        on success. On failure - an empty `name`, or all 64 slots already taken - the returned reference
+	        refers to a static, empty placeholder category and the `bool` is `false`.
+
+	\par Example
+	\code
+	auto [category, ok] = CcpTelemetryCategoryRegister( "rendering", CcpColor::Green );
+	if( ok )
+	{
+		TelemetryZone zone( category, "DrawFrame", __FILE__, __LINE__ );
+	}
+
+	// Registering the same name again simply returns the existing category.
+	auto [same, stillOk] = CcpTelemetryCategoryRegister( "rendering" );
+	\endcode
+
+	\see CcpTelemetryGetRegisteredCategories
+	\see CcpTelemetrySetActiveCategories
+*/
 std::pair<const CcpTelemetryCategory&, bool> CcpTelemetryCategoryRegister( const std::string& name, CcpColor color )
 {
 	static const CcpTelemetryCategory empty;
@@ -164,6 +270,23 @@ std::pair<const CcpTelemetryCategory&, bool> CcpTelemetryCategoryRegister( const
 	return { empty, false };
 }
 
+/*!
+	\brief Returns all telemetry categories registered so far, in registration order.
+
+	The result always includes the built-in "general", "cpp" and "core" categories, followed by any categories
+	registered via `CcpTelemetryCategoryRegister()`.
+
+	\return A vector of references to the registered categories. The references remain valid for the lifetime
+	        of the process, since categories are never unregistered.
+
+	\par Example
+	\code
+	for( const CcpTelemetryCategory& category : CcpTelemetryGetRegisteredCategories() )
+	{
+		printf( "Registered category: %s\n", CcpTelemetryCategoryGetName( category ).c_str() );
+	}
+	\endcode
+*/
 CcpTelemetryCategories CcpTelemetryGetRegisteredCategories()
 {
 	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
@@ -182,7 +305,28 @@ CcpTelemetryCategories CcpTelemetryGetRegisteredCategories()
 	return result;
 }
 
-bool CcpTelemetrySetActiveCategories( const std::vector<std::string>& maskNames )
+/*!
+	\brief Replaces the set of telemetry categories that are actively captured.
+
+	Only zones tagged with an active category are actually recorded by the connected profiler; zones tagged
+	with an inactive (or unregistered) category are cheap no-ops. Pass an empty vector to stop capturing any
+	category.
+
+	\param categories Names of the categories to activate, as previously passed to `CcpTelemetryCategoryRegister()`.
+	                  Unknown names are silently ignored. Must not contain more than `PROFILER_CATEGORIES_MAX`
+	                  (64) entries.
+	\return `true` on success, `false` if more than 64 names were passed in - in which case the active category
+	        set is left unchanged.
+
+	\par Example
+	\code
+	CcpTelemetrySetActiveCategories( { "cpp", "rendering" } );
+	// ... zones tagged "cpp" or "rendering" are now captured ...
+	CcpTelemetrySetActiveCategories( {} ); // stop capturing any category
+	\endcode
+
+	\see CcpTelemetryGetActiveCategories
+*/
 bool CcpTelemetrySetActiveCategories( const CcpTelemetryCategories& categories )
 {
 	// Guard access to all ProfilerCategories members
@@ -205,6 +349,14 @@ bool CcpTelemetrySetActiveCategories( const CcpTelemetryCategories& categories )
 	return true;
 }
 
+/*!
+	\brief Returns the telemetry categories that are currently active for capture.
+
+	\return A vector of references to the categories most recently activated via `CcpTelemetrySetActiveCategories()`.
+	        Empty if no category is currently active.
+
+	\see CcpTelemetrySetActiveCategories
+*/
 CcpTelemetryCategories CcpTelemetryGetActiveCategories()
 {
 	CcpTelemetryCategories result;
@@ -223,53 +375,190 @@ CcpTelemetryCategories CcpTelemetryGetActiveCategories()
 	return result;
 }
 
+/*!
+	\brief Checks whether the telemetry integration is both started and connected to a profiler client.
+
+	This is the state in which zones and locks are actually captured. Compare with `CcpTelemetryIsStarted()`,
+	which only reflects the internal state machine and can be `true` while a connection is still pending.
+
+	\return `true` if telemetry is started and a profiler client is connected, `false` otherwise.
+*/
 bool CcpTelemetryIsConnected()
 {
 	return TracyIsStarted && TracyIsConnected && s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started;
 }
 
+/*!
+	\brief Checks whether telemetry has been requested to start but is still waiting for a profiler client to connect.
+
+	\return `true` if the telemetry server is listening but no client has connected yet, `false` otherwise.
+*/
 bool CcpTelemetryIsConnectionRequested()
 {
 	return TracyIsStarted && !TracyIsConnected && s_profilerState.load( std::memory_order_acquire ) == ProfilerState::StartRequested;
 }
 
+/*!
+	\brief Checks whether the telemetry integration has fully started (server running and profiler client connected).
+
+	\return `true` if telemetry is in the `Started` state, `false` otherwise.
+
+	\see CcpTelemetryIsConnected
+	\see CcpTelemetryIsStopped
+*/
 bool CcpTelemetryIsStarted()
 {
 	return s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started;
 }
 
+/*!
+	\brief Checks whether the telemetry integration is fully stopped.
+
+	\return `true` if telemetry is in the `Stopped` state, `false` otherwise.
+
+	\see CcpTelemetryIsStarted
+	\see CcpStopTelemetry
+*/
 bool CcpTelemetryIsStopped()
 {
 	return s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Stopped;
 }
 
+/*!
+	\brief Checks whether the current telemetry session was configured to track memory allocations.
+
+	\return The value of `CcpTelemetryConfig::trackMemoryAllocations` that was passed to `CcpStartTelemetry()`.
+
+	\see CcpTelemetryTrackAllocation
+	\see CcpTelemetryTrackDeallocation
+*/
 bool CcpTelemetryMemoryTrackingIsEnabled()
 {
 	return s_config.trackMemoryAllocations;
 }
 
+/*!
+	\brief Checks whether the current telemetry session was configured to track lock contention.
+
+	\return The value of `CcpTelemetryConfig::trackLocks` that was passed to `CcpStartTelemetry()`.
+*/
 bool CcpTelemetryLockTrackingIsEnabled()
 {
     return s_config.trackLocks;
 }
 
+/*!
+	\brief Announces a `CcpMutex` to the telemetry integration so that lock contention can be tracked under its
+	       given owner and name.
+
+	This is called automatically by `CcpMutex`'s constructor - callers do not need to invoke this directly.
+
+	\param m     Mutex being announced.
+	\param owner Name of the subsystem or class that owns the mutex.
+	\param name  Human-readable name for the mutex.
+*/
 void CcpRegisterMutex( class CcpMutex& m, const char* owner, const char* name )
 {
 	MutexNameMap_t& mutexNames = GetMutexNameMap();
 	mutexNames[&m] = std::make_pair( owner, name );
 }
 
+/*!
+	\brief Assigns a human-readable name to a thread, shown by the connected profiler.
+
+	\param threadId Identifier of the thread being named, as returned by the platform thread APIs.
+	\param name     Human-readable name to associate with the thread.
+
+	\par Example
+	\code
+	CcpRegisterThread( CcpThreadGetCurrentId(), "RenderThread" );
+	\endcode
+*/
 void CcpRegisterThread( CcpThreadId_t threadId, const char* name )
 {
 	ThreadNameMap_t& threadNames = GetThreadNameMap();
 	threadNames[threadId] = name;
 }
 
+/*!
+	\brief Starts the telemetry integration for the given server or dump path.
+
+	\deprecated Use `CcpStartTelemetry( const CcpTelemetryConfig& config )` instead.
+
+	\param serverOrDumpPath Kept for source compatibility; forwarded as the application name of a default-constructed
+	                         `CcpTelemetryConfig`.
+	\param connectionType   Unused, kept for source compatibility.
+	\param maxThreadCount   Unused, kept for source compatibility.
+	\return See `CcpStartTelemetry( const CcpTelemetryConfig& )`.
+*/
 bool CcpStartTelemetry( const char* serverOrDumpPath, int connectionType, uint32_t maxThreadCount )
 {
 	return CcpStartTelemetry( { serverOrDumpPath } );
 }
 
+/*!
+	\struct CcpTelemetryConfig
+	\brief Configuration passed to `CcpStartTelemetry( const CcpTelemetryConfig& )`.
+
+	\var CcpTelemetryConfig::applicationName
+	Name of the application, shown in the connected profiler.
+
+	\var CcpTelemetryConfig::captureDuration
+	If non-zero, telemetry automatically stops itself once this much time has passed since it started (see
+	`CcpTelemetryRemainingCaptureDuration()`). A value of zero (the default) means "capture indefinitely, until
+	`CcpStopTelemetry()` is called explicitly".
+
+	\var CcpTelemetryConfig::trackMemoryAllocations
+	Whether allocations reported via `CcpTelemetryTrackAllocation()` / `CcpTelemetryTrackDeallocation()` should
+	actually be forwarded to the profiler (see `CcpTelemetryMemoryTrackingIsEnabled()`).
+
+	\var CcpTelemetryConfig::trackLocks
+	Whether `CcpMutex` contention should be reported to the profiler (see `CcpTelemetryLockTrackingIsEnabled()`).
+
+	\par Example
+	\code
+	CcpTelemetryConfig config;
+	config.applicationName = "MyGame";
+	config.captureDuration = std::chrono::seconds( 30 ); // stop automatically after 30 seconds
+	config.trackMemoryAllocations = true;
+	config.trackLocks = true;
+	CcpStartTelemetry( config );
+	\endcode
+
+	\see CcpStartTelemetry
+*/
+
+/*!
+	\brief Requests that the telemetry integration start listening for a profiler connection.
+
+	Starting is asynchronous: this function only records the request and applies `config`. The actual
+	transition to `CcpTelemetryIsStarted()` happens on a subsequent call to `CcpTelemetryTick()`, once the
+	telemetry server is listening and a profiler client has connected.
+
+	\param config Application name, optional timed-capture duration, and memory/lock tracking flags to use for
+	              this session. See `CcpTelemetryConfig`.
+	\return `true` if the request was accepted, `false` if telemetry is already started or a start is already
+	        in progress.
+
+	\par Example
+	\code
+	CcpTelemetryConfig config;
+	config.applicationName = "MyGame";
+	config.trackMemoryAllocations = true;
+	config.trackLocks = true;
+	CcpStartTelemetry( config );
+
+	// Somewhere in the main loop:
+	while( isRunning )
+	{
+		CcpTelemetryTick();
+	}
+	\endcode
+
+	\see CcpTelemetryConfig
+	\see CcpStopTelemetry
+	\see CcpTelemetryTick
+*/
 bool CcpStartTelemetry( const CcpTelemetryConfig& config )
 {
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started || s_profilerState.load( std::memory_order_acquire ) == ProfilerState::StartRequested )
@@ -286,6 +575,15 @@ bool CcpStartTelemetry( const CcpTelemetryConfig& config )
 	return true;
 }
 
+/*!
+	\brief Requests that the telemetry integration stop and disconnect from the profiler client.
+
+	Stopping is asynchronous, just like starting: this only records the request. The actual transition to
+	`CcpTelemetryIsStopped()` happens on a subsequent call to `CcpTelemetryTick()`.
+
+	\see CcpStartTelemetry
+	\see CcpTelemetryIsStopped
+*/
 void CcpStopTelemetry()
 {
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Stopped || s_profilerState.load( std::memory_order_acquire ) == ProfilerState::StopRequested )
@@ -297,6 +595,28 @@ void CcpStopTelemetry()
 	s_profilerState.store( ProfilerState::StopRequested, std::memory_order_release );
 }
 
+/*!
+	\brief Advances the telemetry integration's internal state machine by one tick.
+
+	This must be called regularly (typically once per frame, or in a dedicated polling loop) for
+	`CcpStartTelemetry()` and `CcpStopTelemetry()` requests to actually take effect, for the connected profiler
+	to receive a frame mark, for pending fiber-name cleanups to run, and for a configured
+	`CcpTelemetryConfig::captureDuration` to be enforced.
+
+	\par Example
+	\code
+	CcpStartTelemetry( config );
+	while( isRunning )
+	{
+		CcpTelemetryTick();
+		// ... rest of the frame ...
+	}
+	\endcode
+
+	\see CcpStartTelemetry
+	\see CcpStopTelemetry
+	\see CcpTelemetryGetTickCount
+*/
 void CcpTelemetryTick()
 {
 	switch ( s_profilerState.load(std::memory_order_acquire) )
@@ -390,11 +710,33 @@ void CcpTelemetryTick()
 	}
 }
 
+/*!
+	\brief Returns how much longer the current timed capture will run.
+
+	Only meaningful when `CcpTelemetryConfig::captureDuration` was set to a non-zero value in the config passed
+	to `CcpStartTelemetry()`; otherwise always returns zero.
+
+	\return The remaining capture duration, clamped to zero once it has elapsed.
+
+	\see CcpTelemetryConfig
+*/
 std::chrono::milliseconds CcpTelemetryRemainingCaptureDuration()
 {
 	return std::max( std::chrono::milliseconds( 0 ), s_config.captureDuration - std::chrono::duration_cast<std::chrono::milliseconds>( std::chrono::steady_clock::now() - s_profilerStartTime ) );
 }
 
+/*!
+	\brief Reports a memory allocation to the connected profiler.
+
+	Intended to be called from custom allocators (see `CCPMemory.cpp`) rather than directly by application
+	code. A no-op unless both `CcpTelemetryMemoryTrackingIsEnabled()` and `CcpTelemetryIsConnected()` are `true`.
+
+	\param p    Address of the allocated memory block.
+	\param size Size, in bytes, of the allocated memory block.
+
+	\see CcpTelemetryTrackDeallocation
+	\see CcpTelemetryMemoryTrackingIsEnabled
+*/
 void CcpTelemetryTrackAllocation( void* p, size_t size )
 {
 	if ( CcpTelemetryMemoryTrackingIsEnabled() && CcpTelemetryIsConnected() ) {
@@ -402,6 +744,17 @@ void CcpTelemetryTrackAllocation( void* p, size_t size )
 	}
 }
 
+/*!
+	\brief Reports a memory deallocation to the connected profiler.
+
+	Intended to be called from custom allocators (see `CCPMemory.cpp`) rather than directly by application
+	code. A no-op if `p` is `nullptr`, or unless both `CcpTelemetryMemoryTrackingIsEnabled()` and
+	`CcpTelemetryIsConnected()` are `true`.
+
+	\param p Address of the memory block being freed.
+
+	\see CcpTelemetryTrackAllocation
+*/
 void CcpTelemetryTrackDeallocation( void* p )
 {
 	if ( p && CcpTelemetryMemoryTrackingIsEnabled() && CcpTelemetryIsConnected() )
@@ -410,11 +763,66 @@ void CcpTelemetryTrackDeallocation( void* p )
 	}
 }
 
+/*!
+	\brief Returns a monotonically increasing counter of `CcpTelemetryTick()` calls since the last
+	       `CcpStartTelemetry()`.
+
+	\return The current tick count. Reset to `1` every time `CcpStartTelemetry()` succeeds.
+
+	\see CcpTelemetryTick
+*/
 uint32_t CcpTelemetryGetTickCount()
 {
 	return s_telemetryTick;
 }
 
+/*!
+	\enum CcpTelemetryEvent
+	\brief Events reported to handlers registered via `CcpRegisterTelemetryEventHandler()`.
+
+	\var CCP_TELEMETRY_STARTED
+	Telemetry has started and connected to a profiler client.
+
+	\var CCP_TELEMETRY_STOPPED
+	Telemetry has stopped and disconnected from the profiler client.
+
+	\see CcpRegisterTelemetryEventHandler
+*/
+
+/*!
+	\typedef CcpOnTelemetryEventHandler
+	\brief Callback signature for handlers registered via `CcpRegisterTelemetryEventHandler()`.
+
+	\see CcpRegisterTelemetryEventHandler
+	\see CcpTelemetryEvent
+*/
+
+/*!
+	\brief Registers a callback to be invoked whenever telemetry starts or stops.
+
+	If telemetry is already connected at the time of registration, `handler` is invoked immediately with
+	`CCP_TELEMETRY_STARTED`.
+
+	\param handler  Callback to invoke on telemetry start/stop events.
+	\param userData Opaque pointer passed back to `handler` unchanged; use it to disambiguate multiple
+	                 registrations of the same function pointer.
+
+	\par Example
+	\code
+	void OnTelemetryEvent( CcpTelemetryEvent event, void* userData )
+	{
+		if( event == CCP_TELEMETRY_STARTED )
+		{
+			printf( "Telemetry connected\n" );
+		}
+	}
+
+	CcpRegisterTelemetryEventHandler( &OnTelemetryEvent, nullptr );
+	\endcode
+
+	\see CcpUnregisterTelemetryEventHandler
+	\see CcpTelemetryEvent
+*/
 void CcpRegisterTelemetryEventHandler( CcpOnTelemetryEventHandler handler, void* userData )
 {
 	GetEventHandlers().push_back( std::make_pair( handler, userData ) );
@@ -424,6 +832,14 @@ void CcpRegisterTelemetryEventHandler( CcpOnTelemetryEventHandler handler, void*
 	}
 }
 
+/*!
+	\brief Removes a callback previously registered with `CcpRegisterTelemetryEventHandler()`.
+
+	Both `handler` and `userData` must match the values passed at registration time for the entry to be found.
+
+	\param handler  Callback that was registered.
+	\param userData Opaque pointer that was registered alongside `handler`.
+*/
 void CcpUnregisterTelemetryEventHandler( CcpOnTelemetryEventHandler handler, void* userData )
 {
 	auto& handlers = GetEventHandlers();
@@ -434,6 +850,8 @@ void CcpUnregisterTelemetryEventHandler( CcpOnTelemetryEventHandler handler, voi
 	}
 }
 
+// Internal helper: switches the active fiber by string-store iterator. Used by the public
+// `CcpTelemetrySetActiveFiber( const std::string& )` overload below, once the name has been interned.
 void CcpTelemetrySetActiveFiber( FiberNameStore::const_iterator elem )
 {
 	if ( elem == t_activeFiber )
@@ -468,6 +886,25 @@ void CcpTelemetrySetActiveFiber( FiberNameStore::const_iterator elem )
 //	CCP_LOG_CH( s_ch, "[Fiber %p] [Store %p] Setting active tasklet zone store", t_activeFiber, t_activeTaskletZoneStore );
 }
 
+/*!
+	\brief Marks `name` as the calling thread's active fiber for zone bookkeeping purposes.
+
+	Zones entered while a fiber is active (e.g. via `TelemetryZone` or the deprecated `CcpTelemetryEnterZone()`)
+	are tracked per-fiber rather than per-thread, so that fibers which get resumed on different OS threads still
+	show a coherent call stack in the profiler. Pass an empty string to indicate "no fiber" (the root context).
+
+	\param name Name of the fiber to activate. An empty string deactivates fiber tracking for the calling thread.
+
+	\par Example
+	\code
+	CcpTelemetrySetActiveFiber( "WorkerFiber1" );
+	// ... work performed on behalf of the fiber ...
+	CcpTelemetrySetActiveFiber( "" ); // back to the root context
+	\endcode
+
+	\see CcpTelemetryGetActiveFiber
+	\see CcpTelemetryRemoveFiber
+*/
 void CcpTelemetrySetActiveFiber( const std::string& name )
 {
 	auto elem = s_fiberNameStore.insert( name );
@@ -479,6 +916,18 @@ void CcpTelemetrySetActiveFiber( const std::string& name )
 	CcpTelemetrySetActiveFiber( elem.first );
 }
 
+/*!
+	\brief Schedules a previously named fiber for removal from the fiber name store.
+
+	If `name` is the calling thread's currently active fiber, the active fiber is first reset to "no fiber"
+	(equivalent to calling `CcpTelemetrySetActiveFiber( "" )`). The name itself is only erased from the
+	internal store after a short grace period, to avoid invalidating references still in flight.
+
+	\param name Name of the fiber to remove. Empty names are ignored, since the "no fiber" root context is
+	            never removed.
+
+	\see CcpTelemetrySetActiveFiber
+*/
 void CcpTelemetryRemoveFiber( const std::string& name )
 {
 	// Cannot remove nameless fibers
@@ -500,11 +949,57 @@ void CcpTelemetryRemoveFiber( const std::string& name )
 	}
 }
 
+/*!
+	\brief Returns the name of the calling thread's currently active fiber.
+
+	\return The name most recently passed to `CcpTelemetrySetActiveFiber()`, or an empty string if no fiber is
+	        active.
+
+	\see CcpTelemetrySetActiveFiber
+*/
 const std::string& CcpTelemetryGetActiveFiber()
 {
 	return *t_activeFiber;
 }
 
+/*!
+	\class TelemetryZone
+	\brief RAII scope marker that reports a named, timed span of work to the connected profiler.
+
+	Construct a `TelemetryZone` at the start of the scope you want to measure; it automatically ends the zone
+	when it goes out of scope. Zones are cheap no-ops while telemetry is not started, and are only actually
+	recorded while their `CcpTelemetryCategory` is active (see `CcpTelemetrySetActiveCategories()`).
+
+	`TelemetryZone` is move-only: it cannot be copied, and can only be moved into e.g. an `std::optional` or a
+	container, since a zone must have a single, well-defined owner responsible for ending it.
+
+	\par Example
+	\code
+	auto [category, ok] = CcpTelemetryCategoryRegister( "physics" );
+
+	void StepSimulation()
+	{
+		TelemetryZone zone( category, "StepSimulation", __FILE__, __LINE__ );
+		zone.text( "10 bodies" );
+		// ... do work; the zone ends automatically when `zone` goes out of scope ...
+	}
+	\endcode
+
+	\see CcpTelemetryCategoryRegister
+*/
+
+/*!
+	\brief Constructs a zone using a legacy, bitmask-style category handle.
+
+	\deprecated Use the `TelemetryZone( const CcpTelemetryCategory&, const char*, const char*, uint32_t )`
+	            constructor instead.
+
+	\param handle   Legacy category handle, e.g. `TMCM_CPP` or a bit index into the registered category array.
+	\param name     Name of the zone, as shown in the profiler.
+	\param filename Source file the zone originates from; pass `__FILE__`.
+	\param lineno   Source line the zone originates from; pass `__LINE__`.
+	\param color    Color to render the zone with. Defaults to `CcpColor::SteelBlue`.
+*/
 TelemetryZone::TelemetryZone( uint32_t handle, const char* name, const char* filename, uint32_t lineno, CcpColor color ) : m_impl(std::make_unique<Private>())
 {
 	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
@@ -521,7 +1016,24 @@ TelemetryZone::TelemetryZone( uint32_t handle, const char* name, const char* fil
 	m_impl->fiber = t_activeFiber;
 	m_impl->telemetryContext.emplace( ___tracy_emit_zone_begin_alloc( data, active ) );
 }
-TelemetryZone::TelemetryZone( const CcpTelemetryCategory& category, const char* name, const char* filename, uint32_t lineno )
+
+/*!
+	\brief Constructs a zone tagged with a registered `CcpTelemetryCategory`.
+
+	The zone is only actually recorded by the connected profiler if telemetry is started and `category` is
+	currently active (see `CcpTelemetrySetActiveCategories()`); otherwise this constructor is a cheap no-op.
+
+	\param category Category to tag the zone with, as obtained from `CcpTelemetryCategoryRegister()`.
+	\param name     Name of the zone, as shown in the profiler.
+	\param filename Source file the zone originates from; pass `__FILE__`.
+	\param lineno   Source line the zone originates from; pass `__LINE__`.
+
+	\par Example
+	\code
+	auto [category, ok] = CcpTelemetryCategoryRegister( "rendering" );
+	TelemetryZone zone( category, "DrawFrame", __FILE__, __LINE__ );
+	\endcode
+*/
 TelemetryZone::TelemetryZone( const CcpTelemetryCategory& category, const char* name, const char* filename, uint32_t lineno ) : m_impl( std::make_unique<Private>() )
 {
 	if( s_profilerState.load( std::memory_order_acquire ) != ProfilerState::Started )
@@ -536,6 +1048,13 @@ TelemetryZone::TelemetryZone( const CcpTelemetryCategory& category, const char* 
 	m_impl->telemetryContext.emplace( ___tracy_emit_zone_begin_alloc( data, active ) );
 }
 
+/*!
+	\brief Transfers ownership of an in-flight zone from `other` to the newly constructed instance.
+
+	After the move, `other` no longer ends any zone on destruction.
+
+	\param other Zone to move from.
+*/
 TelemetryZone::TelemetryZone( TelemetryZone&& other ) noexcept : m_impl( std::make_unique<Private>() )
 {
 	m_impl->fiber = other.m_impl->fiber;
@@ -545,6 +1064,12 @@ TelemetryZone::TelemetryZone( TelemetryZone&& other ) noexcept : m_impl( std::ma
 //	CCP_LOG_CH( s_ch, "[Fiber %p] Moving zone %p (fiber=%s) to new zone %p (fiber=%s)", t_activeFiber->c_str(), &other, other.m_impl->fiber->c_str(), this, m_impl->fiber->c_str() );
 }
 
+/*!
+	\brief Ends the zone, if one is still active on this instance.
+
+	Ending happens on whichever fiber the zone was originally started on, temporarily switching the active
+	fiber back if the calling thread has since moved on to a different one.
+*/
 TelemetryZone::~TelemetryZone()
 {
 	// Notify Tracy of all zones ended with a valid context, regardless of profiler state
@@ -561,6 +1086,19 @@ TelemetryZone::~TelemetryZone()
 	CcpTelemetrySetActiveFiber( previous );
 }
 
+/*!
+	\brief Attaches a free-form text annotation to the zone, visible alongside it in the profiler.
+
+	A no-op unless the zone is currently active (telemetry started and its category active).
+
+	\param text Text to attach to the zone. Must not be `nullptr`.
+
+	\par Example
+	\code
+	TelemetryZone zone( category, "LoadAsset", __FILE__, __LINE__ );
+	zone.text( assetPath.c_str() );
+	\endcode
+*/
 void TelemetryZone::text( const char* text ) const
 {
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started && m_impl->telemetryContext )
@@ -570,6 +1108,21 @@ void TelemetryZone::text( const char* text ) const
 	}
 }
 
+/*!
+	\brief Manually enters a zone identified by an opaque key.
+
+	\deprecated Use a `TelemetryZone` instead, which ends its zone automatically via RAII instead of requiring a
+	            matching `CcpTelemetryLeaveZone()` call.
+
+	\param key      Opaque identifier used to match this call with a later `CcpTelemetryLeaveZone( key )`. Zones
+	                 sharing the same `key` nest, forming a stack.
+	\param name     Name of the zone, as shown in the profiler.
+	\param filename Source file the zone originates from; pass `__FILE__`.
+	\param lineno   Source line the zone originates from; pass `__LINE__`.
+
+	\see CcpTelemetryLeaveZone
+	\see TelemetryZone
+*/
 void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, uint32_t lineno )
 {
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started )
@@ -579,6 +1132,15 @@ void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, u
 	}
 }
 
+/*!
+	\brief Manually leaves the zone most recently entered under `key`.
+
+	\deprecated Use a `TelemetryZone` instead.
+
+	\param key Opaque identifier previously passed to `CcpTelemetryEnterZone()`.
+
+	\see CcpTelemetryEnterZone
+*/
 void CcpTelemetryLeaveZone( void* key )
 {
 	if ( t_manuallyTrackedZones.find( key ) != t_manuallyTrackedZones.end() )
@@ -594,6 +1156,17 @@ void CcpTelemetryLeaveZone( void* key )
 	}
 }
 
+/*!
+	\brief Attaches a free-form text annotation to the zone most recently entered under `key`.
+
+	\deprecated Use `TelemetryZone::text()` instead.
+
+	\param key  Opaque identifier previously passed to `CcpTelemetryEnterZone()`.
+	\param text Text to attach to the zone. If `nullptr`, the call is ignored.
+
+	\see CcpTelemetryEnterZone
+	\see TelemetryZone::text
+*/
 void CcpTelemetryZoneAddText( void* key, const char* text )
 {
 	if ( text != nullptr )
