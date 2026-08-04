@@ -1,4 +1,4 @@
 API Reference
 ==============
 
-.. doxygenindex::
+.. doxygenfile:: CcpTelemetry.h
