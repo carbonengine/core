@@ -363,11 +363,11 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 {
 	// Test where ProfilerCategory is in the Active list
-	auto cppCategory = CcpTelemetryCategoryRegister( "cpp" );
-	auto generalCategory = CcpTelemetryCategoryRegister( "general" );
-	EXPECT_TRUE( cppCategory.second );
-	EXPECT_TRUE( generalCategory.second );
-	CcpTelemetrySetActiveCategories( { cppCategory.first, generalCategory.first } );
+	auto [ cppCategory, cppOK ] = CcpTelemetryCategoryRegister( "cpp" );
+	auto [ generalCategory, generalOK ] = CcpTelemetryCategoryRegister( "general" );
+	EXPECT_TRUE( cppOK );
+	EXPECT_TRUE( generalOK );
+	CcpTelemetrySetActiveCategories( { cppCategory, generalCategory } );
 	{
 		TelemetryZone activeZone( TMCM_CPP, "ZoneIsInActiveList", __FILE__, __LINE__, CcpColor::Yellow );
 		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
@@ -377,10 +377,12 @@ TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 		EXPECT_EQ( "ZoneIsInActiveList", zones.front().function );
 		EXPECT_EQ( static_cast<uint32_t>( CcpColor::Yellow ), zones.front().color );
 		EXPECT_EQ( 0, m_tracyClient.GetZoneEndCount() );
+
+		TelemetryZone anotherActiveZone( cppCategory, "New constructor test", __FILE__, __LINE__ );
 	}
 	// Now the activeZone has gone out of scope, so the zone should have ended
-	TickTelemetry( [this] { return m_tracyClient.GetZoneEndCount() == 1; } );
-	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
+	TickTelemetry( [this] { return m_tracyClient.GetZoneEndCount() == 2; } );
+	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() );
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 
 	// Test where ProfilerCategory is NOT in the Active list
@@ -388,8 +390,8 @@ TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
 	{
 		TelemetryZone inactiveZone( TMCM_CPP, "ZoneIsNotInActiveList", __FILE__, __LINE__, CcpColor::Blue );
 		TickTelemetry();
-		EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() ) << "Inactive zone must not emit ZoneBegin, count should stay at 1";
-		EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() ) << "Inactive zone must not emit ZoneEnd, count should stay at 1";
+		EXPECT_EQ( 2, m_tracyClient.GetZoneBeginCount() ) << "Inactive zone must not emit ZoneBegin, count should stay at 1";
+		EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() ) << "Inactive zone must not emit ZoneEnd, count should stay at 1";
 		EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	}
 }
