@@ -224,9 +224,9 @@ capture stays a no-op for its whole lifetime, even if a capture starts before it
 Keep zones short-lived, and prefer creating them inside the scope being measured.
 ```
 
-### Fibers and tasklets
+### Fibers
 
-Code that runs on fibers (or Python tasklets) can be resumed on a different OS thread than the one it
+Code that runs on fibers (for example Python tasklets) can be resumed on a different OS thread than the one it
 started on, which would otherwise produce interleaved, nonsensical call stacks. Telling telemetry which
 fiber is currently active makes zone bookkeeping per-fiber instead of per-thread:
 
@@ -302,11 +302,11 @@ Category names are case-sensitive.
 ```
 
 The `bool` is `false` when a category cannot be registered. This can happen, for example, when the name was empty, or 
-all 64 category slots are taken. On failure the returned reference refers to a shared, empty placeholder category.
+all category slots are taken. On failure the returned reference refers to a shared, empty placeholder category.
 
 ```{warning}
 Always check the `bool`. Zones tagged with the placeholder category returned on failure can never be
-captured, because the placeholder owns no capture bit.
+captured, because the placeholder owns no capture flag.
 ```
 
 ### Built-in categories
@@ -332,10 +332,9 @@ for( const CcpTelemetryCategory& category : CcpTelemetryGetRegisteredCategories(
 
 ## Capture masks
 
-A capture mask is the set of categories that are actually recorded. Each registered category owns one
-bit of a 64-bit mask — the bit corresponding to its slot in the registry — which is why at most **64**
-categories can exist in a process. When a `TelemetryZone` is constructed, its category's bit is tested
-against the active mask; if the bit is clear, the zone is a cheap no-op and never reaches the profiler.
+A capture mask is the set of categories that are actually recorded. When a `TelemetryZone` is constructed, 
+its category is tested against the set of active categories. If a zone's category is not part of that set,
+said zone will not show up in the profiler.
 
 This is what makes instrumentation affordable to leave in shipping code: you can instrument
 generously, then decide at runtime which subsystems a given capture should actually pay for.
@@ -370,9 +369,9 @@ Capturing everything is a matter of feeding the registry back in:
 CcpTelemetrySetActiveCategories( CcpTelemetryGetRegisteredCategories() );
 ```
 
-The call returns `false` — leaving the mask unchanged — if more than 64 entries are passed in.
+The call returns `false` — leaving the mask unchanged — if too many entries are passed in.
 Duplicate entries are harmless, as are references to categories that never registered successfully;
-they simply contribute no bits.
+they are simply ignored.
 
 ### Reading the mask back
 
