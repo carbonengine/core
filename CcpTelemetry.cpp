@@ -329,7 +329,6 @@ CcpTelemetryCategories CcpTelemetryGetRegisteredCategories()
 */
 bool CcpTelemetrySetActiveCategories( const CcpTelemetryCategories& categories )
 {
-	// Guard access to all ProfilerCategories members
 	CcpAutoMutex lock( s_profilerCategoryRegistryLock );
 
 	if ( categories.size() > s_registeredProfilerCategories.size() )
