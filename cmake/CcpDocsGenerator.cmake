@@ -27,7 +27,7 @@ endfunction()
 function(create_carbon_docs_sphinx_target)
     set(options "")
     set(single_value_keywords "SPHINX_SOURCE;SPHINX_BUILD;SPHINX_TARGET_NAME;INSTALL_DESTINATION;DOXYGEN_TARGET_NAME;PYTHON_EXE;VENV_NAME")
-    set(multi_value_keywords "DOXYGEN_SRC_FILES;PYTHONPATH_ENV")
+    set(multi_value_keywords "DOXYGEN_SRC_FILES;PYTHONPATH_ENV;EXTRA_COMPILE_DEFINITIONS")
     cmake_parse_arguments(PARSE_ARGV 0 "arg"
             "${options}" "${single_value_keywords}" "${multi_value_keywords}"
     )
@@ -45,12 +45,15 @@ function(create_carbon_docs_sphinx_target)
     # Evaluate config file for Doxygen to input project values
     set(DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in)
     set(DOXYFILE_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
-    set(DOXYGEN_INDEX_FILE ${CMAKE_CURRENT_BINARY_DIR}/xml/index.xml)
+    set(DOXYGEN_INDEX_FILE ${CMAKE_CURRENT_BINARY_DIR}/doc/xml/index.xml)
+    set(DOCUMENTATION_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/doc)
+    set(EXTRA_COMPILE_DEFINITIONS ${arg_EXTRA_COMPILE_DEFINITIONS})
     configure_file(${DOXYFILE_IN} ${DOXYFILE_OUT} @ONLY)
 
     # Regenerate with source changes
     add_custom_command(OUTPUT ${DOXYGEN_INDEX_FILE}
             DEPENDS ${arg_DOXYGEN_SRC_FILES}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${DOCUMENTATION_OUT_DIR}
             COMMAND ${DOXYGEN_EXECUTABLE} ${DOXYFILE_OUT}
             MAIN_DEPENDENCY ${DOXYFILE_OUT} ${DOXYFILE_IN}
             COMMENT "Running Doxygen"
@@ -59,9 +62,9 @@ function(create_carbon_docs_sphinx_target)
     add_custom_target(${arg_DOXYGEN_TARGET_NAME} ALL DEPENDS ${DOXYGEN_INDEX_FILE})
 
     if (WIN32)
-        set(SPHINX_COMMAND Scripts/sphinx-build -E -b html -D breathe_projects.doxygen=${CMAKE_CURRENT_BINARY_DIR}/docs/xml -c ${arg_SPHINX_SOURCE} ${arg_SPHINX_SOURCE} ${arg_SPHINX_BUILD})
+        set(SPHINX_COMMAND Scripts/sphinx-build -E -b html -D breathe_projects.doxygen=${CMAKE_CURRENT_BINARY_DIR}/doc/xml -c ${arg_SPHINX_SOURCE} ${arg_SPHINX_SOURCE} ${arg_SPHINX_BUILD})
     elseif(APPLE)
-        set(SPHINX_COMMAND bin/sphinx-build -E -b html -D breathe_projects.doxygen=${CMAKE_CURRENT_BINARY_DIR}/docs/xml -c ${arg_SPHINX_SOURCE} ${arg_SPHINX_SOURCE} ${arg_SPHINX_BUILD})
+        set(SPHINX_COMMAND bin/sphinx-build -E -b html -D breathe_projects.doxygen=${CMAKE_CURRENT_BINARY_DIR}/doc/xml -c ${arg_SPHINX_SOURCE} ${arg_SPHINX_SOURCE} ${arg_SPHINX_BUILD})
     endif()
 
     add_custom_target(${arg_SPHINX_TARGET_NAME} ALL

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cctype>
+#include <cstdio>
 #include <functional>
 #include <future>
 #include <mutex>
@@ -13,6 +14,8 @@
 #include <tracy/Tracy.hpp>
 
 #include <CcpCore.h>
+
+#include "SilenceDeprecationWarnings.h"
 
 // How can we test telemetry-related functionality to ensure our bookkeeping
 // there is sane?
@@ -37,6 +40,16 @@
 // includes the AI-written, but human-reviewed test client.
 #include "TracyTestClient.h"
 
+// Helper for find a ProfilerCategory by name from the list of already registered ProfilerCategories
+bool TryGetProfilerCategoryNamed( const std::string& name, CcpTelemetryCategories::const_iterator& out )
+{
+	auto categories = CcpTelemetryGetRegisteredCategories();
+	out = std::find_if( categories.begin(), categories.end(), [name](const CcpTelemetryCategory& cat) {
+		return CcpTelemetryCategoryGetName( cat ) == name;
+	} );
+	return out != categories.end();
+}
+
 class CcpTelemetryTest : public ::testing::Test
 {
 protected:
@@ -57,13 +70,13 @@ protected:
 		::testing::Test::TearDown();
 	}
 
-	void TickTelemetry( std::function<bool()> predicate = nullptr, std::chrono::milliseconds timeout = std::chrono::milliseconds( 500 ) )
+	void TickTelemetry( std::function<bool()> predicate = nullptr, std::chrono::milliseconds timeout = std::chrono::milliseconds( 100 ) )
 	{
 		const auto deadline = std::chrono::steady_clock::now() + timeout;
 		while( std::chrono::steady_clock::now() < deadline && !( predicate && predicate() ) )
 		{
 			CcpTelemetryTick();
-			std::this_thread::sleep_for( std::chrono::milliseconds( 5 ) );
+			std::this_thread::sleep_for( std::chrono::milliseconds( 1 ) );
 		}
 	}
 
@@ -163,6 +176,7 @@ protected:
 		return m_tracyClient.TryGetLock( lockId, outLock );
 	}
 
+
 	const std::string expectedNoFiber;
 	const std::string expectedFiberName1{ "TestFiber1" };
 	const std::string expectedFiberName2{ "TestFiber2" };
@@ -196,6 +210,24 @@ TEST_F( CcpTelemetryTest, RemovingActiveFiberClearsIt )
 	EXPECT_EQ( CcpTelemetryGetActiveFiber(), expectedNoFiber );
 }
 
+TEST_F( CcpTelemetryTest, RemovingElementsFromFiberNameStoreDoesNotCrash )
+{
+	// There was a crash when the same fiber was queued multiple times for
+	// deletion. Additionally, some silent data corruption could occur when
+	// inserting a fiber name again that was about to be deleted.
+	// This isn't the best test to properly validate both scenarios, but it
+	// is at least good enough to reproduce the observed crash.
+	CcpTelemetrySetActiveFiber( expectedFiberName1 );
+	CcpTelemetryRemoveFiber( expectedFiberName1 );
+	CcpTelemetrySetActiveFiber( expectedFiberName1 );
+	CcpTelemetryRemoveFiber( expectedFiberName1 );
+	TickTelemetry( nullptr );
+	CcpTelemetrySetActiveFiber( expectedFiberName1 );
+	CcpTelemetryRemoveFiber( expectedFiberName1 );
+	CcpTelemetrySetActiveFiber( expectedFiberName1 );
+	TickTelemetry( nullptr );
+}
+
 TEST_F( CcpTelemetryTest, RemainingCaptureDuration )
 {
 	// The test fixture starts telemetry without a specific capture duration.
@@ -221,18 +253,30 @@ TEST_F( CcpTelemetryTest, RemainingCaptureDuration )
 	EXPECT_TRUE( CcpTelemetryIsStopped() );
 }
 
+// The following tests cover deprecated functionality. We don't care about the noisy warning here, since the tests will break when the functionality is removed.
+CCP_DISABLE_DEPRECATED_BEGIN
+
 TEST_F( CcpTelemetryTest, SimpleZoneTest )
 {
 	EXPECT_TRUE( CcpTelemetryIsConnected() );
 
 	static int key = 4711;
 	const std::string zoneName{ "TestZone" };
-	CcpTelemetryEnterZone( &key, zoneName.c_str(), __FILE__, __LINE__ );
+
+	auto [cat, ok] = CcpTelemetryCategoryRegister( "cpp" );
+	EXPECT_TRUE( ok );
+	CcpTelemetrySetActiveCategories( {cat} );
+
+	CcpTelemetryEnterZone( &key, zoneName.c_str(), __FILE__, __LINE__ );  // Original deprecated version
 	// Tracy's worker sleeps up to 10 ms between queue flushes, so give it
 	// time to process and send the zone event before asserting.
 	TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_TRUE( ZoneExists( zoneName ) );
+
+	const auto zones = m_tracyClient.GetZones();
+	ASSERT_EQ( 1, zones.size() );
+	EXPECT_EQ( static_cast<uint32_t>( CcpColor::SteelBlue ), zones.front().color ) << CcpColorToString( CcpColor(zones.front().color) ).data();
 
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry( [this] { return m_tracyClient.GetZoneEndCount() == 1; } );
@@ -244,6 +288,9 @@ TEST_F( CcpTelemetryTest, StackedZones )
 {
 	// A stacked zone is a zone that has the same key as a previously created zone.
 	static int key = 4711;
+	auto cppCategory = CcpTelemetryCategoryRegister( "cpp" );
+	EXPECT_TRUE( cppCategory.second );
+	CcpTelemetrySetActiveCategories( {cppCategory.first} );
 	CcpTelemetryEnterZone( &key, "TestZone", __FILE__, __LINE__ );
 	CcpTelemetryEnterZone( &key, "TestZone2", __FILE__, __LINE__ );
 	TickTelemetry( [this] { return m_tracyClient.GetZones().size() == 2; } );
@@ -260,12 +307,17 @@ TEST_F( CcpTelemetryTest, StackedZones )
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry( [this] { return m_tracyClient.GetZones().empty(); } );
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
+	CcpTelemetrySetActiveCategories( {} );
 }
 
 TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 {
 	static int key1 = 1001;
 	const std::string zoneName1{ "FirstZone" };
+
+	auto cppCategory = CcpTelemetryCategoryRegister( "cpp" );
+	EXPECT_TRUE( cppCategory.second );
+	CcpTelemetrySetActiveCategories( {cppCategory.first} );
 	CcpTelemetryEnterZone( &key1, zoneName1.c_str(), __FILE__, __LINE__ );
 	TickTelemetry( [this, zoneName1] { return ZoneExists( zoneName1 ); } );
 	EXPECT_TRUE( ZoneExists( zoneName1 ) );
@@ -294,7 +346,10 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	TickTelemetry( [this, zoneName2] { return ZoneExists( zoneName2 ); } );
 	EXPECT_TRUE( ZoneExists( zoneName2 ) );
 	EXPECT_FALSE( ZoneExists( zoneName1 ) ) << "FirstZone should not exist";
-	EXPECT_EQ( 1, m_tracyClient.GetZones().size() );
+
+	const auto zones = m_tracyClient.GetZones();
+	ASSERT_EQ( 1, zones.size() );
+	EXPECT_EQ( static_cast<uint32_t>( CcpColor::SteelBlue ), zones.front().color ) << "Default color for ProfilerCategory TMCM_GENERAL should be CcpColor::SteelBlue";
 	EXPECT_EQ( 2, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
 
@@ -302,7 +357,46 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 	TickTelemetry();
 	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
 	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() );
+	CcpTelemetrySetActiveCategories( {} );
 }
+
+TEST_F( CcpTelemetryTest, TelemetryZoneConstructor )
+{
+	// Test where ProfilerCategory is in the Active list
+	auto [ cppCategory, cppOK ] = CcpTelemetryCategoryRegister( "cpp" );
+	auto [ generalCategory, generalOK ] = CcpTelemetryCategoryRegister( "general" );
+	EXPECT_TRUE( cppOK );
+	EXPECT_TRUE( generalOK );
+	CcpTelemetrySetActiveCategories( { cppCategory, generalCategory } );
+	{
+		TelemetryZone activeZone( TMCM_CPP, "ZoneIsInActiveList", __FILE__, __LINE__, CcpColor::Yellow );
+		TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
+		EXPECT_EQ( 1, m_tracyClient.GetZoneBeginCount() );
+		const auto zones = m_tracyClient.GetZones();
+		ASSERT_EQ( 1, zones.size() );
+		EXPECT_EQ( "ZoneIsInActiveList", zones.front().function );
+		EXPECT_EQ( static_cast<uint32_t>( CcpColor::Yellow ), zones.front().color );
+		EXPECT_EQ( 0, m_tracyClient.GetZoneEndCount() );
+
+		TelemetryZone anotherActiveZone( cppCategory, "New constructor test", __FILE__, __LINE__ );
+	}
+	// Now the activeZone has gone out of scope, so the zone should have ended
+	TickTelemetry( [this] { return m_tracyClient.GetZoneEndCount() == 2; } );
+	EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() );
+	EXPECT_TRUE( m_tracyClient.GetZones().empty() );
+
+	// Test where ProfilerCategory is NOT in the Active list
+	CcpTelemetrySetActiveCategories( {} );
+	{
+		TelemetryZone inactiveZone( TMCM_CPP, "ZoneIsNotInActiveList", __FILE__, __LINE__, CcpColor::Blue );
+		TickTelemetry();
+		EXPECT_EQ( 2, m_tracyClient.GetZoneBeginCount() ) << "Inactive zone must not emit ZoneBegin, count should stay at 1";
+		EXPECT_EQ( 2, m_tracyClient.GetZoneEndCount() ) << "Inactive zone must not emit ZoneEnd, count should stay at 1";
+		EXPECT_TRUE( m_tracyClient.GetZones().empty() );
+	}
+}
+
+CCP_DISABLE_DEPRECATED_END  // Nothing deprecated is used after this point
 
 
 // ---------------------------------------------------------------------------
@@ -323,7 +417,7 @@ TEST_F( CcpTelemetryTest, CcpMutexAnnounceAndTerminate )
 		// The custom name arrives almost immediately, but the source location
 		// resolves through extra server-query round trips; wait for both.
 		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && !lockInfo.source.empty(); } );
-		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+		EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 		EXPECT_FALSE( lockInfo.terminated );
 		// The owner and name passed to CcpMutex arrive combined as the custom lock name.
 		EXPECT_EQ( lockName, lockInfo.name );
@@ -348,7 +442,7 @@ TEST_F( CcpTelemetryTest, CcpMutexAcquireAndRelease )
 	TracyTestClient::LockInfo lockInfo;
 	mutex.Acquire();
 	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.obtainCount == 1; } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+	EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 0, lockInfo.releaseCount );
@@ -433,8 +527,8 @@ TEST_F( CcpTelemetryTest, MultipleCcpMutexesAnnounceDistinctLocks )
 		return TryGetActiveLockNamed( firstLockName, firstLock ) &&
 			TryGetActiveLockNamed( secondLockName, secondLock );
 	} );
-	ASSERT_TRUE( TryGetActiveLockNamed( firstLockName, firstLock ) );
-	ASSERT_TRUE( TryGetActiveLockNamed( secondLockName, secondLock ) );
+	EXPECT_TRUE( TryGetActiveLockNamed( firstLockName, firstLock ) );
+	EXPECT_TRUE( TryGetActiveLockNamed( secondLockName, secondLock ) );
 	EXPECT_NE( firstLock.id, secondLock.id );
 
 	secondMutex.Release();
@@ -455,7 +549,7 @@ TEST_F( CcpTelemetryTest, CcpSpinLockAnnounceAndTerminate )
 		CcpAutoSpinLock autoSpinLock( spinLock );
 
 		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+		EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 		EXPECT_FALSE( lockInfo.terminated );
 		EXPECT_EQ( lockName, lockInfo.name );
 		EXPECT_TRUE( lockInfo.waitingThreads.empty() );
@@ -479,7 +573,7 @@ TEST_F( CcpTelemetryTest, CcpSpinLockAcquireAndRelease )
 
 	spinLock.Acquire();
 	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ); } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
+	EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) );
 	const uint32_t lockId = lockInfo.id;
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
@@ -504,7 +598,7 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreAnnounceAndTerminate )
 
 		std::thread waiter( [&semaphore] { semaphore.Wait(); } );
 		TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.name == lockName; } );
-		ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
+		EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
 		EXPECT_FALSE( lockInfo.terminated );
 		EXPECT_EQ( lockName, lockInfo.name );
 		EXPECT_EQ( 1, lockInfo.waitCount );
@@ -534,8 +628,71 @@ TEST_F( CcpTelemetryTest, CcpSemaphoreTimedWaitTimesOut )
 	// No signal beforehand — TimedWait should time out and report a wait without an obtain.
 	EXPECT_FALSE( semaphore.TimedWait( 10 ) );
 	TickTelemetry( [&] { return TryGetActiveLockNamed( lockName, lockInfo ) && lockInfo.waitCount == 1 && lockInfo.obtainCount == 1; } );
-	ASSERT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
+	EXPECT_TRUE( TryGetActiveLockNamed( lockName, lockInfo ) ) << "lockName: " << lockName << " lockInfo.name: " << lockInfo.name;
 	EXPECT_EQ( 1, lockInfo.waitCount );
 	EXPECT_EQ( 1, lockInfo.obtainCount );
 	EXPECT_EQ( 0, lockInfo.releaseCount );
+}
+
+// ---------------------------------------------------------------------------
+// ProfilerCategory tests:
+// ---------------------------------------------------------------------------
+class CcpTelemetryProfilerCategoryTest : public ::testing::Test
+{
+	public:
+		void TearDown()
+		{
+			// Clear any active Profiler Category to let subsequent tests just work
+			CcpTelemetrySetActiveCategories({});
+			::testing::Test::TearDown();
+		}
+};
+
+TEST_F( CcpTelemetryProfilerCategoryTest, EmptyActiveProfilerCategory )
+{
+	EXPECT_EQ( CcpTelemetryCategories{}, CcpTelemetryGetActiveCategories() );
+}
+
+TEST_F( CcpTelemetryTest, ProfilerCategoryRegisterRejectEmpty )
+{
+	EXPECT_FALSE( CcpTelemetryCategoryRegister( "" ).second );
+}
+
+TEST_F( CcpTelemetryProfilerCategoryTest, RegistrationReturnsExisting )
+{
+	auto ret = CcpTelemetryCategoryRegister( { "general" } );
+	auto& keepAlive = ret.first;
+	EXPECT_TRUE( ret.second );
+	EXPECT_EQ( CcpTelemetryCategoryGetName( keepAlive ), "general" );
+}
+
+TEST_F( CcpTelemetryProfilerCategoryTest, SetEmptyProfilerCategoriesClearsCategory )
+{
+	auto [cpp, ok] = CcpTelemetryCategoryRegister( "cpp" );
+	EXPECT_TRUE( ok );
+	EXPECT_TRUE( CcpTelemetrySetActiveCategories( {cpp} ) );
+	EXPECT_NE( CcpTelemetryCategories{}, CcpTelemetryGetActiveCategories() );
+	EXPECT_TRUE( CcpTelemetrySetActiveCategories( {} ) );
+	EXPECT_EQ( CcpTelemetryCategories{}, CcpTelemetryGetActiveCategories() );
+}
+
+TEST_F( CcpTelemetryProfilerCategoryTest, SetProfilerCategoryRejectsTooManyCategories )
+{
+	auto [cat, ok] = CcpTelemetryCategoryRegister( "cpp" );
+	EXPECT_TRUE( ok );
+	CcpTelemetryCategories cats;
+	for ( int i = 0; i < 10000; ++i )
+	{
+		cats.emplace_back( cat );
+	}
+	EXPECT_FALSE( CcpTelemetrySetActiveCategories( cats ) ) << "Should have failed because more than the allowed number of categories was requested";
+}
+
+TEST_F( CcpTelemetryProfilerCategoryTest, ProfilerCategoryDefaultsAreRegistered )
+{
+	CcpTelemetryCategories::const_iterator unused;
+	// The default ProfilerCategories must be available from the start.
+	EXPECT_TRUE( TryGetProfilerCategoryNamed( "core", unused ) );
+	EXPECT_TRUE( TryGetProfilerCategoryNamed( "general", unused ) );
+	EXPECT_TRUE( TryGetProfilerCategoryNamed( "cpp", unused ) );
 }

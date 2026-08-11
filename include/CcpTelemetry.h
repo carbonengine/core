@@ -4,7 +4,10 @@
 #ifndef CcpTelemetry_h
 #define CcpTelemetry_h
 
+#include <chrono>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "CcpColorConstants.h"
 #include "CcpThread.h"
@@ -34,6 +37,19 @@
 #endif // CCP_TELEMETRY_ENABLED
 
 CARBON_CORE_API void CcpRegisterThread( CcpThreadId_t threadId, const char* name );
+
+struct CcpTelemetryCategory;
+using CcpTelemetryCategories = std::vector<std::reference_wrapper<const CcpTelemetryCategory>>;
+CARBON_CORE_API bool operator==( const CcpTelemetryCategory& lhs, const CcpTelemetryCategory& rhs );
+CARBON_CORE_API const std::string& CcpTelemetryCategoryGetName( const CcpTelemetryCategory& category );
+CARBON_CORE_API CcpColor CcpTelemetryCategoryGetColor( const CcpTelemetryCategory& category );
+
+CARBON_CORE_API std::pair<const CcpTelemetryCategory&, bool> CcpTelemetryCategoryRegister( const std::string& name, CcpColor color = CcpColor::SteelBlue );
+CARBON_CORE_API CcpTelemetryCategories CcpTelemetryGetRegisteredCategories();
+
+CARBON_CORE_API bool CcpTelemetrySetActiveCategories( const CcpTelemetryCategories& categories );
+CARBON_CORE_API CcpTelemetryCategories CcpTelemetryGetActiveCategories();
+
 
 struct CcpTelemetryConfig
 {
@@ -76,8 +92,13 @@ class TelemetryZone
 {
 public:
 	TelemetryZone() = delete;
-	CARBON_CORE_API TelemetryZone( uint32_t ctx, const char* name, const char* filename, uint32_t lineno, CcpColor color = CcpColor::SteelBlue );
+
+	[[deprecated("Use the `TelemetryZone( const CcpTelemetryCategory&, const char*, const char*, uint32_t, CcpColor )` constructor instead.")]]
+	CARBON_CORE_API TelemetryZone( uint32_t handle, const char* name, const char* filename, uint32_t lineno, CcpColor color = CcpColor::SteelBlue );
+
+	CARBON_CORE_API TelemetryZone( const CcpTelemetryCategory& category, const char* name, const char* filename, uint32_t lineno );
 	CARBON_CORE_API ~TelemetryZone();
+
 	TelemetryZone( TelemetryZone&& other ) noexcept;
 	TelemetryZone( const TelemetryZone& ) = delete;
 	TelemetryZone& operator=( TelemetryZone&& ) = delete;
@@ -90,8 +111,11 @@ private:
 	std::unique_ptr<Private> m_impl;
 };
 
+[[deprecated("Use a `TelemetryZone` instead.")]]
 CARBON_CORE_API void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, uint32_t lineno );
+[[deprecated("Use a `TelemetryZone` instead.")]]
 CARBON_CORE_API void CcpTelemetryLeaveZone( void* key );
+[[deprecated("Use a `TelemetryZone` instead.")]]
 CARBON_CORE_API void CcpTelemetryZoneAddText( void* key, const char* text );
 
 void CcpTelemetryTrackAllocation( void*, size_t );

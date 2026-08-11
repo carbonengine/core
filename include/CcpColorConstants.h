@@ -1,5 +1,13 @@
+// Copyright © 2026 CCP ehf.
+
+#pragma once
 #ifndef CCP_COLOR_CONSTANTS_H
 #define CCP_COLOR_CONSTANTS_H
+
+#include <cstdint>
+#include <string_view>
+
+#include "carbon_core_export.h"
 
 // Useful RGB color constants
 // Initially based on the <named-color> type of CSS standard, see https://www.w3.org/TR/css-color-4/#named-colors.
@@ -154,5 +162,7 @@ enum class CcpColor : uint32_t
 	Yellow = 0xffff00,
 	YellowGreen = 0x9acd32,
 };
+
+CARBON_CORE_API std::string_view CcpColorToString( CcpColor color );
 
 #endif
