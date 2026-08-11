@@ -152,7 +152,7 @@ class CarbonBuildMacOS(buildName: String, configType: String, preset: String, ag
                 authType = token {
                     token = "%GITHUB_CARBON_PAT%"
                 }
-                filterAuthorRole = PullRequests.GitHubRoleFilter.MEMBER
+                filterAuthorRole = PullRequests.GitHubRoleFilter.EVERYBODY
             }
         }
         commitStatusPublisher {
@@ -187,5 +187,3 @@ class CarbonBuildMacOS(buildName: String, configType: String, preset: String, ag
         startsWith("teamcity.agent.jvm.os.arch", agentArchitecture)
     }
 })
-
-
