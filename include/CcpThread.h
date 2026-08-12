@@ -9,7 +9,7 @@
 #include <type_traits>
 #include <exception>
 #include <algorithm>
-#include "CCPMemory.h"
+#include "CcpMemory.h"
 
 #if _WIN32
 	#include <windows.h>

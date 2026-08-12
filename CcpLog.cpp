@@ -1,6 +1,6 @@
 // Copyright © 2008 CCP ehf.
 
-#include "CCPLog.h"
+#include "CcpLog.h"
 
 #include <cassert>
 #include <thread>

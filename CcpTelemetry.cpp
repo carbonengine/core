@@ -7,7 +7,7 @@
 #include <optional>
 #include <queue>
 
-#include "include/CCPAssert.h"
+#include "include/CcpAssert.h"
 #include "include/CcpMutex.h"
 #include "include/CcpTelemetry.h"
 #include "include/CcpTime.h"

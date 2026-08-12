@@ -4,7 +4,7 @@
 #ifndef CachedAllocator_h
 #define CachedAllocator_h
 
-#include "CCPMemory.h"
+#include "CcpMemory.h"
 
 // CachedAllocator is a template class that provides cached allocations for its template argument.
 //
@@ -37,7 +37,7 @@
 // Once those 1024 are used up (and whenever there are no instances available to be reused), memory for 256
 // further instances is allocated.
 
-#include "CCPAssert.h"
+#include "CcpAssert.h"
 
 template <class T>
 class CachedAllocator

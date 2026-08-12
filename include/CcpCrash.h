@@ -3,7 +3,7 @@
 #ifndef _CCPCRASH_H
 #define _CCPCRASH_H
 
-#include <CCPLog.h>
+#include <CcpLog.h>
 
 #if _MSC_VER
 #define NOINLINE __declspec(noinline)

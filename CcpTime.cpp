@@ -1,7 +1,7 @@
 // Copyright © 2013 CCP ehf.
 
 #include "include/CcpTime.h"
-#include "include/CCPAssert.h"
+#include "include/CcpAssert.h"
 #include <cfloat>
 #include <cmath>
 
