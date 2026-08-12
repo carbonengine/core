@@ -54,6 +54,7 @@ CARBON_CORE_API std::wstring CcpExecutablePath();
 CARBON_CORE_API int CcpOpenFile( const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMode );
 CARBON_CORE_API int CcpCreateFile( const wchar_t* filename, CcpShareMode shareMode );
 CARBON_CORE_API void CcpCloseFile( int fd );
+CARBON_CORE_API bool CcpTruncateFile( const std::wstring& filename );
 CARBON_CORE_API ssize_t CcpReadFromFile( int fd, void* buf, size_t numBytes );
 CARBON_CORE_API ssize_t CcpWriteToFile( int fd, const void* buf, size_t numBytes );
 CARBON_CORE_API off_t CcpLseek( int fd, off_t offset, int whence );
