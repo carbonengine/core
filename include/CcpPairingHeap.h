@@ -284,7 +284,7 @@ void PairingHeap<T>::decrease_key(nodeptr_t node)
 template <class T>
 T &PairingHeap<T>::find_min() const
 {
-	_ASSERTE(!is_empty());
+	CCP_ASSERT(!is_empty());
 	return *root;
 }
 
@@ -340,7 +340,7 @@ void PairingHeap<T>::get_stats(int &nNodes, int &maxDepth, float &avgDepth)
 		RecStats(root, 0, 0, maxDepth, nNodes, avgDepth);
 	if (nNodes)
 		avgDepth /= nNodes;
-	_ASSERTE(nNodes == nElements);
+	CCP_ASSERT(nNodes == nElements);
 }
 
 
@@ -412,9 +412,9 @@ void PairingHeap<T>::Delete(nodeptr_t node)
 template<class T>
 void PairingHeap<T>::RecStats(nodeptr_t node, nodeptr_t parent, int depth, int &maxDepth, int &nFound, float &weighedDepth)
 {
-	_ASSERTE(node);
+	CCP_ASSERT(node);
 	if (parent)
-		_ASSERTE(! (node->item < parent->item));  //ensure the heap rule
+		CCP_ASSERT(! (node->item < parent->item));  //ensure the heap rule
 	nFound ++;
 	weighedDepth += depth;
 	if (depth > maxDepth)
