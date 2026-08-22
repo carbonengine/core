@@ -4,10 +4,15 @@
 #ifndef CcpSecureCrt_h
 #define CcpSecureCrt_h
 
+#include <cstdarg>
+#include <cstddef>
+#include <cstdio>
+#include <cstring>
+#include <ctime>
+#include <cwchar>
+
 #ifndef _MSC_VER
 
-#include <cstdarg>
-#include <ctime>
 #include <algorithm>
 
 #include "carbon_core_export.h"

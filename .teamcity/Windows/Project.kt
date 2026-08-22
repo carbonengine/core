@@ -30,6 +30,8 @@ val Internal_v145 = CarbonBuildWindows("Internal Windows v145", "Internal", "x64
 val TrinityDev_v145 = CarbonBuildWindows("TrinityDev Windows v145", "TrinityDev", "x64-windows-v145-trinitydev", "-arch=x64 -vcvars_ver=14.51")
 val Release_v145 = CarbonBuildWindows("Release Windows v145", "Release", "x64-windows-v145-release", "-arch=x64 -vcvars_ver=14.51")
 
+val NoPch = CarbonBuildWindows("No PCH Windows", "Debug", "x64-windows-debug", enablePch = false)
+
 object Project : Project({
     id("Windows")
     name = "Windows"
@@ -43,14 +45,17 @@ object Project : Project({
     buildType(Internal_v145)
     buildType(TrinityDev_v145)
     buildType(Release_v145)
+
+    buildType(NoPch)
 })
 
-
-class CarbonBuildWindows(buildName: String, configType: String, preset: String, vsDevBatSwitches: String = "-arch=x64 -vcvars_ver=14.1") : BuildType({
+class CarbonBuildWindows(buildName: String, configType: String, preset: String, vsDevBatSwitches: String = "-arch=x64 -vcvars_ver=14.1", enablePch: Boolean = true) : BuildType({
     id(buildName.toId())
     this.name = buildName
 
-    artifactRules = "%env.CMAKE_INSTALL_PREFIX%"
+    if (enablePch) {
+        artifactRules = "%env.CMAKE_INSTALL_PREFIX%"
+    }
 
     params {
         param("env.GIT_TAG_HASH_OVERRIDE", "")
@@ -108,94 +113,96 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String, 
         exec {
             name = "Configure"
             path = "cmake"
-            arguments = "--preset %env.CMAKE_PRESET% -S %teamcity.build.checkoutDir%/%github_checkout_folder% -B %env.CMAKE_BUILD_FOLDER% -DINSTALL_TO_MONOLITH=ON -DCMAKE_INSTALL_PREFIX=%env.CMAKE_INSTALL_PREFIX% -DVCPKG_INSTALL_OPTIONS=--x-buildtrees-root=%teamcity.build.checkoutDir%/%github_checkout_folder%/buildtrees"
+            arguments = "--preset %env.CMAKE_PRESET% -S %teamcity.build.checkoutDir%/%github_checkout_folder% -B %env.CMAKE_BUILD_FOLDER% -DINSTALL_TO_MONOLITH=ON -DCMAKE_INSTALL_PREFIX=%env.CMAKE_INSTALL_PREFIX% -DCCP_ENABLE_PCH=${if (enablePch) "ON" else "OFF"} -DVCPKG_INSTALL_OPTIONS=--x-buildtrees-root=%teamcity.build.checkoutDir%/%github_checkout_folder%/buildtrees"
         }
         exec {
             name = "Build"
             path = "cmake"
             arguments = "--build %env.CMAKE_BUILD_FOLDER% --config %env.CMAKE_CONFIG_TYPE% --target %env.CMAKE_BUILD_TARGETS%"
         }
-        exec {
-            name = "Run Tests"
-            workingDir = "%env.CMAKE_BUILD_FOLDER%"
-            path = "ctest"
-            arguments = "-C %env.CMAKE_CONFIG_TYPE% -V --output-on-failure --output-junit %env.CTEST_JUNIT_OUTPUT_FILE%"
-        }
-        exec {
-            name = "Package artifact"
-            path = "cmake"
-            arguments = "--install %env.CMAKE_BUILD_FOLDER% --config %env.CMAKE_CONFIG_TYPE%"
-        }
-        exec {
-            name = "Upload symbols to sentry"
-            path = "sentry-cli"
-            arguments = "upload-dif --wait %env.CMAKE_BUILD_FOLDER%"
-            param("script.content", """
-                #!/usr/bin/env bash -eu
-                filesWithSymbols = (
-                  # insert your binary files with symbols here!
-                )
-            """.trimIndent())
-        }
-        script {
-            name = "(Windows) CMD Upload debug symbols to internal symbol server"
-            scriptContent = """
-                @echo off
-                (
-                echo ${'$'}User = "%DOMAIN_USER%"
-                echo ${'$'}Password = ConvertTo-SecureString -String "%DOMAIN_USER_PASSWORD%" -AsPlainText -Force
-                echo ${'$'}Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ${'$'}User, ${'$'}Password
-                echo New-PSDrive -Name "symbols" -PSProvider FileSystem -Root ${'$'}Env:TC_SYMBOL_STORE_PATH -Credential ${'$'}Credential
-                echo Write-Host "##teamcity[progressMessage 'Storing symbols']"
-                echo ${'$'}symstoreFlags = ^@^("add","/compress","/t", "CCP Games", "/c", "TeamCity %build.number%", "/s", "${'$'}Env:TC_SYMBOL_STORE_PATH", "/o", "/r",  "/f", "%env.CMAKE_BUILD_FOLDER%"^) 
-                echo ^& ${'$'}Env:TC_SYMSTORE_PATH ${'$'}symstoreFlags ^| Tee-Object -file symstore.txt
-                echo ${'$'}stored = get-content symstore.txt ^| Select-String "^SYMSTORE: Number of files stored = (.*)${'$'}"
-                echo ${'$'}stored = ${'$'}stored.Matches.Groups[1].Value
-                echo ${'$'}errors = get-content symstore.txt ^| Select-String "^SYMSTORE: Number of errors = (.*)${'$'}"
-                echo ${'$'}errors = ${'$'}errors.Matches.Groups[1].Value
-                echo ${'$'}ignored = get-content symstore.txt ^| Select-String "^SYMSTORE: Number of files ignored = (.*)${'$'}"
-                echo ${'$'}ignored = ${'$'}ignored.Matches.Groups[1].Value
-                echo Write-Host "##teamcity[buildStatus text='Stored: ${'$'}stored, Errors: ${'$'}errors, Ignored: ${'$'}ignored']"
-                ) > file.ps1
-                powershell -File file.ps1
-            """.trimIndent()
-        }
-        powerShell {
-            name = "(Windows) Upload debug symbols to internal symbol server"
-            enabled = false
-
-            conditions {
-                startsWith("teamcity.agent.jvm.os.name", "Windows")
+        if (enablePch) {
+            exec {
+                name = "Run Tests"
+                workingDir = "%env.CMAKE_BUILD_FOLDER%"
+                path = "ctest"
+                arguments = "-C %env.CMAKE_CONFIG_TYPE% -V --output-on-failure --output-junit %env.CTEST_JUNIT_OUTPUT_FILE%"
             }
-            scriptMode = script {
-                content = """
-                    ${'$'}User = "%DOMAIN_USER%"
-                    ${'$'}Password = ConvertTo-SecureString -String "%DOMAIN_USER_PASSWORD%" -AsPlainText -Force
-                    ${'$'}Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ${'$'}User, ${'$'}Password
-                    New-PSDrive -Name "symbols" -PSProvider FileSystem -Root ${'$'}Env:TC_SYMBOL_STORE_PATH -Credential ${'$'}Credential
-                    
-                    Write-Host "##teamcity[progressMessage 'Storing symbols']"
-                    ${'$'}symstoreFlags = @("add",
-                                     "/compress",
-                                     "/t", "CCP Games", # Product Name
-                                     "/c", "TeamCity %build.number%", #Comment
-                                     "/s", "${'$'}Env:TC_SYMBOL_STORE_PATH", # Store destination
-                                     "/o", # Verbose
-                                     "/r", # Recursive
-                                     "/f", "%env.CMAKE_BUILD_FOLDER%") # source folder
-                    & ${'$'}Env:TC_SYMSTORE_PATH ${'$'}symstoreFlags | Tee-Object -file symstore.txt
-                    
-                    ${'$'}stored = get-content symstore.txt | Select-String "^SYMSTORE: Number of files stored = (.*)${'$'}"
-                    ${'$'}stored = ${'$'}stored.Matches.Groups[1].Value
-                    
-                    ${'$'}errors = get-content symstore.txt | Select-String "^SYMSTORE: Number of errors = (.*)${'$'}"
-                    ${'$'}errors = ${'$'}errors.Matches.Groups[1].Value
-                    
-                    ${'$'}ignored = get-content symstore.txt | Select-String "^SYMSTORE: Number of files ignored = (.*)${'$'}"
-                    ${'$'}ignored = ${'$'}ignored.Matches.Groups[1].Value
-                    
-                    Write-Host "##teamcity[buildStatus text='Stored: ${'$'}stored, Errors: ${'$'}errors, Ignored: ${'$'}ignored']"
+            exec {
+                name = "Package artifact"
+                path = "cmake"
+                arguments = "--install %env.CMAKE_BUILD_FOLDER% --config %env.CMAKE_CONFIG_TYPE%"
+            }
+            exec {
+                name = "Upload symbols to sentry"
+                path = "sentry-cli"
+                arguments = "upload-dif --wait %env.CMAKE_BUILD_FOLDER%"
+                param("script.content", """
+                    #!/usr/bin/env bash -eu
+                    filesWithSymbols = (
+                      # insert your binary files with symbols here!
+                    )
+                """.trimIndent())
+            }
+            script {
+                name = "(Windows) CMD Upload debug symbols to internal symbol server"
+                scriptContent = """
+                    @echo off
+                    (
+                    echo ${'$'}User = "%DOMAIN_USER%"
+                    echo ${'$'}Password = ConvertTo-SecureString -String "%DOMAIN_USER_PASSWORD%" -AsPlainText -Force
+                    echo ${'$'}Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ${'$'}User, ${'$'}Password
+                    echo New-PSDrive -Name "symbols" -PSProvider FileSystem -Root ${'$'}Env:TC_SYMBOL_STORE_PATH -Credential ${'$'}Credential
+                    echo Write-Host "##teamcity[progressMessage 'Storing symbols']"
+                    echo ${'$'}symstoreFlags = ^@^("add","/compress","/t", "CCP Games", "/c", "TeamCity %build.number%", "/s", "${'$'}Env:TC_SYMBOL_STORE_PATH", "/o", "/r",  "/f", "%env.CMAKE_BUILD_FOLDER%"^)
+                    echo ^& ${'$'}Env:TC_SYMSTORE_PATH ${'$'}symstoreFlags ^| Tee-Object -file symstore.txt
+                    echo ${'$'}stored = get-content symstore.txt ^| Select-String "^SYMSTORE: Number of files stored = (.*)${'$'}"
+                    echo ${'$'}stored = ${'$'}stored.Matches.Groups[1].Value
+                    echo ${'$'}errors = get-content symstore.txt ^| Select-String "^SYMSTORE: Number of errors = (.*)${'$'}"
+                    echo ${'$'}errors = ${'$'}errors.Matches.Groups[1].Value
+                    echo ${'$'}ignored = get-content symstore.txt ^| Select-String "^SYMSTORE: Number of files ignored = (.*)${'$'}"
+                    echo ${'$'}ignored = ${'$'}ignored.Matches.Groups[1].Value
+                    echo Write-Host "##teamcity[buildStatus text='Stored: ${'$'}stored, Errors: ${'$'}errors, Ignored: ${'$'}ignored']"
+                    ) > file.ps1
+                    powershell -File file.ps1
                 """.trimIndent()
+            }
+            powerShell {
+                name = "(Windows) Upload debug symbols to internal symbol server"
+                enabled = false
+
+                conditions {
+                    startsWith("teamcity.agent.jvm.os.name", "Windows")
+                }
+                scriptMode = script {
+                    content = """
+                        ${'$'}User = "%DOMAIN_USER%"
+                        ${'$'}Password = ConvertTo-SecureString -String "%DOMAIN_USER_PASSWORD%" -AsPlainText -Force
+                        ${'$'}Credential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList ${'$'}User, ${'$'}Password
+                        New-PSDrive -Name "symbols" -PSProvider FileSystem -Root ${'$'}Env:TC_SYMBOL_STORE_PATH -Credential ${'$'}Credential
+
+                        Write-Host "##teamcity[progressMessage 'Storing symbols']"
+                        ${'$'}symstoreFlags = @("add",
+                                         "/compress",
+                                         "/t", "CCP Games", # Product Name
+                                         "/c", "TeamCity %build.number%", #Comment
+                                         "/s", "${'$'}Env:TC_SYMBOL_STORE_PATH", # Store destination
+                                         "/o", # Verbose
+                                         "/r", # Recursive
+                                         "/f", "%env.CMAKE_BUILD_FOLDER%") # source folder
+                        & ${'$'}Env:TC_SYMSTORE_PATH ${'$'}symstoreFlags | Tee-Object -file symstore.txt
+
+                        ${'$'}stored = get-content symstore.txt | Select-String "^SYMSTORE: Number of files stored = (.*)${'$'}"
+                        ${'$'}stored = ${'$'}stored.Matches.Groups[1].Value
+
+                        ${'$'}errors = get-content symstore.txt | Select-String "^SYMSTORE: Number of errors = (.*)${'$'}"
+                        ${'$'}errors = ${'$'}errors.Matches.Groups[1].Value
+
+                        ${'$'}ignored = get-content symstore.txt | Select-String "^SYMSTORE: Number of files ignored = (.*)${'$'}"
+                        ${'$'}ignored = ${'$'}ignored.Matches.Groups[1].Value
+
+                        Write-Host "##teamcity[buildStatus text='Stored: ${'$'}stored, Errors: ${'$'}errors, Ignored: ${'$'}ignored']"
+                    """.trimIndent()
+                }
             }
         }
     }
@@ -228,10 +235,12 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String, 
                 }
             }
         }
-        xmlReport {
-            reportType = XmlReport.XmlReportType.JUNIT
-            rules = "+:%env.CMAKE_BUILD_FOLDER%/%env.CTEST_JUNIT_OUTPUT_FILE%"
-            verbose = true
+        if (enablePch) {
+            xmlReport {
+                reportType = XmlReport.XmlReportType.JUNIT
+                rules = "+:%env.CMAKE_BUILD_FOLDER%/%env.CTEST_JUNIT_OUTPUT_FILE%"
+                verbose = true
+            }
         }
         perfmon {
         }

@@ -1,5 +1,6 @@
 // Copyright © 2013 CCP ehf.
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cctype>
@@ -9,6 +10,7 @@
 
 #include "include/CcpAssert.h"
 #include "include/CcpMutex.h"
+#include "include/CcpLog.h"
 #include "include/CcpTelemetry.h"
 #include "include/CcpTime.h"
 

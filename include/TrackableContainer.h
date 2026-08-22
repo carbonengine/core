@@ -5,11 +5,10 @@
 #ifndef TRACKABLECONTAINER_H
 #define TRACKABLECONTAINER_H
 
+#include <memory>
+
 #include "CcpMemory.h"
 #include "CcpSecureCrt.h"
-#ifdef _MSC_VER
-	#include <xmemory>
-#endif
 
 template<class T>
 class NamedStdAllocator : public std::allocator<T> {

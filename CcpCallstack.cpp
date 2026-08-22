@@ -2,6 +2,8 @@
 
 #include "include/CcpCallstack.h"
 
+#include <cstring>
+
 namespace
 {
     
@@ -25,6 +27,8 @@ NB: VS2017 warns about the use of an ill-formed typedef in the <dbghelp.h> file,
     but that's how it ships inside "Windows Kits\8.1" so guess we're stuck with it. 
 	We can, at least, mute the warning...
 */
+#include <windows.h>
+
 #pragma warning(push)
 #pragma warning(disable:4091)
 #include <dbghelp.h>

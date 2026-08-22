@@ -27,6 +27,8 @@ CARBON_CORE_API bool IsCallstackCaptureEnabled();
 CARBON_CORE_API void MemoryTrackerSummaryReportToFile( FILE* file );
 
 #ifdef _WIN32
+#include <windows.h>
+
 CARBON_CORE_API size_t GetHeapSizeWithHeapWalk( HANDLE heap );
 CARBON_CORE_API HANDLE MemoryTrackerGetHeapForTracking();
 #endif

@@ -21,6 +21,7 @@
 		_mm_pause();
 	}
 #elif __APPLE__
+	#include <mach/port.h>
 	#include <pthread.h>
 	#include <sched.h>
     typedef mach_port_t CcpThreadId_t;

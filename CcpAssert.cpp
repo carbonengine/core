@@ -4,6 +4,7 @@
 #include "include/CcpSecureCrt.h"
 
 #ifdef _WIN32
+	#include <windows.h>
 	#include <winuser.h>
 #endif
 

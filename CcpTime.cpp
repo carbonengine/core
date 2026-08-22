@@ -3,6 +3,7 @@
 #include "include/CcpTime.h"
 #include "include/CcpAssert.h"
 #include <cfloat>
+#include <climits>
 #include <cmath>
 
 #ifdef _WIN32
@@ -112,6 +113,7 @@ uint64_t CcpGetTickCount()
 
 #else
 
+#include <sys/time.h>
 #include <time.h>
 
 uint64_t CcpGetTimestamp()

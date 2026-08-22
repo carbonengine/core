@@ -5,6 +5,7 @@
 #include "include/CcpAssert.h"
 #include "include/CcpSecureCrt.h"
 #include "include/CcpTelemetry.h"
+#include "include/CcpLog.h"
 #include "CcpMemoryTrackerMutex.h"
 
 #ifdef __APPLE__
@@ -321,6 +322,8 @@ static inline void CcpPlatformFree( void* p )
 }
 
 #else
+
+#include <atomic>
 
 std::atomic<size_t> s_memuse( 0 );
 

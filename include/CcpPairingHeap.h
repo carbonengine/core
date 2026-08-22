@@ -31,6 +31,8 @@
 
 #include <vector>
 
+#include "CcpAssert.h"
+
 
 //Declarations
 
