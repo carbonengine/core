@@ -6,6 +6,7 @@
 #include "include/CcpMemory.h"
 #include "include/CcpMutex.h"
 
+#include <algorithm>
 #include <map>
 
 // #define CCP_UNIT_TEST 1
@@ -15,6 +16,7 @@
 #include "include/CcpHash.h"
 #include "include/CcpCallstack.h"
 #include "include/CcpSecureCrt.h"
+#include "include/CcpLog.h"
 
 #ifdef _WIN32
 	#include <Psapi.h>

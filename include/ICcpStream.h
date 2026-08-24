@@ -4,6 +4,7 @@
 #ifndef ICcpStream_H
 #define ICcpStream_H
 
+#include <cstddef>
 
 struct ICcpStream
 {

@@ -91,7 +91,46 @@ set(PUBLIC_HEADER_FILES
 )
 target_sources(CcpCore PRIVATE ${PUBLIC_HEADER_FILES})
 
-target_precompile_headers(CcpCore PRIVATE StdAfx.h)
+# The precompiled header is a build-speed optimisation, not a way to hand
+# declarations to every translation unit. Building with -DCCP_ENABLE_PCH=OFF
+# proves that each source and header still works without PCH.
+option(CCP_ENABLE_PCH "Use a precompiled header to speed up compilation." ON)
+
+if(CCP_ENABLE_PCH)
+    target_precompile_headers(CcpCore PRIVATE StdAfx.h)
+endif()
+
+# Every public header must compile on its own, without the PCH and without any
+# other header having been included first. Consumers of the installed package get
+# no PCH, so a header that only compiles behind one is already broken for them.
+#
+# Each header gets a generated translation unit that includes it twice, to also
+# ensure "#pragma once" is applied correctly.
+option(CCP_BUILD_HEADER_SELFTEST "Verify that every public header is self-contained." ON)
+
+if(CCP_BUILD_HEADER_SELFTEST)
+    set(HEADER_SELFTEST_SOURCES "")
+    foreach(_header IN LISTS PUBLIC_HEADER_FILES)
+        get_filename_component(_header_abs "${_header}" ABSOLUTE)
+        get_filename_component(_header_name "${_header}" NAME_WE)
+        set(_selftest_source "${CMAKE_CURRENT_BINARY_DIR}/header_selftest/${_header_name}_selftest.cpp")
+        file(GENERATE
+                OUTPUT "${_selftest_source}"
+                CONTENT "#include \"${_header_abs}\"\n#include \"${_header_abs}\"\n"
+        )
+        list(APPEND HEADER_SELFTEST_SOURCES "${_selftest_source}")
+    endforeach()
+
+    add_library(CcpCoreHeaderSelftest OBJECT ${HEADER_SELFTEST_SOURCES})
+    target_include_directories(CcpCoreHeaderSelftest PRIVATE
+            $<TARGET_PROPERTY:CcpCore,INTERFACE_INCLUDE_DIRECTORIES>
+            ${CMAKE_CURRENT_BINARY_DIR}
+    )
+    target_compile_definitions(CcpCoreHeaderSelftest PRIVATE
+            $<TARGET_PROPERTY:CcpCore,INTERFACE_COMPILE_DEFINITIONS>
+    )
+    set_target_properties(CcpCoreHeaderSelftest PROPERTIES DISABLE_PRECOMPILE_HEADERS ON)
+endif()
 
 if(APPLE)
     set_prefix_and_suffix(CcpCore)

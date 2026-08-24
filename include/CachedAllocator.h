@@ -4,6 +4,8 @@
 #ifndef CachedAllocator_h
 #define CachedAllocator_h
 
+#include <cstdint>
+
 #include "CcpMemory.h"
 
 // CachedAllocator is a template class that provides cached allocations for its template argument.

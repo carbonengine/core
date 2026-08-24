@@ -3,6 +3,7 @@
 #include "CcpLog.h"
 
 #include <cassert>
+#include <cstring>
 #include <thread>
 #include <vector>
 

@@ -30,6 +30,8 @@ val x64_Internal = CarbonBuildMacOS("Internal MacOS x64", "Internal", "x64-osx-i
 val x64_TrinityDev = CarbonBuildMacOS("TrinityDev MacOS x64", "TrinityDev", "x64-osx-trinitydev", "x86_64")
 val x64_Release = CarbonBuildMacOS("Release MacOS x64", "Release", "x64-osx-release", "x86_64")
 
+val arm64_NoPch = CarbonBuildMacOS("No PCH MacOS arm64", "Debug", "arm64-osx-debug", "aarch64", enablePch = false)
+
 object Project : Project({
     id("MacOS")
     name = "macOS"
@@ -45,13 +47,17 @@ object Project : Project({
     buildType(x64_Internal)
     buildType(x64_TrinityDev)
     buildType(x64_Release)
+
+    buildType(arm64_NoPch)
 })
 
-class CarbonBuildMacOS(buildName: String, configType: String, preset: String, agentArchitecture: String) : BuildType({
+class CarbonBuildMacOS(buildName: String, configType: String, preset: String, agentArchitecture: String, enablePch: Boolean = true) : BuildType({
     id(buildName.toId())
     name = buildName
 
-    artifactRules = "%env.CMAKE_INSTALL_PREFIX%"
+    if (enablePch) {
+        artifactRules = "%env.CMAKE_INSTALL_PREFIX%"
+    }
 
     params {
         param("env.SENTRY_CLI_DEBUG_SYMBOL_TYPE", "dsym")
@@ -104,34 +110,36 @@ class CarbonBuildMacOS(buildName: String, configType: String, preset: String, ag
         exec {
             name = "Configure"
             path = "cmake"
-            arguments = "--preset %env.CMAKE_PRESET% -S %teamcity.build.checkoutDir%/%github_checkout_folder% -B %env.CMAKE_BUILD_FOLDER% -DINSTALL_TO_MONOLITH=ON -DCMAKE_INSTALL_PREFIX=%env.CMAKE_INSTALL_PREFIX% -DVCPKG_INSTALL_OPTIONS=--x-buildtrees-root=%teamcity.build.checkoutDir%/%github_checkout_folder%/buildtrees"
+            arguments = "--preset %env.CMAKE_PRESET% -S %teamcity.build.checkoutDir%/%github_checkout_folder% -B %env.CMAKE_BUILD_FOLDER% -DINSTALL_TO_MONOLITH=ON -DCMAKE_INSTALL_PREFIX=%env.CMAKE_INSTALL_PREFIX% -DCCP_ENABLE_PCH=${if (enablePch) "ON" else "OFF"} -DVCPKG_INSTALL_OPTIONS=--x-buildtrees-root=%teamcity.build.checkoutDir%/%github_checkout_folder%/buildtrees"
         }
         exec {
             name = "Build"
             path = "cmake"
             arguments = "--build %env.CMAKE_BUILD_FOLDER% --config %env.CMAKE_CONFIG_TYPE% --target %env.CMAKE_BUILD_TARGETS%"
         }
-        exec {
-            name = "Run Tests"
-            workingDir = "%env.CMAKE_BUILD_FOLDER%"
-            path = "ctest"
-            arguments = "-C %env.CMAKE_CONFIG_TYPE% -V --output-on-failure --output-junit %env.CTEST_JUNIT_OUTPUT_FILE%"
-        }
-        exec {
-            name = "Package artifact"
-            path = "cmake"
-            arguments = "--install %env.CMAKE_BUILD_FOLDER% --config %env.CMAKE_CONFIG_TYPE%"
-        }
-        exec {
-            name = "Upload symbols to sentry"
-            path = "sentry-cli"
-            arguments = "upload-dif --wait %env.CMAKE_BUILD_FOLDER%"
-            param("script.content", """
-                #!/usr/bin/env bash -eu
-                filesWithSymbols = (
-                  # insert your binary files with symbols here!
-                )
-            """.trimIndent())
+        if (enablePch) {
+            exec {
+                name = "Run Tests"
+                workingDir = "%env.CMAKE_BUILD_FOLDER%"
+                path = "ctest"
+                arguments = "-C %env.CMAKE_CONFIG_TYPE% -V --output-on-failure --output-junit %env.CTEST_JUNIT_OUTPUT_FILE%"
+            }
+            exec {
+                name = "Package artifact"
+                path = "cmake"
+                arguments = "--install %env.CMAKE_BUILD_FOLDER% --config %env.CMAKE_CONFIG_TYPE%"
+            }
+            exec {
+                name = "Upload symbols to sentry"
+                path = "sentry-cli"
+                arguments = "upload-dif --wait %env.CMAKE_BUILD_FOLDER%"
+                param("script.content", """
+                    #!/usr/bin/env bash -eu
+                    filesWithSymbols = (
+                      # insert your binary files with symbols here!
+                    )
+                """.trimIndent())
+            }
         }
     }
 
@@ -163,10 +171,12 @@ class CarbonBuildMacOS(buildName: String, configType: String, preset: String, ag
                 }
             }
         }
-        xmlReport {
-            reportType = XmlReport.XmlReportType.JUNIT
-            rules = "+:%env.CMAKE_BUILD_FOLDER%/%env.CTEST_JUNIT_OUTPUT_FILE%"
-            verbose = true
+        if (enablePch) {
+            xmlReport {
+                reportType = XmlReport.XmlReportType.JUNIT
+                rules = "+:%env.CMAKE_BUILD_FOLDER%/%env.CTEST_JUNIT_OUTPUT_FILE%"
+                verbose = true
+            }
         }
         perfmon {
         }
