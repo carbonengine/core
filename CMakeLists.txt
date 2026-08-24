@@ -2,6 +2,33 @@
 
 cmake_minimum_required(VERSION 3.19)
 
+option(WITH_TELEMETRY "Enable profiler integration" ON)
+option(WITH_MEMORY_TRACKING "Enable tracking of memory allocations." ON)
+option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
+
+# Determine if/when to generate/build documentation. The rules are as follows:
+# - If running locally - Build documentation is OFF by default
+# - If running on a build agent (TeamCity) - Build documentation is ON by default
+# - If -DBUILD_DOCUMENTATION=ON/OFF flag is explicitly set, use it.
+set(BUILD_DOCUMENTATION_DEFAULT_FLAG OFF)
+if(DEFINED ENV{TEAMCITY_VERSION})
+    set(BUILD_DOCUMENTATION_DEFAULT_FLAG ON)
+endif()
+option(BUILD_DOCUMENTATION "Build Documentation" ${BUILD_DOCUMENTATION_DEFAULT_FLAG})
+
+if(WITH_TELEMETRY)
+    list(APPEND VCPKG_MANIFEST_FEATURES "telemetry")
+endif()
+if(WITH_MEMORY_TRACKING)
+    list(APPEND VCPKG_MANIFEST_FEATURES "memory-tracking")
+endif()
+if(BUILD_TESTING)
+    list(APPEND VCPKG_MANIFEST_FEATURES "tests")
+endif()
+if(BUILD_DOCUMENTATION)
+    list(APPEND VCPKG_MANIFEST_FEATURES "docs")
+endif()
+
 project(CcpCore)
 
 set(CCP_TOOLSET ${CMAKE_GENERATOR_TOOLSET})
@@ -12,9 +39,6 @@ include(cmake/CcpTargetConfigurations.cmake)
 include(cmake/CcpDocsGenerator.cmake)
 include(cmake/CcpPackageConfigHelpers.cmake)
 include(cmake/CcpBuildConfigurations.cmake)
-
-option(WITH_TELEMETRY "Enable profiler integration" ON)
-option(WITH_MEMORY_TRACKING "Enable tracking of memory allocations." ON)
 
 set(SRC_FILES
         CcpCore.cpp
@@ -127,12 +151,9 @@ else()
     target_compile_definitions(CcpCore PUBLIC CCP_MEMORY_DEBUG=0)
 endif()
 
-if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-    option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
+if(BUILD_TESTING)
     include(CTest)
-    if(BUILD_TESTING)
-        add_subdirectory(tests)
-    endif()
+    add_subdirectory(tests)
 endif()
 
 target_compile_definitions(CcpCore PRIVATE PLATFORM_TOOLSET=${CCP_TOOLSET})
@@ -152,56 +173,45 @@ target_include_directories(CcpCore
         ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+if(BUILD_DOCUMENTATION)
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    include(cmake/CcpDocsGenerator.cmake)
+
+    if(WIN32)
+        set(PYTHONPATH_ENV_SPHINX "$<TARGET_FILE_DIR:CcpCore>\;${CMAKE_SOURCE_DIR}/python")
+    elseif(APPLE)
+        set(PYTHONPATH_ENV_SPHINX "$<TARGET_FILE_DIR:CcpCore>:${CMAKE_SOURCE_DIR}/python")
+    endif()
+
+    set(SPHINX_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/doc/source)
+    set(SPHINX_BUILD ${CMAKE_CURRENT_BINARY_DIR}/doc/build)
+
+    get_target_property(CORE_COMPILE_DEFINITIONS CcpCore COMPILE_DEFINITIONS)
+    list(TRANSFORM CORE_COMPILE_DEFINITIONS GENEX_STRIP)
+    list(APPEND CORE_COMPILE_DEFINITIONS
+            CARBON_CORE_API=
+            CARBON_CORE_DEPRECATED_EXPORT=
+            NOINLINE=
+            CCPLOG_PRINTF_FORMAT=
+    )
+    list(JOIN CORE_COMPILE_DEFINITIONS " \\\n" CORE_COMPILE_DEFINITIONS)
+
+    create_carbon_docs_sphinx_target(
+        PYTHON_EXE ${Python3_EXECUTABLE}
+        VENV_NAME docs_generation_venv
+        PYTHONPATH_ENV ${PYTHONPATH_ENV_SPHINX}
+        SPHINX_SOURCE ${SPHINX_SOURCE}
+        SPHINX_BUILD ${SPHINX_BUILD}
+        DOXYGEN_SRC_FILES ${SRC_FILES}
+        SPHINX_TARGET_NAME Sphinx
+        DOXYGEN_TARGET_NAME Doxygen
+        INSTALL_DESTINATION documentation/carbon-core
+        EXTRA_COMPILE_DEFINITIONS ${CORE_COMPILE_DEFINITIONS}
+    )
+endif()
+
 # Provide an install target iff this is the top level project only
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-    # Determine if/when to generate/build documentation. The rules are as follows:
-    # - If running locally - Build documentation is OFF by default
-    # - If running on a build agent (TeamCity) - Build documentation is ON by default
-    # - If -DBUILD_DOCUMENTATION=ON/OFF flag is explicitly set, use it.
-    set(BUILD_DOCUMENTATION_DEFAULT_FLAG OFF)
-    if(DEFINED ENV{TEAMCITY_VERSION})
-        set(BUILD_DOCUMENTATION_DEFAULT_FLAG ON)
-    endif()
-    message(STATUS "Document generation settings: default=${BUILD_DOCUMENTATION_DEFAULT_FLAG}, option BUILD_DOCUMENTATION=${BUILD_DOCUMENTATION}")
-    option(BUILD_DOCUMENTATION "Build Documentation" ${BUILD_DOCUMENTATION_DEFAULT_FLAG})
-
-    if(BUILD_DOCUMENTATION)
-        find_package(Python3 COMPONENTS Interpreter REQUIRED)
-        include(cmake/CcpDocsGenerator.cmake)
-
-        if(WIN32)
-            set(PYTHONPATH_ENV_SPHINX "$<TARGET_FILE_DIR:CcpCore>\;${CMAKE_SOURCE_DIR}/python")
-        elseif(APPLE)
-            set(PYTHONPATH_ENV_SPHINX "$<TARGET_FILE_DIR:CcpCore>:${CMAKE_SOURCE_DIR}/python")
-        endif()
-
-        set(SPHINX_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/doc/source)
-        set(SPHINX_BUILD ${CMAKE_CURRENT_BINARY_DIR}/doc/build)
-
-        get_target_property(CORE_COMPILE_DEFINITIONS CcpCore COMPILE_DEFINITIONS)
-        list(TRANSFORM CORE_COMPILE_DEFINITIONS GENEX_STRIP)
-        list(APPEND CORE_COMPILE_DEFINITIONS
-                CARBON_CORE_API=
-                CARBON_CORE_DEPRECATED_EXPORT=
-                NOINLINE=
-                CCPLOG_PRINTF_FORMAT=
-        )
-        list(JOIN CORE_COMPILE_DEFINITIONS " \\\n" CORE_COMPILE_DEFINITIONS)
-
-        create_carbon_docs_sphinx_target(
-            PYTHON_EXE ${Python3_EXECUTABLE}
-            VENV_NAME docs_generation_venv
-            PYTHONPATH_ENV ${PYTHONPATH_ENV_SPHINX}
-            SPHINX_SOURCE ${SPHINX_SOURCE}
-            SPHINX_BUILD ${SPHINX_BUILD}
-            DOXYGEN_SRC_FILES ${SRC_FILES}
-            SPHINX_TARGET_NAME Sphinx
-            DOXYGEN_TARGET_NAME Doxygen
-            INSTALL_DESTINATION documentation/carbon-core
-            EXTRA_COMPILE_DEFINITIONS ${CORE_COMPILE_DEFINITIONS}
-        )
-    endif()
-
     option(INSTALL_TO_MONOLITH "Install this package to a perforce branch vendor folder - provided for backwards compatability" OFF)
     if(INSTALL_TO_MONOLITH)
 
