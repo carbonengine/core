@@ -126,3 +126,21 @@ TEST( CcpFileUtils, CcpGetAbsolutePathResolvesToNewFile )
 	unlink( tempFileName );
 #endif
 }
+
+#if !_WIN32
+
+TEST( CcpFileUtils, CcpGetAbsolutePathHandlesOverlongRelativePathSafely )
+{
+	std::wstring huge( 64 * 1024, L'a' );
+	auto path = CcpGetAbsolutePath( huge );
+	EXPECT_TRUE( path.empty() );
+}
+
+TEST( CcpFileUtils, CcpGetAbsolutePathHandlesOverlongAbsolutePathSafely )
+{
+	std::wstring huge = ROOT_PATH + std::wstring( 64 * 1024, L'a' );
+	auto path = CcpGetAbsolutePath( huge );
+	EXPECT_TRUE( path.empty() );
+}
+
+#endif
