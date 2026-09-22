@@ -82,9 +82,8 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String, 
     steps {
         exec {
             name = "Rewrite GitHub HTTPS urls to SSH"
-            workingDir = "%teamcity.build.checkoutDir%/%github_checkout_folder%"
             path = "git"
-            arguments = """config --local url."git@github.com:".insteadOf "https://github.com/""""
+            arguments = """config --global url."git@github.com:".insteadOf "https://github.com/""""
         }
         exec {
             name = "Create VCPKG registrycache location"
@@ -203,6 +202,14 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String, 
                     Write-Host "##teamcity[buildStatus text='Stored: ${'$'}stored, Errors: ${'$'}errors, Ignored: ${'$'}ignored']"
                 """.trimIndent()
             }
+        }
+        // Ensure we leave the agent in the same state as we found it.
+        // This step may fail when step 1 gets interrupted, or when there are multiple matching rewrite rules.
+        exec {
+            name = "Revert GitHub HTTPS url rewrite"
+            executionMode = BuildStep.ExecutionMode.ALWAYS
+            path = "git"
+            arguments = """config --global --unset url."git@github.com:".insteadOf"""
         }
     }
 
