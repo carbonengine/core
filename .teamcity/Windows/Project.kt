@@ -83,7 +83,7 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String, 
         exec {
             name = "Rewrite GitHub HTTPS urls to SSH"
             path = "git"
-            arguments = """config --global url."git@github.com:".insteadOf "https://github.com/""""
+            arguments = """config --global "url.git@github.com:.insteadOf" "https://github.com/""""
         }
         exec {
             name = "Create VCPKG registrycache location"
@@ -209,7 +209,7 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String, 
             name = "Revert GitHub HTTPS url rewrite"
             executionMode = BuildStep.ExecutionMode.ALWAYS
             path = "git"
-            arguments = """config --global --unset url."git@github.com:".insteadOf"""
+            arguments = """config --global --unset "url.git@github.com:.insteadOf""""
         }
     }
 
