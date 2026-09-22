@@ -81,6 +81,12 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String, 
 
     steps {
         exec {
+            name = "Rewrite GitHub HTTPS urls to SSH"
+            workingDir = "%teamcity.build.checkoutDir%/%github_checkout_folder%"
+            path = "git"
+            arguments = """config --local url."git@github.com:".insteadOf "https://github.com/""""
+        }
+        exec {
             name = "Create VCPKG registrycache location"
             workingDir = "%teamcity.build.checkoutDir%/%github_checkout_folder%"
             path = "mkdir"
