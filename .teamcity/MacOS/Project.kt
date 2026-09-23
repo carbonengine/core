@@ -74,8 +74,11 @@ class CarbonBuildMacOS(buildName: String, configType: String, preset: String, ag
         param("env.X_VCPKG_REGISTRIES_CACHE", "%teamcity.build.checkoutDir%/%github_checkout_folder%/regcache")
         param("env.CMAKE_BUILD_PARALLEL_LEVEL", "8")
         param("env.CTEST_PARALLEL_LEVEL", "1")
+        param("env.VCPKG_KEEP_ENVVARS", "GIT_CONFIG_COUNT;GIT_CONFIG_KEY_0;GIT_CONFIG_VALUE_0")
+        param("env.GIT_CONFIG_COUNT", "1")
+        param("env.GIT_CONFIG_KEY_0", "url.git@github.com:.insteadOf")
+        param("env.GIT_CONFIG_VALUE_0", "https://github.com/")
     }
-
 
     vcs {
         root(DslContext.settingsRootId, "+:. => %github_checkout_folder%")
@@ -84,11 +87,6 @@ class CarbonBuildMacOS(buildName: String, configType: String, preset: String, ag
     }
 
     steps {
-        exec {
-            name = "Rewrite GitHub HTTPS urls to SSH"
-            path = "git"
-            arguments = """config --global "url.git@github.com:.insteadOf" "https://github.com/""""
-        }
         exec {
             name = "Create VCPKG registrycache location"
             workingDir = "%teamcity.build.checkoutDir%/%github_checkout_folder%"
@@ -137,14 +135,6 @@ class CarbonBuildMacOS(buildName: String, configType: String, preset: String, ag
                   # insert your binary files with symbols here!
                 )
             """.trimIndent())
-        }
-        // Ensure we leave the agent in the same state as we found it.
-        // This step may fail when step 1 gets interrupted, or when there are multiple matching rewrite rules.
-        exec {
-            name = "Revert GitHub HTTPS url rewrite"
-            executionMode = BuildStep.ExecutionMode.ALWAYS
-            path = "git"
-            arguments = """config --global --unset "url.git@github.com:.insteadOf""""
         }
     }
 
