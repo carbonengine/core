@@ -1,29 +1,45 @@
 {
-  "dependencies": [
-    {
-      "name": "tracy",
-      "version>=": "0.13.1#1",
-      "features": [
-        "fibers",
-        "on-demand",
-        "no-callstack",
-        "manual-lifetime",
-        "delayed-init",
-        "no-crash-handler"
+  "dependencies": [],
+  "features": {
+    "docs": {
+      "description": "Generate documentation",
+      "dependencies": [
+        {
+          "name": "python3",
+          "version>=": "3.12.9#1",
+          "host": true
+        }
       ]
     },
-    {
-      "name": "gtest",
-      "version>=": "1.16.0"
+    "tests": {
+      "description": "Enable tests",
+      "dependencies": [
+        {
+          "name": "gtest",
+          "version>=": "1.16.0"
+        },
+        {
+          "name": "lz4",
+          "version>=": "1.9.4"
+        }
+      ]
     },
-    {
-      "name": "lz4",
-      "version>=": "1.9.4"
-    },
-    {
-      "name": "python3",
-      "version>=": "3.12.9#1",
-      "host": true
+    "telemetry": {
+      "description": "Enable telemetry",
+      "dependencies": [
+        {
+          "name": "tracy",
+          "version>=": "0.13.1#1",
+          "features": [
+            "fibers",
+            "on-demand",
+            "no-callstack",
+            "manual-lifetime",
+            "delayed-init",
+            "no-crash-handler"
+          ]
+        }
+      ]
     }
-  ]
+  }
 }
