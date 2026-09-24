@@ -34,9 +34,6 @@ if(APPLE)
     target_link_libraries(CcpCoreTest PRIVATE "-framework CoreFoundation")
 endif()
 
-# CcpCore uses CMAKE_CURRENT_BINARY_DIR as a private include directory which CcpCoreTest requires
-target_include_directories(CcpCoreTest PRIVATE $<TARGET_PROPERTY:CcpCore,INCLUDE_DIRECTORIES>)
-
 if(CMAKE_IMPORT_LIBRARY_SUFFIX)
     add_custom_command(TARGET CcpCoreTest POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:CcpCoreTest> $<TARGET_FILE_DIR:CcpCoreTest>
