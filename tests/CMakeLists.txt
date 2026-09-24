@@ -1,7 +1,5 @@
 # Copyright © 2025 CCP ehf.
 
-enable_testing()
-
 find_package(GTest CONFIG REQUIRED)
 add_executable(CcpCoreTest
     CcpCallstack.cpp
