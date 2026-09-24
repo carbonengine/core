@@ -65,6 +65,45 @@ set(SRC_FILES
 
 add_library(CcpCore SHARED ${SRC_FILES})
 
+target_sources(CcpCore
+    PUBLIC
+        FILE_SET HEADERS
+            FILES
+                include/CachedAllocator.h
+                include/CcpAssert.h
+                include/CcpAtomic.h
+                include/CcpCallstack.h
+                include/CcpColorConstants.h
+                include/CcpCore.h
+                include/CcpCrash.h
+                include/CcpDefines.h
+                include/CcpFileUtils.h
+                include/CcpHash.h
+                include/CcpMacros.h
+                include/CcpMemory.h
+                include/CcpMemoryTracker.h
+                include/CcpMutex.h
+                include/CcpPairingHeap.h
+                include/CcpProcess.h
+                include/CcpScopeGuard.h
+                include/CcpSecureCrt.h
+                include/CcpSemaphore.h
+                include/CcpStatistics.h
+                include/CcpTelemetry.h
+                include/CcpThread.h
+                include/CcpTime.h
+                include/CcpTypes.h
+                include/ICcpStream.h
+                include/ICrashReporter.h
+                include/StringConversions.h
+                include/TrackableContainer.h
+                include/CcpLog.h
+                ${CMAKE_CURRENT_BINARY_DIR}/carbon_core_export.h
+            BASE_DIRS
+                include
+                ${CMAKE_CURRENT_BINARY_DIR}
+)
+
 get_target_property(_SOURCES CcpCore SOURCES)
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}"
         PREFIX "Sources"
@@ -79,40 +118,6 @@ generate_export_header(CcpCore
     EXPORT_FILE_NAME carbon_core_export.h
     EXPORT_MACRO_NAME CARBON_CORE_API
 )
-
-set(PUBLIC_HEADER_FILES
-        include/CachedAllocator.h
-        include/CcpAssert.h
-        include/CcpAtomic.h
-        include/CcpCallstack.h
-        include/CcpColorConstants.h
-        include/CcpCore.h
-        include/CcpCrash.h
-        include/CcpDefines.h
-        include/CcpFileUtils.h
-        include/CcpHash.h
-        include/CcpMacros.h
-        include/CcpMemory.h
-        include/CcpMemoryTracker.h
-        include/CcpMutex.h
-        include/CcpPairingHeap.h
-        include/CcpProcess.h
-        include/CcpScopeGuard.h
-        include/CcpSecureCrt.h
-        include/CcpSemaphore.h
-        include/CcpStatistics.h
-        include/CcpTelemetry.h
-        include/CcpThread.h
-        include/CcpTime.h
-        include/CcpTypes.h
-        include/ICcpStream.h
-        include/ICrashReporter.h
-        include/StringConversions.h
-        include/TrackableContainer.h
-        include/CcpLog.h
-        ${CMAKE_CURRENT_BINARY_DIR}/carbon_core_export.h
-)
-target_sources(CcpCore PRIVATE ${PUBLIC_HEADER_FILES})
 
 target_precompile_headers(CcpCore PRIVATE StdAfx.h)
 
@@ -165,15 +170,6 @@ if(WIN32)
     target_compile_definitions(CcpCore PRIVATE NOMINMAX)
 endif()
 
-target_include_directories(CcpCore
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
-        ${CMAKE_CURRENT_BINARY_DIR}
-)
-
 # Provide an install target iff this is the top level project only
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     if(BUILD_DOCUMENTATION)
@@ -218,14 +214,14 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
         # Provide a platform dependent interface include directory. ${CCP_VENDOR_PLATFORM} is escaped in order for the
         # generated package configuration to postpone its evaluation until the package is imported.
-        set_target_properties(CcpCore PROPERTIES PUBLIC_HEADER "${PUBLIC_HEADER_FILES}" INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/include/\${CCP_VENDOR_PLATFORM}")
+        set_target_properties(CcpCore PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/include/\${CCP_VENDOR_PLATFORM}")
 
         # Install rule to ensure that our runtime and linker files are in the expected, platform-specific folders
         install(
                 TARGETS CcpCore
                 EXPORT CcpCoreTargets
                 CONFIGURATIONS ${CMAKE_CONFIGURATION_TYPES}
-                PUBLIC_HEADER DESTINATION include/${CCP_PLATFORM}
+                FILE_SET HEADERS DESTINATION include/${CCP_PLATFORM}
                 ARCHIVE DESTINATION lib/${CCP_PLATFORM}/${CCP_ARCHITECTURE}/${CCP_TOOLSET}/
                 LIBRARY DESTINATION lib/${CCP_PLATFORM}/${CCP_ARCHITECTURE}/${CCP_TOOLSET}/
                 RUNTIME DESTINATION bin/${CCP_PLATFORM}/${CCP_ARCHITECTURE}/${CCP_TOOLSET}/
@@ -250,12 +246,11 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
                 TARGETS CcpCore
                 EXPORT CcpCoreTargets
                 CONFIGURATIONS ${CMAKE_CONFIGURATION_TYPES}
+                FILE_SET HEADERS DESTINATION include
                 ARCHIVE DESTINATION lib/
                 LIBRARY DESTINATION lib/
                 RUNTIME DESTINATION bin/
         )
-        # Install rule for available public headers
-        install(FILES ${PUBLIC_HEADER_FILES} DESTINATION include)
         install(
                 EXPORT CcpCoreTargets
                 DESTINATION ${CMAKE_INSTALL_PREFIX}/share/carbon-core
