@@ -4,11 +4,7 @@
 #include "CcpFileUtils.h"
 #include "StringConversions.h"
 
-#include "CcpLog.h"
-
-#include <algorithm>
 #include <stdlib.h>
-#include <vector>
 
 #ifdef _WIN32
 
