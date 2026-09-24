@@ -1,9 +1,9 @@
 // Copyright © 2025 CCP ehf.
 
-#include "include/CcpMemory.h"
-#include "include/CcpMemoryTracker.h"
-#include "include/CcpAssert.h"
-#include "include/CcpTelemetry.h"
+#include "CcpMemory.h"
+#include "CcpMemoryTracker.h"
+#include "CcpAssert.h"
+#include "CcpTelemetry.h"
 #include "CcpLog.h"
 #include "CcpMemoryTrackerMutex.h"
 

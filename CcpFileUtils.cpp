@@ -1,8 +1,8 @@
 // Copyright © 2014 CCP ehf.
 
 
-#include "include/CcpFileUtils.h"
-#include "include/StringConversions.h"
+#include "CcpFileUtils.h"
+#include "StringConversions.h"
 
 #include "CcpLog.h"
 

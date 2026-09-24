@@ -7,7 +7,7 @@
 #include <cstdarg>
 #include <cerrno>
 #include <cwchar>
-#include "include/CcpSecureCrt.h"
+#include "CcpSecureCrt.h"
 
 int strncpy_s( char* dst, size_t dstBufferSize, const char* src, size_t count )
 {

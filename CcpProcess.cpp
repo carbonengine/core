@@ -1,6 +1,6 @@
 // Copyright © 2013 CCP ehf.
 
-#include "include/CcpProcess.h"
+#include "CcpProcess.h"
 
 #if defined( _WIN32 )
 CcpProcessId_t CcpGetCurrentProcessId()

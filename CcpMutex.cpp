@@ -2,9 +2,9 @@
 
 #include <string>
 
-#include "include/CcpAtomic.h"
-#include "include/CcpMutex.h"
-#include "include/CcpThread.h"
+#include "CcpAtomic.h"
+#include "CcpMutex.h"
+#include "CcpThread.h"
 
 #if CCP_TELEMETRY_ENABLED
 #include "tracy/TracyC.h"

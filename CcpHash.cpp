@@ -1,6 +1,6 @@
 // Copyright © 2025 CCP ehf.
 
-#include "include/CcpHash.h"
+#include "CcpHash.h"
 
 #include <cstdint>
 

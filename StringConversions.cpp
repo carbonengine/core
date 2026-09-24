@@ -1,7 +1,7 @@
 // Copyright © 2013 CCP ehf.
 
 
-#include "include/StringConversions.h"
+#include "StringConversions.h"
 
 std::wstring UTF8ToWide( const std::string& utf8String )
 {
