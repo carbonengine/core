@@ -65,6 +65,12 @@ set(SRC_FILES
 
 add_library(CcpCore SHARED ${SRC_FILES})
 
+generate_export_header(CcpCore
+        BASE_NAME CARBON_CORE
+        EXPORT_FILE_NAME carbon_core_export.h
+        EXPORT_MACRO_NAME CARBON_CORE_API
+)
+
 target_sources(CcpCore
     PUBLIC
         FILE_SET HEADERS
@@ -110,14 +116,7 @@ source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}"
         FILES ${_SOURCES}
 )
 
-
 set_build_flavor(CcpCore)
-
-generate_export_header(CcpCore
-    BASE_NAME CARBON_CORE
-    EXPORT_FILE_NAME carbon_core_export.h
-    EXPORT_MACRO_NAME CARBON_CORE_API
-)
 
 target_precompile_headers(CcpCore PRIVATE StdAfx.h)
 
