@@ -134,7 +134,6 @@ target_link_libraries(CcpCore PUBLIC $<$<PLATFORM_ID:Darwin>:-framework\ AppKit>
 if(WITH_TELEMETRY)
     message(STATUS "Enabling profiler integration")
     find_package(Tracy CONFIG REQUIRED)
-    target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=1)
     target_link_libraries(CcpCore PRIVATE Tracy::TracyClient)
     # Tracy's vcpkg package is always built as Release (with NDEBUG). CcpTelemetry.cpp
     # must also be compiled with NDEBUG to match Tracy's struct layout: in 0.13.1 the
@@ -144,15 +143,6 @@ if(WITH_TELEMETRY)
     # address and fail with EINVAL. CCP_ASSERT_ENABLED is set explicitly via CMake so
     # CCP_ASSERT macros are unaffected by this NDEBUG definition.
     set_source_files_properties(CcpTelemetry.cpp PROPERTIES COMPILE_DEFINITIONS NDEBUG)
-else()
-    target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=0)
-endif()
-
-if(WITH_MEMORY_TRACKING)
-    message(STATUS "Enabling memory tracking")
-    target_compile_definitions(CcpCore PUBLIC CCP_MEMORY_DEBUG=1)
-else()
-    target_compile_definitions(CcpCore PUBLIC CCP_MEMORY_DEBUG=0)
 endif()
 
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
@@ -162,6 +152,8 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     endif()
 endif()
 
+target_compile_definitions(CcpCore PUBLIC CCP_TELEMETRY_ENABLED=$<BOOL:${WITH_TELEMETRY}>)
+target_compile_definitions(CcpCore PUBLIC CCP_MEMORY_DEBUG=$<BOOL:${WITH_MEMORY_TRACKING}>)
 target_compile_definitions(CcpCore PRIVATE PLATFORM_TOOLSET=${CCP_TOOLSET})
 target_compile_definitions(CcpCore PUBLIC CCP_ASSERT_ENABLED=$<NOT:$<CONFIG:Release>>)
 
