@@ -15,5 +15,3 @@
 
 #include <vector>
 #include <algorithm>
-
-#include <CcpLog.h>

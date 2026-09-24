@@ -2,6 +2,7 @@
 
 
 #include "CcpFileUtils.h"
+#include "CcpLog.h"
 #include "StringConversions.h"
 
 #include <stdlib.h>
