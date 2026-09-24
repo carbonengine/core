@@ -2,6 +2,8 @@
 
 #include "include/CcpHash.h"
 
+#include <cstdint>
+
 /// See http://www.isthe.com/chongo/tech/comp/fnv/ for a description of the FNV1 hash algorithm
 /// and the specific values used here.
 

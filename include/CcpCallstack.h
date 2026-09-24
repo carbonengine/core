@@ -5,6 +5,8 @@
 
 #include "carbon_core_export.h"
 
+#include <cstdio>
+
 class CARBON_CORE_API CCPCallstack
 {
 public:

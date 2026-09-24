@@ -12,6 +12,7 @@
 #include "include/CcpMutex.h"
 #include "include/CcpTelemetry.h"
 #include "include/CcpTime.h"
+#include "CcpLog.h"
 
 static CcpLogChannel_t s_ch = CCP_LOG_DEFINE_CHANNEL( "Telemetry" );
 

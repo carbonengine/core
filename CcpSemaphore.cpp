@@ -18,8 +18,6 @@
 	using NativeHandle = sem_t;
 #endif
 
-#include "include/CcpSecureCrt.h"
-
 struct CcpSemaphore::Private
 {
 #if CCP_TELEMETRY_ENABLED

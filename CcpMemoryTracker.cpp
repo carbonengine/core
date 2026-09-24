@@ -14,7 +14,7 @@
 #include "include/CcpAssert.h"
 #include "include/CcpHash.h"
 #include "include/CcpCallstack.h"
-#include "include/CcpSecureCrt.h"
+#include "CcpLog.h"
 
 #ifdef _WIN32
 	#include <Psapi.h>

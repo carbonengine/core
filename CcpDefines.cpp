@@ -4,6 +4,8 @@
 #include "include/CcpDefines.h"
 #include "include/CcpMacros.h"
 
+#include <cstddef>
+
 const char* CcpGetPlatformToolset()
 {
 	return CCP_STRINGIZE( PLATFORM_TOOLSET );
@@ -11,5 +13,5 @@ const char* CcpGetPlatformToolset()
 
 unsigned CcpGetProcessBitCount()
 {
-	return sizeof( size_t ) * 8;
+	return sizeof( std::size_t ) * 8;
 }

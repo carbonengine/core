@@ -1,6 +1,6 @@
 // Copyright © 2026 CCP ehf.
 
-#include "include/CcpColorConstants.h"
+#include "CcpColorConstants.h"
 
 std::string_view CcpColorToString( CcpColor color )
 {
