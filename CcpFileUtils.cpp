@@ -217,6 +217,7 @@ bool CcpRenameFile( const std::wstring& src, const std::wstring& dst )
 #include <dirent.h>
 #include <unistd.h>
 #include <errno.h>
+#include <cstdio>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
@@ -357,7 +358,7 @@ std::wstring CcpExecutablePath()
 namespace
 {
 
-void AbsPath( const char* path, char* realPath )
+void AbsPath( const char* path, char* realPath, size_t realPathSize )
 {
 	char src[PATH_MAX];
 	if( path[0] != '/' )
@@ -366,20 +367,26 @@ void AbsPath( const char* path, char* realPath )
 		// working directory
 		if( !getcwd( src, sizeof( src ) ) )
 		{
-			strcpy( realPath, path );
+			strncpy_s( realPath, realPathSize, path, _TRUNCATE );
 			return;
 		}
 
-		auto len = strlen( src );
-		if( len > 0 && path[0] != 0 && src[len - 1] != '/' )
+		size_t len = strlen( src );
+		const char* separator = ( len > 0 && path[0] != 0 && src[len - 1] != '/' ) ? "/" : "";
+		int written = snprintf( src + len, sizeof( src ) - len, "%s%s", separator, path );
+		if( written < 0 || static_cast<size_t>( written ) >= sizeof( src ) - len )
 		{
-			src[len] = '/';
-			src[len + 1] = 0;
+			realPath[0] = 0;
+			return;
 		}
-		strcat( src, path );
 	}
 	else
 	{
+		if( strlen( path ) >= sizeof( src ) )
+		{
+			realPath[0] = 0;
+			return;
+		}
 		strcpy( src, path );
 	}
 
@@ -432,6 +439,12 @@ void AbsPath( const char* path, char* realPath )
 		++end;
 	}
 
+	if( strlen( src ) + 1 > realPathSize )
+	{
+		realPath[0] = 0;
+		return;
+	}
+
 	// Put initial slashes back in
 	end = realPath;
 	for( size_t i = 0; i < initialSlashes; ++i )
@@ -463,10 +476,8 @@ std::wstring CcpGetAbsolutePath( const std::wstring& name )
 	{
 		return L"";
 	}
-	auto nameA = CW2A( name.c_str() );
 	char buffer[PATH_MAX];
-	strcpy_s( buffer, nameA );
-	AbsPath( CW2A( name.c_str() ), buffer );
+	AbsPath( CW2A( name.c_str() ), buffer, sizeof( buffer ) );
     std::wstring absName = std::wstring( CA2W( buffer ) );
     if( CcpIsPathDirectory( absName.c_str() ) && !absName.empty() && absName[absName.length() - 1] != L'/' )
     {
