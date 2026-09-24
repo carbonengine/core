@@ -227,16 +227,9 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
                 RUNTIME DESTINATION bin/${CCP_PLATFORM}/${CCP_ARCHITECTURE}/${CCP_TOOLSET}/
         )
 
-        # Start with an empty list of Core Dependencies, then add to it as needed:
-        set(CONFIGURED_CARBON_CORE_DEPENDENCIES "")
-        if (WITH_TELEMETRY)
-            list(APPEND CONFIGURED_CARBON_CORE_DEPENDENCIES "Tracy")
-        endif ()
-
         configure_ccp_vendor_config_file(
                 TARGET CcpCore
                 DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/CcpCoreConfig.cmake"
-                DEPENDENCIES "${CONFIGURED_CARBON_CORE_DEPENDENCIES}"
                 EXPORT_DLL
         )
         install(FILES ${CMAKE_CURRENT_BINARY_DIR}/CcpCoreConfig.cmake DESTINATION .)
@@ -254,11 +247,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
         install(
                 EXPORT CcpCoreTargets
                 DESTINATION ${CMAKE_INSTALL_PREFIX}/share/carbon-core
-                FILE carbon-core.cmake
-        )
-        install(
-                FILES carbon-coreConfig.cmake
-                DESTINATION ${CMAKE_INSTALL_PREFIX}/share/carbon-core
+                FILE carbon-coreConfig.cmake
         )
     endif()
 endif()
