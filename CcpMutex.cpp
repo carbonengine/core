@@ -1,6 +1,5 @@
 // Copyright © 2026 CCP ehf.
 
-#include <string>
 
 #include "CcpAtomic.h"
 #include "CcpMutex.h"
@@ -15,7 +14,6 @@ namespace
 {
 	// Platform independent alias for the underlying lock object used by CcpMutex
 #ifdef _WIN32
-	#include <windows.h>
 	using NativeMutex = CRITICAL_SECTION;
 #else
 	#include <pthread.h>

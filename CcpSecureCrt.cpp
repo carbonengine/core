@@ -2,8 +2,6 @@
 
 #ifndef _MSC_VER
 
-#include <cstring>
-#include <cstdio>
 #include <cstdarg>
 #include <cerrno>
 #include <cwchar>

@@ -305,7 +305,6 @@ void CCPCallstack::Enumerate( void ( *callback )( size_t codePointer, const char
 
 #include <execinfo.h>
 #include <cxxabi.h>
-#include <string>
 
 void CCPCallstack::LoadSymbols()
 {
