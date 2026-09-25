@@ -1,6 +1,5 @@
 // Copyright © 2025 CCP ehf.
 
-#include "gtest/gtest.h"
 #include "StringConversions.h"
 
 std::vector<std::pair<std::wstring, std::string>> validUnicodeStrings{
