@@ -50,7 +50,7 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String, 
     id(buildName.toId())
     this.name = buildName
 
-    artifactRules = "%env.CMAKE_INSTALL_PREFIX%"
+    artifactRules = "%env.CMAKE_INSTALL_PREFIX% => artifact.zip"
 
     params {
         param("env.GIT_TAG_HASH_OVERRIDE", "")
@@ -240,7 +240,7 @@ class CarbonBuildWindows(buildName: String, configType: String, preset: String, 
             failBuild = true
         }
         sshAgent {
-            teamcitySshKey = "ccpgames-evetech GitHub"
+            teamcitySshKey = "ccpgames-carbon"
         }
         provideAwsCredentials {
             awsConnectionId = "Carbon_AwsVcpkgBinaryCacheServiceAccount"
