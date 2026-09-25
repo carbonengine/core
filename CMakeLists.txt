@@ -8,10 +8,6 @@ message(STATUS "Telemetry Settings: WITH_TELEMETRY[${WITH_TELEMETRY}]")
 option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
 message(STATUS "Test Settings: BUILD_TESTING[${BUILD_TESTING}]")
 
-# Determine if/when to generate/build documentation. The rules are as follows:
-# - If running locally - Build documentation is OFF by default
-# - If running on a build agent (TeamCity) - Build documentation is ON by default
-# - If -DBUILD_DOCUMENTATION=ON/OFF flag is explicitly set, use it.
 set(BUILD_DOCUMENTATION_DEFAULT_FLAG OFF)
 if(DEFINED ENV{TEAMCITY_VERSION})
     set(BUILD_DOCUMENTATION_DEFAULT_FLAG ON)
@@ -165,7 +161,6 @@ if(WIN32)
     target_compile_definitions(CcpCore PRIVATE NOMINMAX)
 endif()
 
-# Provide an install target iff this is the top level project only
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     if(BUILD_DOCUMENTATION)
         find_package(Python3 COMPONENTS Interpreter REQUIRED)
