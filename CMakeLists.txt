@@ -3,7 +3,10 @@
 cmake_minimum_required(VERSION 3.23)
 
 option(WITH_TELEMETRY "Enable profiler integration" ON)
+message(STATUS "Telemetry Settings: WITH_TELEMETRY[${WITH_TELEMETRY}]")
+
 option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
+message(STATUS "Test Settings: BUILD_TESTING[${BUILD_TESTING}]")
 
 # Determine if/when to generate/build documentation. The rules are as follows:
 # - If running locally - Build documentation is OFF by default
@@ -13,8 +16,11 @@ set(BUILD_DOCUMENTATION_DEFAULT_FLAG OFF)
 if(DEFINED ENV{TEAMCITY_VERSION})
     set(BUILD_DOCUMENTATION_DEFAULT_FLAG ON)
 endif()
-message(STATUS "Document generation settings: default=${BUILD_DOCUMENTATION_DEFAULT_FLAG}, option BUILD_DOCUMENTATION=${BUILD_DOCUMENTATION}")
 option(BUILD_DOCUMENTATION "Build Documentation" ${BUILD_DOCUMENTATION_DEFAULT_FLAG})
+message(STATUS "Document generation settings: BUILD_DOCUMENTATION_DEFAULT_FLAG[${BUILD_DOCUMENTATION_DEFAULT_FLAG}], BUILD_DOCUMENTATION[${BUILD_DOCUMENTATION}]")
+
+option(WITH_MEMORY_TRACKING "Enable tracking of memory allocations." ON)
+message(STATUS "Memory Tracking settings: WITH_MEMORY_TRACKING[${WITH_MEMORY_TRACKING}]")
 
 if(WITH_TELEMETRY)
     list(APPEND VCPKG_MANIFEST_FEATURES "telemetry")
@@ -36,8 +42,6 @@ include(cmake/CcpTargetConfigurations.cmake)
 include(cmake/CcpDocsGenerator.cmake)
 include(cmake/CcpPackageConfigHelpers.cmake)
 include(cmake/CcpBuildConfigurations.cmake)
-
-option(WITH_MEMORY_TRACKING "Enable tracking of memory allocations." ON)
 
 set(SRC_FILES
         CcpCore.cpp
