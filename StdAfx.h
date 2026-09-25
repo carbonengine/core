@@ -1,9 +1,9 @@
 // Copyright © 2013 CCP ehf.
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stddef.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cstddef>
 
 #ifdef _WIN32
 	#include <windows.h>
