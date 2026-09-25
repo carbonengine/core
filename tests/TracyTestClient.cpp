@@ -1,12 +1,9 @@
 // Copyright © 2025 CCP ehf.
 #include "TracyTestClient.h"
 
-#include <algorithm>
 #include <cassert>
 #include <chrono>
-#include <cstring>
 #include <lz4.h>
-#include <thread>
 
 #include <tracy/common/TracyProtocol.hpp>
 #include <tracy/common/TracyQueue.hpp>

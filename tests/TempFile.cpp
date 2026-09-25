@@ -2,7 +2,6 @@
 
 #include "TempFile.h"
 #include "CcpCore.h"
-#include <memory>
 
 
 TempFile::TempFile()

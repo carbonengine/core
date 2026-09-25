@@ -1,6 +1,6 @@
 // Copyright © 2025 CCP ehf.
 
-#include "include/CcpStatistics.h"
+#include "CcpStatistics.h"
 
 #include "CcpTelemetry.h"
 

@@ -1,6 +1,6 @@
 // Copyright © 2025 CCP ehf.
 
-#include "include/CcpCallstack.h"
+#include "CcpCallstack.h"
 
 namespace
 {
@@ -305,7 +305,6 @@ void CCPCallstack::Enumerate( void ( *callback )( size_t codePointer, const char
 
 #include <execinfo.h>
 #include <cxxabi.h>
-#include <string>
 
 void CCPCallstack::LoadSymbols()
 {

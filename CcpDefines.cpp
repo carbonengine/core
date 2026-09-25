@@ -1,8 +1,8 @@
 // Copyright © 2020 CCP ehf.
 
 
-#include "include/CcpDefines.h"
-#include "include/CcpMacros.h"
+#include "CcpDefines.h"
+#include "CcpMacros.h"
 
 const char* CcpGetPlatformToolset()
 {

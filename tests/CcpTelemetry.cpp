@@ -1,15 +1,7 @@
 // Copyright © 2025 CCP ehf.
 
-#include <gtest/gtest.h>
-
-#include <algorithm>
 #include <atomic>
-#include <cctype>
-#include <cstdio>
-#include <functional>
 #include <future>
-#include <mutex>
-#include <thread>
 
 #include <tracy/Tracy.hpp>
 

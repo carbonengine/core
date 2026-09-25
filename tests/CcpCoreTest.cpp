@@ -1,7 +1,5 @@
 // Copyright © 2025 CCP ehf.
 
-#include "gtest/gtest.h"
-
 const char* g_moduleName = "CcpCoreTest";
 
 int main( int argc, char **argv )

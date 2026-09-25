@@ -1,7 +1,6 @@
 // Copyright © 2025 CCP ehf.
 
 #include <stack>
-#include <gtest/gtest.h>
 #include <CcpLog.h>
 
 

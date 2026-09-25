@@ -1,6 +1,6 @@
 // Copyright © 2015 CCP ehf.
 
-#include "include/CcpThread.h"
+#include "CcpThread.h"
 
 // CcpThread implementation cannot reside in CcpThread.cpp file because we
 // cannot mix BLUEIMPORT and statically-linked functions in a single cpp file.

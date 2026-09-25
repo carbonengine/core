@@ -1,6 +1,6 @@
 // Copyright © 2013 CCP ehf.
 
-#include "include/CcpSemaphore.h"
+#include "CcpSemaphore.h"
 
 #if CCP_TELEMETRY_ENABLED
 #include "tracy/TracyC.h"

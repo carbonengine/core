@@ -1,8 +1,7 @@
 // Copyright © 2025 CCP ehf.
 
-#include "gtest/gtest.h"
-#include "CcpTime.h"
-#include "CcpThread.h"
+#include <CcpTime.h>
+#include <CcpThread.h>
 
 
 TEST( CcpTime, TimeDoesNotRunBackwards )
