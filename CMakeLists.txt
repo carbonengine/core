@@ -202,10 +202,10 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
     option(INSTALL_TO_MONOLITH "Install this package to a perforce branch vendor folder - provided for backwards compatability" OFF)
     if(INSTALL_TO_MONOLITH)
-
-        # Provide a platform dependent interface include directory. ${CCP_VENDOR_PLATFORM} is escaped in order for the
-        # generated package configuration to postpone its evaluation until the package is imported.
-        set_target_properties(CcpCore PROPERTIES INTERFACE_INCLUDE_DIRECTORIES "${CMAKE_CURRENT_LIST_DIR}/include/\${CCP_VENDOR_PLATFORM}")
+        # Append a platform dependent interface include directory for monolith installations.
+        # ${CCP_VENDOR_PLATFORM} is escaped in order for the generated package configuration to postpone its evaluation
+        # until the package is imported.
+        target_include_directories(CcpCore PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include/\${CCP_VENDOR_PLATFORM}")
 
         # Install rule to ensure that our runtime and linker files are in the expected, platform-specific folders
         install(
