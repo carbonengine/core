@@ -2,6 +2,8 @@
 
 #include "CcpAssert.h"
 
+#include "CcpSecureCrt.h"
+
 #ifdef _WIN32
 	#include <winuser.h>
 #endif

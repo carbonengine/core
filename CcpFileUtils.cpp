@@ -3,6 +3,7 @@
 
 #include "CcpFileUtils.h"
 #include "CcpLog.h"
+#include "CcpSecureCrt.h"
 #include "StringConversions.h"
 
 
