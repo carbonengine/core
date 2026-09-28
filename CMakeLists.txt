@@ -73,7 +73,8 @@ generate_export_header(CcpCore
 
 target_sources(CcpCore
     PUBLIC
-        FILE_SET HEADERS
+        FILE_SET public_headers
+            TYPE HEADERS
             FILES
                 include/CachedAllocator.h
                 include/CcpAssert.h
@@ -109,8 +110,7 @@ target_sources(CcpCore
                 include
                 ${CMAKE_CURRENT_BINARY_DIR}
     PRIVATE
-        FILE_SET internal_headers
-            TYPE HEADERS
+        FILE_SET HEADERS
             FILES
                 CcpMemoryTrackerMutex.h
 )
@@ -216,7 +216,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
                 TARGETS CcpCore
                 EXPORT CcpCoreTargets
                 CONFIGURATIONS ${CMAKE_CONFIGURATION_TYPES}
-                FILE_SET HEADERS DESTINATION include/${CCP_PLATFORM}
+                FILE_SET public_headers DESTINATION include/${CCP_PLATFORM}
                 ARCHIVE DESTINATION lib/${CCP_PLATFORM}/${CCP_ARCHITECTURE}/${CCP_TOOLSET}/
                 LIBRARY DESTINATION lib/${CCP_PLATFORM}/${CCP_ARCHITECTURE}/${CCP_TOOLSET}/
                 RUNTIME DESTINATION bin/${CCP_PLATFORM}/${CCP_ARCHITECTURE}/${CCP_TOOLSET}/
@@ -234,7 +234,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
                 TARGETS CcpCore
                 EXPORT CcpCoreTargets
                 CONFIGURATIONS ${CMAKE_CONFIGURATION_TYPES}
-                FILE_SET HEADERS DESTINATION include
+                FILE_SET public_headers DESTINATION include
                 ARCHIVE DESTINATION lib/
                 LIBRARY DESTINATION lib/
                 RUNTIME DESTINATION bin/
