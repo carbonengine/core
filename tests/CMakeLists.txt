@@ -54,7 +54,14 @@ endif()
 
 include(GoogleTest)
 
-target_precompile_headers(CcpCoreTest PRIVATE StdAfx.h)
+target_precompile_headers(CcpCoreTest
+    PRIVATE
+        <gtest/gtest.h>
+        <algorithm>
+        <memory>
+        <thread>
+        <functional>
+)
 
 set_target_properties(CcpCoreTest PROPERTIES FOLDER "Tests")
 # Test discovery needs to be delayed to PRE_TEST (https://gitlab.kitware.com/cmake/cmake/-/issues/21845)
