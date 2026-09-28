@@ -1,11 +1,11 @@
 // Copyright © 2025 CCP ehf.
 
-#include "CcpMemory.h"
-#include "CcpMemoryTracker.h"
-#include "CcpAssert.h"
-#include "CcpTelemetry.h"
-#include "CcpLog.h"
-#include "CcpMemoryTrackerMutex.h"
+#include <CcpMemory.h>
+#include <CcpMemoryTracker.h>
+#include <CcpAssert.h>
+#include <CcpTelemetry.h>
+#include <CcpLog.h>
+#include <CcpMemoryTrackerMutex.h>
 
 #ifdef __APPLE__
 #include <malloc/malloc.h>

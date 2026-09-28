@@ -1,10 +1,10 @@
 // Copyright © 2014 CCP ehf.
 
 
-#include "CcpFileUtils.h"
-#include "CcpLog.h"
-#include "CcpSecureCrt.h"
-#include "StringConversions.h"
+#include <CcpFileUtils.h>
+#include <CcpLog.h>
+#include <CcpSecureCrt.h>
+#include <StringConversions.h>
 
 
 #ifdef _WIN32

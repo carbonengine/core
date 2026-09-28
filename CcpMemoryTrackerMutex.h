@@ -10,7 +10,7 @@
 #ifdef _WIN32
 
 #include <winbase.h>
-#include "CcpMutex.h"
+#include <CcpMutex.h>
 
 class CcpMemoryTrackerMutex
 {
@@ -50,7 +50,7 @@ private:
 };
 #else
 
-#include "CcpMutex.h"
+#include <CcpMutex.h>
 #include <pthread.h>
 
 class CcpMemoryTrackerMutex

@@ -108,6 +108,11 @@ target_sources(CcpCore
             BASE_DIRS
                 include
                 ${CMAKE_CURRENT_BINARY_DIR}
+    PRIVATE
+        FILE_SET internal_headers
+            TYPE HEADERS
+            FILES
+                CcpMemoryTrackerMutex.h
 )
 
 get_target_property(_SOURCES CcpCore SOURCES)

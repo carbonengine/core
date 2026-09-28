@@ -1,7 +1,7 @@
 // Copyright © 2013 CCP ehf.
 
 
-#include "StringConversions.h"
+#include <StringConversions.h>
 
 std::wstring UTF8ToWide( const std::string& utf8String )
 {
@@ -29,7 +29,7 @@ std::string WideToUTF8( const wchar_t* wideString )
 
 #include <wchar.h>
 #include <string.h>
-#include "CcpMemory.h"
+#include <CcpMemory.h>
 
 
 BlueConvertWideToAscii::BlueConvertWideToAscii( const wchar_t* src ) : m_converted( nullptr )

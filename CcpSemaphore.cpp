@@ -1,9 +1,10 @@
 // Copyright © 2013 CCP ehf.
 
-#include "CcpSemaphore.h"
+#include <CcpSemaphore.h>
+#include <CcpSecureCrt.h>
 
 #if CCP_TELEMETRY_ENABLED
-#include "tracy/TracyC.h"
+#include <tracy/TracyC.h>
 #endif
 
 // OS specific includes:
@@ -17,8 +18,6 @@
 #else
 	using NativeHandle = sem_t;
 #endif
-
-#include "include/CcpSecureCrt.h"
 
 struct CcpSemaphore::Private
 {

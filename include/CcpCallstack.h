@@ -3,7 +3,7 @@
 #ifndef _CCPCALLSTACK_H_
 #define _CCPCALLSTACK_H_
 
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 
 class CARBON_CORE_API CCPCallstack
 {

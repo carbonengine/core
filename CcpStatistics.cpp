@@ -1,8 +1,7 @@
 // Copyright © 2025 CCP ehf.
 
-#include "CcpStatistics.h"
-
-#include "CcpTelemetry.h"
+#include <CcpStatistics.h>
+#include <CcpTelemetry.h>
 
 #if CCP_TELEMETRY_ENABLED
 #include <tracy/Tracy.hpp>

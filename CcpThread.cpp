@@ -2,8 +2,8 @@
 
 #include <CcpLog.h>
 
-#include "CcpThread.h"
-#include "CcpMemory.h"
+#include <CcpThread.h>
+#include <CcpMemory.h>
 
 namespace
 {
@@ -113,7 +113,7 @@ bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
 #elif __APPLE__
 
 #include <sys/time.h>
-#include "CcpAssert.h"
+#include <CcpAssert.h>
 #include <mach/thread_act.h>
 
 namespace

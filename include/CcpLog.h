@@ -6,7 +6,7 @@
 
 #include <cstdarg>
 #include <stdexcept>
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 
 #if !defined( CCP_LOG_ENABLED )
 	// Default behavior is to enable logging of info

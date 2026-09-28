@@ -17,6 +17,16 @@ add_executable(CcpCoreTest
     TempFile.cpp
     CcpLog.cpp
 )
+
+target_sources(CcpCoreTest
+    PRIVATE
+        FILE_SET HEADERS
+            FILES
+                TempFile.h
+                SilenceDeprecationWarnings.h
+                TracyTestClient.h
+)
+
 target_link_libraries(CcpCoreTest PRIVATE CcpCore GTest::gtest GTest::gtest_main)
 
 if(WITH_TELEMETRY)

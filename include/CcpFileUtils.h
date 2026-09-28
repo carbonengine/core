@@ -18,7 +18,7 @@
 #include <set>
 #include <string>
 
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 
 #ifdef  _WIN64
 typedef __int64    ssize_t;

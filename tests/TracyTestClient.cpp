@@ -1,5 +1,5 @@
 // Copyright © 2025 CCP ehf.
-#include "TracyTestClient.h"
+#include <TracyTestClient.h>
 
 #include <cassert>
 #include <chrono>

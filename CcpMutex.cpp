@@ -1,12 +1,12 @@
 // Copyright © 2026 CCP ehf.
 
 
-#include "CcpAtomic.h"
-#include "CcpMutex.h"
-#include "CcpThread.h"
+#include <CcpAtomic.h>
+#include <CcpMutex.h>
+#include <CcpThread.h>
 
 #if CCP_TELEMETRY_ENABLED
-#include "tracy/TracyC.h"
+#include <tracy/TracyC.h>
 #endif
 
 

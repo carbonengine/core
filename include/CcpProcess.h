@@ -4,7 +4,7 @@
 #ifndef CcpProcess_h
 #define CcpProcess_h
 
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 #include <cstdint>
 
 #ifdef _WIN32

@@ -8,7 +8,7 @@
 #pragma once
 
 #include <string>
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 
 CARBON_CORE_API std::wstring UTF8ToWide( const char* utf8String );
 CARBON_CORE_API std::wstring UTF8ToWide( const std::string& utf8String );
@@ -19,7 +19,7 @@ CARBON_CORE_API std::string WideToUTF8( const std::wstring& wideString );
 #include <atlbase.h>
 #else
 
-#include "CcpMacros.h"
+#include <CcpMacros.h>
 #include <stdint.h>
 
 class CARBON_CORE_API BlueConvertWideToAscii
