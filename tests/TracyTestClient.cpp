@@ -483,20 +483,35 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
         }
         else
         {
-            // Fixed-size item (or SingleStringData / SecondStringData special cases).
+            // Fixed-size item (or SingleStringData / SecondStringData special cases
+            // AND the new 8-bit length variants of those (added in Tracy 0.14.x)
             if( idx == QueueIdx( tracy::QueueType::SingleStringData ) ||
-                idx == QueueIdx( tracy::QueueType::SecondStringData ) )
+                idx == QueueIdx( tracy::QueueType::SecondStringData ) ||
+                idx == QueueIdx( tracy::QueueType::SingleStringData8 ) ||
+                idx == QueueIdx( tracy::QueueType::SecondStringData8 ) )
             {
+                const bool is8Bit =
+                    idx == QueueIdx( tracy::QueueType::SingleStringData8 ) ||
+                    idx == QueueIdx( tracy::QueueType::SecondStringData8 );
+
                 ptr += sizeof( tracy::QueueHeader );
-                if( ptr + sizeof( uint16_t ) > end ) return;
+                const size_t lengthBytes = is8Bit ? sizeof( uint8_t ) : sizeof( uint16_t );
+                if( ptr + lengthBytes > end )
+                    return;
+
                 uint16_t strSz = 0;
-                std::memcpy( &strSz, ptr, sizeof( strSz ) );
-                ptr += sizeof( strSz );
-                if( ptr + strSz > end ) return;
+                std::memcpy( &strSz, ptr, lengthBytes );
+                ptr += lengthBytes;
+                if( ptr + strSz > end )
+                    return;
+
                 // Remember the payload: fat-pointer items (e.g. LockName) are
-                // preceded by a SingleStringData event carrying their string.
-                if( idx == QueueIdx( tracy::QueueType::SingleStringData ) )
+                // preceded by either SingleStringData(8) event carrying their string.
+                if( idx == QueueIdx( tracy::QueueType::SingleStringData ) ||
+                    idx == QueueIdx( tracy::QueueType::SingleStringData8 ) )
+                {
                     m_pendingSingleString.assign( ptr, strSz );
+                }
                 ptr += strSz;
             }
             else
@@ -525,12 +540,22 @@ void TracyTestClient::ProcessDecompressedData( const char* data, int sz )
                     break;
                 }
 
+                // Support all the different "zone begin" item types
                 case tracy::QueueType::ZoneBegin:
+                case tracy::QueueType::ZoneBegin16:
+                case tracy::QueueType::ZoneBegin32:
                 case tracy::QueueType::ZoneBeginCallstack:
+                case tracy::QueueType::ZoneBeginCallstack16:
+                case tracy::QueueType::ZoneBeginCallstack32:
+                {
                     m_zoneBeginCount.fetch_add( 1, std::memory_order_relaxed );
                     break;
+                }
 
+                // Support all the different "zone end" item types
                 case tracy::QueueType::ZoneEnd:
+                case tracy::QueueType::ZoneEnd16:
+                case tracy::QueueType::ZoneEnd32:
                 {
                     m_zoneEndCount.fetch_add( 1, std::memory_order_relaxed );
                     const uint32_t thread = m_currentThread;
