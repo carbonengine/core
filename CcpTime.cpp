@@ -68,7 +68,6 @@ CcpTime TimeNow()
 #elif defined(__APPLE__)
 
 #include <mach/mach_time.h>
-#include <time.h>
 #include <sys/time.h>
 
 uint64_t CcpGetTimestamp()
@@ -111,8 +110,6 @@ uint64_t CcpGetTickCount()
 }
 
 #else
-
-#include <time.h>
 
 uint64_t CcpGetTimestamp()
 {

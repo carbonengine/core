@@ -8,6 +8,7 @@
 #include <climits>
 #include <cmath>
 #include <atomic>
+#include <ctime>
 
 #ifdef _WIN32
 	#include <windows.h>
