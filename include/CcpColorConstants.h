@@ -7,7 +7,7 @@
 #include <cstdint>
 #include <string_view>
 
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 
 // Useful RGB color constants
 // Initially based on the <named-color> type of CSS standard, see https://www.w3.org/TR/css-color-4/#named-colors.

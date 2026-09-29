@@ -4,12 +4,12 @@
 #ifndef CcpThread_h
 #define CcpThread_h
 
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 #include <cstdint>
 #include <type_traits>
 #include <exception>
 #include <algorithm>
-#include "CcpMemory.h"
+#include <CcpMemory.h>
 
 #if _WIN32
 	#include <windows.h>

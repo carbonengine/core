@@ -1,7 +1,7 @@
 // Copyright © 2025 CCP ehf.
 
-#include "include/CcpAssert.h"
-#include "include/CcpSecureCrt.h"
+#include <CcpAssert.h>
+#include <CcpSecureCrt.h>
 
 #ifdef _WIN32
 	#include <winuser.h>

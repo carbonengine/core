@@ -1,7 +1,6 @@
 // Copyright © 2025 CCP ehf.
 
-#include "gtest/gtest.h"
-#include "StringConversions.h"
+#include <StringConversions.h>
 
 std::vector<std::pair<std::wstring, std::string>> validUnicodeStrings{
 	{ L"The quick brown fox jumps over the lazy dog", u8"The quick brown fox jumps over the lazy dog" },

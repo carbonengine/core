@@ -1,8 +1,7 @@
 // Copyright © 2025 CCP ehf.
 
-#include "TempFile.h"
-#include "CcpCore.h"
-#include <memory>
+#include <TempFile.h>
+#include <CcpCore.h>
 
 
 TempFile::TempFile()

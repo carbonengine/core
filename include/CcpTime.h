@@ -4,8 +4,8 @@
 #ifndef CcpTime_h
 #define CcpTime_h
 
-#include "CcpTypes.h"
-#include "carbon_core_export.h"
+#include <CcpTypes.h>
+#include <carbon_core_export.h>
 
 // Get a timestamp, with the highest precision available on the system. The unit
 // is not defined - may vary between systems, but is consistent throughout the

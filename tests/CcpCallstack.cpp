@@ -1,10 +1,8 @@
 // Copyright © 2025 CCP ehf.
 
-#include "gtest/gtest.h"
-#include "CcpCallstack.h"
-#include <memory>
+#include <CcpCallstack.h>
 
-#include "TempFile.h"
+#include <TempFile.h>
 
 #if defined(_MSC_VER)
 #define NO_INLINE __declspec(noinline)

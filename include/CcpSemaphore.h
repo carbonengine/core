@@ -13,7 +13,8 @@
 	#include <semaphore.h>
 #endif
 
-#include "CcpTelemetry.h"
+#include <CcpTelemetry.h>
+#include <carbon_core_export.h>
 
 // Simple wrapper for a semaphore
 class CcpSemaphore

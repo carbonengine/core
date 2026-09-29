@@ -3,7 +3,7 @@
 #ifndef CCPMUTEX_H
 #define CCPMUTEX_H
 
-#include "CcpTelemetry.h"
+#include <CcpTelemetry.h>
 
 class CcpMutex
 {

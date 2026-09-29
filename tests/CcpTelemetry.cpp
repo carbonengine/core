@@ -1,21 +1,13 @@
 // Copyright © 2025 CCP ehf.
 
-#include <gtest/gtest.h>
-
-#include <algorithm>
 #include <atomic>
-#include <cctype>
-#include <cstdio>
-#include <functional>
 #include <future>
-#include <mutex>
-#include <thread>
 
 #include <tracy/Tracy.hpp>
 
 #include <CcpCore.h>
 
-#include "SilenceDeprecationWarnings.h"
+#include <SilenceDeprecationWarnings.h>
 
 // How can we test telemetry-related functionality to ensure our bookkeeping
 // there is sane?
@@ -38,7 +30,7 @@
 // want to provide a test implementation of the tracy network protocol. Fortunately,
 // tracy itself already provides many of the building blocks for this. So this
 // includes the AI-written, but human-reviewed test client.
-#include "TracyTestClient.h"
+#include <TracyTestClient.h>
 
 // Helper for find a ProfilerCategory by name from the list of already registered ProfilerCategories
 bool TryGetProfilerCategoryNamed( const std::string& name, CcpTelemetryCategories::const_iterator& out )
