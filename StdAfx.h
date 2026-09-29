@@ -5,6 +5,7 @@
 #include <cstring>
 #include <stddef.h>
 #include <cstdint>
+#include <climits>
 #include <cmath>
 #include <atomic>
 
