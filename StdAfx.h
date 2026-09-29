@@ -5,6 +5,8 @@
 #include <cstring>
 #include <stddef.h>
 #include <cstdint>
+#include <cmath>
+#include <atomic>
 
 #ifdef _WIN32
 	#include <windows.h>
