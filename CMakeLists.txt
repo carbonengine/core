@@ -265,5 +265,15 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
                 FILES carbon-coreConfig.cmake
                 DESTINATION ${CMAKE_INSTALL_PREFIX}/share/carbon-core
         )
+        if(WIN32 AND WITH_TELEMETRY)
+            # Install the CLI tools (and their dependent dlls) for Tracy
+            install(
+                    DIRECTORY "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/tracy/"
+                    DESTINATION tools
+                    FILES_MATCHING
+                        PATTERN "*.exe"
+                        PATTERN "*.dll"
+            )
+        endif()
     endif()
 endif()

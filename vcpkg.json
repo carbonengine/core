@@ -35,7 +35,8 @@
             "manual-lifetime",
             "no-callstack",
             "no-crash-handler",
-            "on-demand"
+            "on-demand",
+            "cli-tools"
           ]
         }
       ]
