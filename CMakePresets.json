@@ -86,7 +86,6 @@
       "name": "arm64-linux",
       "inherits": "linux",
       "cacheVariables": {
-        "CMAKE_OSX_ARCHITECTURES": "arm64",
         "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/toolchains/arm64-linux-carbon.cmake"
       },
       "hidden": true
@@ -95,7 +94,6 @@
       "name": "x64-linux",
       "inherits": "linux",
       "cacheVariables": {
-        "CMAKE_OSX_ARCHITECTURES": "x86_64",
         "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/toolchains/x64-linux-carbon.cmake"
       },
       "hidden": true
