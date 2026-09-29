@@ -742,7 +742,7 @@ std::chrono::milliseconds CcpTelemetryRemainingCaptureDuration()
 void CcpTelemetryTrackAllocation( void* p, size_t size )
 {
 	if ( CcpTelemetryMemoryTrackingIsEnabled() && CcpTelemetryIsConnected() ) {
-		TracySecureAlloc( p, size );
+		TracyAlloc( p, size );
 	}
 }
 
@@ -761,7 +761,7 @@ void CcpTelemetryTrackDeallocation( void* p )
 {
 	if ( p && CcpTelemetryMemoryTrackingIsEnabled() && CcpTelemetryIsConnected() )
 	{
-		TracySecureFree( p );
+		TracyFree( p );
 	}
 }
 
