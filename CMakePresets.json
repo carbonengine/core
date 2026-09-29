@@ -40,6 +40,15 @@
       "hidden": true
     },
     {
+      "name": "linux",
+      "inherits": "common",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
       "name": "x64-windows-v145",
       "inherits": "windows",
       "cacheVariables": {
@@ -70,6 +79,24 @@
       "cacheVariables": {
         "CMAKE_OSX_ARCHITECTURES": "x86_64",
         "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/toolchains/x64-osx-carbon.cmake"
+      },
+      "hidden": true
+    },
+    {
+      "name": "arm64-linux",
+      "inherits": "linux",
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/toolchains/arm64-linux-carbon.cmake"
+      },
+      "hidden": true
+    },
+    {
+      "name": "x64-linux",
+      "inherits": "linux",
+      "cacheVariables": {
+        "CMAKE_OSX_ARCHITECTURES": "x86_64",
+        "VCPKG_CHAINLOAD_TOOLCHAIN_FILE": "${sourceDir}/vendor/github.com/carbonengine/vcpkg-registry/toolchains/x64-linux-carbon.cmake"
       },
       "hidden": true
     },
@@ -215,6 +242,78 @@
         "CMAKE_BUILD_TYPE": "TrinityDev",
         "VCPKG_TARGET_TRIPLET": "x64-osx-trinitydev",
         "VCPKG_HOST_TRIPLET": "x64-osx-trinitydev"
+      }
+    },
+    {
+      "name": "x64-linux-internal",
+      "inherits": "x64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Internal",
+        "VCPKG_TARGET_TRIPLET": "x64-linux-internal",
+        "VCPKG_HOST_TRIPLET": "x64-linux-internal"
+      }
+    },
+    {
+      "name": "x64-linux-release",
+      "inherits": "x64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VCPKG_TARGET_TRIPLET": "x64-linux-release",
+        "VCPKG_HOST_TRIPLET": "x64-linux-release"
+      }
+    },
+    {
+      "name": "x64-linux-debug",
+      "inherits": "x64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_TARGET_TRIPLET": "x64-linux-debug",
+        "VCPKG_HOST_TRIPLET": "x64-linux-debug"
+      }
+    },
+    {
+      "name": "x64-linux-trinitydev",
+      "inherits": "x64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "TrinityDev",
+        "VCPKG_TARGET_TRIPLET": "x64-linux-trinitydev",
+        "VCPKG_HOST_TRIPLET": "x64-linux-trinitydev"
+      }
+    },
+    {
+      "name": "arm64-linux-internal",
+      "inherits": "arm64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Internal",
+        "VCPKG_TARGET_TRIPLET": "arm64-linux-internal",
+        "VCPKG_HOST_TRIPLET": "arm64-linux-internal"
+      }
+    },
+    {
+      "name": "arm64-linux-release",
+      "inherits": "arm64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "VCPKG_TARGET_TRIPLET": "arm64-linux-release",
+        "VCPKG_HOST_TRIPLET": "arm64-linux-release"
+      }
+    },
+    {
+      "name": "arm64-linux-debug",
+      "inherits": "arm64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "VCPKG_TARGET_TRIPLET": "arm64-linux-debug",
+        "VCPKG_HOST_TRIPLET": "arm64-linux-debug"
+      }
+    },
+    {
+      "name": "arm64-linux-trinitydev",
+      "inherits": "arm64-linux",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "TrinityDev",
+        "VCPKG_TARGET_TRIPLET": "arm64-linux-trinitydev",
+        "VCPKG_HOST_TRIPLET": "arm64-linux-trinitydev"
       }
     }
   ]
