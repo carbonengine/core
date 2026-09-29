@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
+#include <cstdint>
 
 #ifdef _WIN32
 	#include <windows.h>
