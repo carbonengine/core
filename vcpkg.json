@@ -36,7 +36,8 @@
             "no-callstack",
             "no-crash-handler",
             "on-demand",
-            "cli-tools"
+            "cli-tools",
+            "gui-tools"
           ]
         }
       ]
