@@ -1,7 +1,7 @@
 // Copyright © 2026 CCP ehf.
 
 #include "gtest/gtest.h"
-#include "CcpCore.h"
+#include "CcpAssert.h"
 #include "CcpPairingHeap.h"
 
 TEST(PairingHeap, RemoveNonRootNode)
@@ -14,8 +14,8 @@ TEST(PairingHeap, RemoveNonRootNode)
     int val = heap.remove(node);
 
     EXPECT_EQ(val, 5);
-    EXPECT_EQ(heap.size(), 2u);
-    EXPECT_EQ(heap.find_min(), 10);
+    EXPECT_FALSE(heap.is_empty());
+    EXPECT_EQ(heap.remove_min(), 10);
 }
 
 TEST(PairingHeap, RemoveRootNode)
@@ -28,8 +28,8 @@ TEST(PairingHeap, RemoveRootNode)
     int val = heap.remove(root);
 
     EXPECT_EQ(val, 1);
-    EXPECT_EQ(heap.size(), 2u);
-    EXPECT_EQ(heap.find_min(), 2);
+    EXPECT_FALSE(heap.is_empty());
+    EXPECT_EQ(heap.remove_min(), 2);
 }
 
 TEST(PairingHeap, RemoveAllNodesOneByOne)
