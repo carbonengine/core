@@ -1,6 +1,7 @@
 // Copyright © 2026 CCP ehf.
 
 #include "gtest/gtest.h"
+#include "CcpCore.h"
 #include "CcpPairingHeap.h"
 
 TEST(PairingHeap, RemoveNonRootNode)
