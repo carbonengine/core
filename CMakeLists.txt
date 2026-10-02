@@ -275,7 +275,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
             endif()
             install(
                     DIRECTORY "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/tracy/"
-                    DESTINATION tools
+                    DESTINATION tools/tracy
                     ${TRACY_TOOLS_FILTER}
             )
         endif()
