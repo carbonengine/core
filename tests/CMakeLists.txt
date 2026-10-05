@@ -1,7 +1,5 @@
 # Copyright © 2025 CCP ehf.
 
-enable_testing()
-
 find_package(GTest CONFIG REQUIRED)
 add_executable(CcpCoreTest
     CcpCallstack.cpp
@@ -19,6 +17,16 @@ add_executable(CcpCoreTest
     TempFile.cpp
     CcpLog.cpp
 )
+
+target_sources(CcpCoreTest
+    PRIVATE
+        FILE_SET HEADERS
+            FILES
+                TempFile.h
+                SilenceDeprecationWarnings.h
+                TracyTestClient.h
+)
+
 target_link_libraries(CcpCoreTest PRIVATE CcpCore GTest::gtest GTest::gtest_main)
 
 if(WITH_TELEMETRY)
@@ -36,9 +44,6 @@ if(APPLE)
     target_link_libraries(CcpCoreTest PRIVATE "-framework CoreFoundation")
 endif()
 
-# CcpCore uses CMAKE_CURRENT_BINARY_DIR as a private include directory which CcpCoreTest requires
-target_include_directories(CcpCoreTest PRIVATE $<TARGET_PROPERTY:CcpCore,INCLUDE_DIRECTORIES>)
-
 if(CMAKE_IMPORT_LIBRARY_SUFFIX)
     add_custom_command(TARGET CcpCoreTest POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:CcpCoreTest> $<TARGET_FILE_DIR:CcpCoreTest>
@@ -48,6 +53,15 @@ if(CMAKE_IMPORT_LIBRARY_SUFFIX)
 endif()
 
 include(GoogleTest)
+
+target_precompile_headers(CcpCoreTest
+    PRIVATE
+        <gtest/gtest.h>
+        <algorithm>
+        <memory>
+        <thread>
+        <functional>
+)
 
 set_target_properties(CcpCoreTest PROPERTIES FOLDER "Tests")
 # Test discovery needs to be delayed to PRE_TEST (https://gitlab.kitware.com/cmake/cmake/-/issues/21845)

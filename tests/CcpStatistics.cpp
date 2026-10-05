@@ -1,8 +1,6 @@
 // Copyright © 2025 CCP ehf.
 
-#include "gtest/gtest.h"
-#include "CcpCore.h"
-#include <algorithm>
+#include <CcpCore.h>
 
 TEST( CcpStatistics, CanCreateEntry )
 {

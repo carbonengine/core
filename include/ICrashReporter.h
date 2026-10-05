@@ -4,7 +4,7 @@
 #define _IBLUE_CRASH_INTERFACE_H_
 #pragma once
 
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 
 extern CARBON_CORE_API struct ICrashReporter* BeCrashes;
 

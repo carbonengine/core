@@ -5,7 +5,7 @@
 #ifndef _CCPHASH_H_
 #define _CCPHASH_H_
 
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 
 /// See http://www.isthe.com/chongo/tech/comp/fnv/ for a description of the FNV1 hash algorithm.
 

@@ -5,7 +5,7 @@
 
 #include <cstdio>
 
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 
 CARBON_CORE_API void MemoryTrackerInitialize();
 CARBON_CORE_API void MemoryTrackerShutdown();

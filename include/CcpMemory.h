@@ -3,7 +3,7 @@
 #ifndef _CCP_MEMORY_H_
 #define _CCP_MEMORY_H_
 
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 #include <new>
 #include <cstddef>
 

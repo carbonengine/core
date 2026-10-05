@@ -1,6 +1,6 @@
 // Copyright © 2025 CCP ehf.
 
-#include "StringConversions.h"
+#include <StringConversions.h>
 #import <AppKit/AppKit.h>
 
 std::wstring UTF8ToWide( const char* utf8String )

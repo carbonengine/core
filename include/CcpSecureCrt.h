@@ -10,7 +10,7 @@
 #include <ctime>
 #include <algorithm>
 
-#include "carbon_core_export.h"
+#include <carbon_core_export.h>
 
 #if !defined(_TRUNCATE)
 #define _TRUNCATE ((size_t)-1)

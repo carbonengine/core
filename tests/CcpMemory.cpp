@@ -1,7 +1,6 @@
 // Copyright © 2025 CCP ehf.
 
-#include "gtest/gtest.h"
-#include "CcpCore.h"
+#include <CcpCore.h>
 
 #ifdef min
 #undef min

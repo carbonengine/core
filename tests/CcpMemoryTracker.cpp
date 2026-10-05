@@ -1,10 +1,9 @@
 // Copyright © 2025 CCP ehf.
 
-#include "gtest/gtest.h"
 #include <cstdint>
-#include "CcpCore.h"
+#include <CcpCore.h>
 
-#include "TempFile.h"
+#include <TempFile.h>
 
 class CCPMemoryTracker : public ::testing::Test
 {

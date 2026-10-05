@@ -9,9 +9,9 @@
 #include <string>
 #include <vector>
 
-#include "CcpColorConstants.h"
-#include "CcpThread.h"
-#include "carbon_core_export.h"
+#include <CcpColorConstants.h>
+#include <CcpThread.h>
+#include <carbon_core_export.h>
 
 // CCP_TELEMETRY_ENABLED is on by default - to disable Telemetry
 // define CCP_TELEMETRY_ENABLED as 0
@@ -24,7 +24,7 @@
 #endif
 
 #if CCP_TELEMETRY_ENABLED
-	#include "TrackableContainer.h"
+	#include <TrackableContainer.h>
 
 	#define TMCM_GENERAL 1
 	#define TMCM_CPP 2
