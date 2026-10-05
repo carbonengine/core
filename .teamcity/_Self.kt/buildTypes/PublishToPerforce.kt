@@ -71,12 +71,7 @@ class Publish(perforce_publish_path: String) : BuildType({
                         "${Windows.Release.depParamRefs["env.GIT_TAG_HASH"]}",
                         "${Windows.Debug.depParamRefs["env.GIT_TAG_HASH"]}",
                         "${Windows.Internal.depParamRefs["env.GIT_TAG_HASH"]}",
-                        "${Windows.TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}",
-
-                        "${Windows.Debug_v145.depParamRefs["env.GIT_TAG_HASH"]}",
-                        "${Windows.Internal_v145.depParamRefs["env.GIT_TAG_HASH"]}",
-                        "${Windows.TrinityDev_v145.depParamRefs["env.GIT_TAG_HASH"]}",
-                        "${Windows.Release_v145.depParamRefs["env.GIT_TAG_HASH"]}"
+                        "${Windows.TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}"
                     ])
                     if len(tags) > 1:
                         raise ValueError(f"Multiple different build tags have been detected {tags}")
@@ -252,42 +247,6 @@ class Publish(perforce_publish_path: String) : BuildType({
 
             artifacts {
                 artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Windows.TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}"
-            }
-        }
-        dependency(Windows.Debug_v145) {
-            snapshot {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }
-
-            artifacts {
-                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Windows.Debug_v145.depParamRefs["env.GIT_TAG_HASH"]}"
-            }
-        }
-        dependency(Windows.Internal_v145) {
-            snapshot {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }
-
-            artifacts {
-                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Windows.Internal_v145.depParamRefs["env.GIT_TAG_HASH"]}"
-            }
-        }
-        dependency(Windows.TrinityDev_v145) {
-            snapshot {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }
-
-            artifacts {
-                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Windows.TrinityDev_v145.depParamRefs["env.GIT_TAG_HASH"]}"
-            }
-        }
-        dependency(Windows.Release_v145) {
-            snapshot {
-                onDependencyFailure = FailureAction.FAIL_TO_START
-            }
-
-            artifacts {
-                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Windows.Release_v145.depParamRefs["env.GIT_TAG_HASH"]}"
             }
         }
         artifacts(AbsoluteId("Infrastructure_MetaTeamCity_Tools_TeamcityChanges")) {
