@@ -17,12 +17,13 @@ class UniversalBuild() : BuildType({
         param("universal-output-dir", "%system.teamcity.build.workingDir%/output_build")
         param("universal-lib-path", "lib/macOS/universal/AppleClang/")
         param("universal-bin-path", "bin/macOS/universal/AppleClang/")
+        param("universal-tracy-path", "bin/macOS/universal/AppleClang/tools/tracy")
         param("x64-lib-path", "lib/macOS/x64")
         param("arm64-lib-path", "lib/macOS/arm64")
         param("x64-bin-path", "bin/macOS/x64")
         param("arm64-bin-path", "bin/macOS/arm64")
         text("file-matchers",
-            "-m '*.so:%system.teamcity.build.workingDir%/lib' -m '*.dylib:%system.teamcity.build.workingDir%/lib' -m '*.a:%system.teamcity.build.workingDir%/lib'",
+            "-m '*.so:%system.teamcity.build.workingDir%/lib' -m '*.dylib:%system.teamcity.build.workingDir%/lib' -m '*.a:%system.teamcity.build.workingDir%/lib' -m 'tools/tracy/*:%system.teamcity.build.workingDir%/tools/tracy'",
             label = "lipo-build matchers",
             description = """
             -m '*.so:lib' to tell the tool to lipo together .so files and output the fat binaries to lib/.
@@ -74,10 +75,14 @@ class UniversalBuild() : BuildType({
             scriptContent = """
                 mkdir -p   %universal-output-dir%/%universal-lib-path%
                 mkdir -p   %universal-output-dir%/%universal-bin-path%
+                mkdir -p   %universal-output-dir%/%universal-tracy-path%
                 cp %system.teamcity.build.workingDir%/lib/* %universal-output-dir%/%universal-lib-path%
                 cp %system.teamcity.build.workingDir%/bin/* %universal-output-dir%/%universal-bin-path%
+                cp -r %system.teamcity.build.workingDir%/tools/tracy/* %universal-output-dir%/%universal-tracy-path%/
                 rm -r %universal-output-dir%/%x64-lib-path%
                 rm -r %universal-output-dir%/%arm64-lib-path%
+                rm -r %universal-output-dir%/%x64-bin-path%
+                rm -r %universal-output-dir%/%arm64-bin-path%
             """.trimIndent()
         }
     }
