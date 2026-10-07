@@ -726,6 +726,8 @@ void CcpRemoveFile( const std::wstring& filename )
 
 std::wstring CcpExecutablePath()
 {
+	std::wstring result;
+
 #ifdef __APPLE__
     std::vector<char> tmp(CCP_MAX_PATH);
     uint32_t size = uint32_t( tmp.size() );
@@ -737,10 +739,19 @@ std::wstring CcpExecutablePath()
     
     char actualpath [PATH_MAX];
     char* path = realpath(&tmp[0], actualpath);
-    return std::wstring( CA2W( actualpath ) );
+    result = CA2W( actualpath );
+#elif __linux__
+	char buffer[PATH_MAX];
+	if(const auto length = readlink("/proc/self/exe", buffer, sizeof( buffer ) - 1 ); length > 0)
+	{
+		result = CA2W(buffer);
+	}
+
 #else
     static_assert( false, "CcpExecutablePath is not implemented" );
 #endif
+
+	return result;
 }
 
 
