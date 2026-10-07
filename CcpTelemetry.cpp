@@ -152,7 +152,7 @@ namespace
 	std::array<std::optional<CcpTelemetryCategory>, CCP_TELEMETRY_CATEGORIES_MAX> s_registeredProfilerCategories{
 		CcpTelemetryCategory{ "general", CcpColor::SteelBlue, TMCM_GENERAL }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
 		CcpTelemetryCategory{ "cpp", CcpColor::Yellow, TMCM_CPP }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
-		CcpTelemetryCategory{ "core", CcpColor::LightGreen, 1<<2 }
+		CcpTelemetryCategory{ "core", CcpColor::LimeGreen, 1<<2 }
 	};
 
 	uint64_t s_profilerCategoryCaptureMask{0};
@@ -1111,7 +1111,20 @@ void TelemetryZone::text( const char* text ) const
 }
 
 /*!
+	\brief Get the `CcpTelemetryCategory` used for legacy "cpp" zones.
+*/
+const CcpTelemetryCategory& GetCppTelemetryZoneCategory()
+{
+	// Registering is idempotent, so the first caller registers the category and every caller after
+	// that gets the one already in the registry.
+	static const CcpTelemetryCategory& s_CppCategory = CcpTelemetryCategoryRegister( "cpp", CcpColor::Yellow ).first;
+	return s_CppCategory;
+}
+
+/*!
 	\brief Manually enters a zone identified by an opaque key.
+
+	Assigns all zones to legacy category "cpp".
 
 	\deprecated Use a `TelemetryZone` instead, which ends its zone automatically via RAII instead of requiring a
 	            matching `CcpTelemetryLeaveZone()` call.
@@ -1130,7 +1143,7 @@ void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, u
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started )
 	{
 		t_manuallyTrackedZones.emplace( key );
-		t_activeTaskletZoneStore->second.emplace( TMCM_CPP, name, filename, lineno, CcpColor::Yellow );
+		t_activeTaskletZoneStore->second.emplace( GetCppTelemetryZoneCategory(), name, filename, lineno );
 	}
 }
 
