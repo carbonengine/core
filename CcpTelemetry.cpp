@@ -152,7 +152,7 @@ namespace
 	std::array<std::optional<CcpTelemetryCategory>, CCP_TELEMETRY_CATEGORIES_MAX> s_registeredProfilerCategories{
 		CcpTelemetryCategory{ "general", CcpColor::SteelBlue, TMCM_GENERAL }, // legacy definition from TMCM_GENERAL, used to be a bitmask, but can now be treated as index into this array
 		CcpTelemetryCategory{ "cpp", CcpColor::Yellow, TMCM_CPP }, // legacy value from TMCM_CPP, used to be a bitmask, but can now be treated as index into this array
-		CcpTelemetryCategory{ "core", CcpColor::LightGreen, 1<<2 }
+		CcpTelemetryCategory{ "core", CcpColor::LimeGreen, 1<<2 }
 	};
 
 	uint64_t s_profilerCategoryCaptureMask{0};
