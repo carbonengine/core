@@ -126,3 +126,9 @@ TEST( CcpFileUtils, CcpGetAbsolutePathResolvesToNewFile )
 	unlink( tempFileName );
 #endif
 }
+
+TEST(CcpFileUtils, CanGetExecutablePath)
+{
+	auto path = CcpExecutablePath();
+	ASSERT_FALSE(path.empty());
+}
