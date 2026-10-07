@@ -2,6 +2,8 @@
 
 #include "gtest/gtest.h"
 #include "CcpCore.h"
+
+#include <filesystem>
 #include <fstream>
 
 namespace
@@ -70,19 +72,57 @@ TEST( CcpFileUtils, CcpGetAbsolutePathIgnoresInvalidDoubleDots )
 	EXPECT_EQ( ROOT_PATH, CcpGetAbsolutePath( path ) );
 }
 
-TEST( CcpFileUtils, CcpGetAbsolutePathResolvesToExistingFile )
+class CcpTempFileUtilityTest : public ::testing::Test
 {
-	const char* tempFileName = "tempFileName";
+protected:
+	void SetUp() override
+	{
+		std::string name = ::testing::UnitTest::GetInstance()->current_test_info()->name();
+		tempFilePath = name.append("_tmp");
+
+		if (exists(tempFilePath))
+		{
+			DeleteTempFile();
+		}
+
+		ASSERT_FALSE(exists(tempFilePath));
+	}
+
+	void TearDown() override
+	{
+		if (exists(tempFilePath))
+		{
+			DeleteTempFile();
+		}
+
+		ASSERT_FALSE(exists(tempFilePath));
+	}
+
+	std::filesystem::path tempFilePath;
+
+private:
+	void DeleteTempFile()
+	{
+#if _WIN32
+		_unlink(tempFilePath.c_str());
+#else
+		unlink(tempFilePath.c_str());
+#endif
+	}
+};
+
+TEST_F(CcpTempFileUtilityTest, CcpGetAbsolutePathResolvesToExistingFile)
+{
 	const char* checkString = "test string. can\'t possibly have it in another file";
 
 	{
-		std::ofstream tempFile( "tempFileName" );
+		std::ofstream tempFile( tempFilePath );
 		ASSERT_TRUE( tempFile.good() );
 		tempFile << checkString;
 	}
 
 
-	auto path = CcpGetAbsolutePath( static_cast<const wchar_t*>( CA2W( tempFileName ) ) );
+	auto path = CcpGetAbsolutePath( tempFilePath.wstring());
 
 	{
 		std::ifstream tempFile( CW2A( path.c_str() ) );
@@ -91,23 +131,15 @@ TEST( CcpFileUtils, CcpGetAbsolutePathResolvesToExistingFile )
 		std::string contents( ( std::istreambuf_iterator<char>( tempFile ) ), std::istreambuf_iterator<char>() );
 		EXPECT_EQ( checkString, contents );
 	}
-
-#if _WIN32
-	_unlink( tempFileName );
-#else
-	unlink( tempFileName );
-#endif
 }
 
-TEST( CcpFileUtils, CcpGetAbsolutePathResolvesToNewFile )
+TEST_F(CcpTempFileUtilityTest, CcpGetAbsolutePathResolvesToNewFile)
 {
-	const char* tempFileName = "tempFileName";
 	const char* checkString = "different test string. can\'t possibly have it in another file";
 
-	auto path = CcpGetAbsolutePath( static_cast<const wchar_t*>( CA2W( tempFileName ) ) );
-
+	auto path = CcpGetAbsolutePath( tempFilePath.wstring());
 	{
-		std::ofstream tempFile( "tempFileName" );
+		std::ofstream tempFile( tempFilePath );
 		ASSERT_TRUE( tempFile.good() );
 		tempFile << checkString;
 	}
@@ -119,12 +151,40 @@ TEST( CcpFileUtils, CcpGetAbsolutePathResolvesToNewFile )
 		std::string contents( ( std::istreambuf_iterator<char>( tempFile ) ), std::istreambuf_iterator<char>() );
 		EXPECT_EQ( checkString, contents );
 	}
+}
 
-#if _WIN32
-	_unlink( tempFileName );
-#else
-	unlink( tempFileName );
-#endif
+TEST_F(CcpTempFileUtilityTest, CanOpenFile)
+{
+	std::ofstream tempFile(tempFilePath);
+
+	ASSERT_TRUE(tempFile.good());
+	ASSERT_GE(CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READONLY, CCP_SM_READSHARING), 0);
+	ASSERT_GE(CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READONLY, CCP_SM_READSHARING), 0);
+}
+
+TEST_F(CcpTempFileUtilityTest, CanOpenFile_Failure)
+{
+	ASSERT_EQ(CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READONLY, CCP_SM_READSHARING), -1);
+}
+
+TEST_F(CcpTempFileUtilityTest, CanOpenFileForWriting)
+{
+	ASSERT_GE(CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READWRITE, CCP_SM_READSHARING), 0);
+	ASSERT_TRUE(std::filesystem::exists(tempFilePath));
+}
+
+TEST_F(CcpTempFileUtilityTest, CanCreateFile)
+{
+	ASSERT_GE(CcpCreateFile(tempFilePath.wstring().c_str(), CCP_SM_NOSHARING), 0);
+	ASSERT_TRUE(std::filesystem::exists(tempFilePath));
+}
+
+TEST_F(CcpTempFileUtilityTest, CanCreateFile_Failure)
+{
+	ASSERT_GE(CcpCreateFile(tempFilePath.wstring().c_str(), CCP_SM_NOSHARING), 0);
+	ASSERT_TRUE(std::filesystem::exists(tempFilePath));
+
+	ASSERT_EQ(CcpCreateFile(tempFilePath.wstring().c_str(), CCP_SM_NOSHARING), -1);
 }
 
 TEST(CcpFileUtils, CanGetExecutablePath)
