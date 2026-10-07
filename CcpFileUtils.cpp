@@ -748,7 +748,7 @@ std::wstring CcpExecutablePath()
 	}
 
 #else
-    static_assert( false, "CcpExecutablePath is not implemented" );
+    #error "CcpExecutablePath is not implemented"
 #endif
 
 	return result;
