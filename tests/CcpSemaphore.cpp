@@ -39,7 +39,11 @@ TEST( CcpSemaphore, NoWaitOnSignaledSemaphore )
 {
 	CcpSemaphore s;
 	s.Signal();
-	auto duration = TimeCallInMs( [&] { s.TimedWait( 1000 ); } );
+
+	bool acquired = false;
+	auto duration = TimeCallInMs( [&] { acquired = s.TimedWait( 1000 ); } );
+
+	EXPECT_TRUE( acquired );
 	EXPECT_LT( duration, 100 );
 }
 
@@ -77,4 +81,34 @@ TEST( CcpSemaphore, CanWaitOnSemaphore )
 	auto duration = TimeCallInMs( [&] { s.Wait(); } );
 	EXPECT_GT( duration, 200 );
 	EXPECT_LT( duration, 1000 );
+}
+
+TEST( CcpSemaphore, TimedWaitWaitsAndReturnsFalseOnTimeout )
+{
+	CcpSemaphore s;
+
+	bool acquired = true;
+	auto duration = TimeCallInMs( [&] { acquired = s.TimedWait( 500 ); } );
+
+	EXPECT_FALSE( acquired );
+	EXPECT_GT( duration, 250 );
+	EXPECT_LT( duration, 1500 );
+}
+
+TEST( CcpSemaphore, TimedWaitReturnsTrueWhenSignaledBeforeTimeout )
+{
+	CcpSemaphore s;
+
+	auto thread = [&] {
+		CcpThreadSleep( 200 );
+		s.Signal();
+	};
+	CcpCreateThread( &MakeThread<decltype( thread )>, &thread, CCP_THREAD_PRIORITY_NORMAL );
+
+	bool acquired = false;
+	auto duration = TimeCallInMs( [&] { acquired = s.TimedWait( 2000 ); } );
+
+	EXPECT_TRUE( acquired );
+	EXPECT_GT( duration, 100 );
+	EXPECT_LT( duration, 1500 );
 }

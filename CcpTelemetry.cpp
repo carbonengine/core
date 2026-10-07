@@ -742,7 +742,7 @@ std::chrono::milliseconds CcpTelemetryRemainingCaptureDuration()
 void CcpTelemetryTrackAllocation( void* p, size_t size )
 {
 	if ( CcpTelemetryMemoryTrackingIsEnabled() && CcpTelemetryIsConnected() ) {
-		TracySecureAlloc( p, size );
+		TracyAlloc( p, size );
 	}
 }
 
@@ -761,7 +761,7 @@ void CcpTelemetryTrackDeallocation( void* p )
 {
 	if ( p && CcpTelemetryMemoryTrackingIsEnabled() && CcpTelemetryIsConnected() )
 	{
-		TracySecureFree( p );
+		TracyFree( p );
 	}
 }
 
@@ -1130,7 +1130,7 @@ void CcpTelemetryEnterZone( void* key, const char* name, const char* filename, u
 	if( s_profilerState.load( std::memory_order_acquire ) == ProfilerState::Started )
 	{
 		t_manuallyTrackedZones.emplace( key );
-		t_activeTaskletZoneStore->second.emplace( TMCM_CPP, name, filename, lineno );
+		t_activeTaskletZoneStore->second.emplace( TMCM_CPP, name, filename, lineno, CcpColor::Yellow );
 	}
 }
 
