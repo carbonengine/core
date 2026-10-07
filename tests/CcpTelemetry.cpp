@@ -267,7 +267,7 @@ TEST_F( CcpTelemetryTest, SimpleZoneTest )
 	EXPECT_TRUE( ok );
 	CcpTelemetrySetActiveCategories( {cat} );
 
-	CcpTelemetryEnterZone( &key, zoneName.c_str(), __FILE__, __LINE__ );  // Original deprecated version
+	CcpTelemetryEnterZone( &key, zoneName.c_str(), __FILE__, __LINE__ );  // Original deprecated version (TMCM_CPP, CcpColor::Yellow)
 	// Tracy's worker sleeps up to 10 ms between queue flushes, so give it
 	// time to process and send the zone event before asserting.
 	TickTelemetry( [this] { return m_tracyClient.GetZoneBeginCount() == 1; } );
@@ -276,7 +276,7 @@ TEST_F( CcpTelemetryTest, SimpleZoneTest )
 
 	const auto zones = m_tracyClient.GetZones();
 	ASSERT_EQ( 1, zones.size() );
-	EXPECT_EQ( static_cast<uint32_t>( CcpColor::SteelBlue ), zones.front().color ) << CcpColorToString( CcpColor(zones.front().color) ).data();
+	EXPECT_EQ( static_cast<uint32_t>( CcpColor::Yellow ), zones.front().color ) << CcpColorToString( CcpColor(zones.front().color) ).data();
 
 	CcpTelemetryLeaveZone( &key );
 	TickTelemetry( [this] { return m_tracyClient.GetZoneEndCount() == 1; } );
@@ -349,7 +349,7 @@ TEST_F( CcpTelemetryTest, StartStopStartTelemetryWhileClientIsRunning )
 
 	const auto zones = m_tracyClient.GetZones();
 	ASSERT_EQ( 1, zones.size() );
-	EXPECT_EQ( static_cast<uint32_t>( CcpColor::SteelBlue ), zones.front().color ) << "Default color for ProfilerCategory TMCM_GENERAL should be CcpColor::SteelBlue";
+	EXPECT_EQ( static_cast<uint32_t>( CcpColor::Yellow ), zones.front().color ) << "Default color for ProfilerCategory TMCM_CPP should be CcpColor::Yellow";
 	EXPECT_EQ( 2, m_tracyClient.GetZoneBeginCount() );
 	EXPECT_EQ( 1, m_tracyClient.GetZoneEndCount() );
 
