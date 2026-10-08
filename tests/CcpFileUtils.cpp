@@ -82,7 +82,7 @@ protected:
 
 		if (exists(tempFilePath))
 		{
-			DeleteTempFile();
+			ASSERT_FALSE(std::remove(tempFilePath.string().c_str()));
 		}
 
 		ASSERT_FALSE(exists(tempFilePath));
@@ -92,23 +92,13 @@ protected:
 	{
 		if (exists(tempFilePath))
 		{
-			DeleteTempFile();
+			ASSERT_FALSE(std::remove(tempFilePath.string().c_str()));
 		}
 
 		ASSERT_FALSE(exists(tempFilePath));
 	}
 
 	std::filesystem::path tempFilePath;
-
-private:
-	void DeleteTempFile()
-	{
-#if _WIN32
-		_unlink(tempFilePath.c_str());
-#else
-		unlink(tempFilePath.c_str());
-#endif
-	}
 };
 
 TEST_F(CcpTempFileUtilityTest, CcpGetAbsolutePathResolvesToExistingFile)
