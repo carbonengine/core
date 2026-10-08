@@ -108,6 +108,8 @@ void BlueConvertAsciiToWide::Init( const char* src )
 #if __linux__
 std::wstring UTF8ToWide(const char* utf8String)
 {
+	static_assert(sizeof(wchar_t) == 4);
+
 	std::wstring result;
 	const std::string input = std::forward<std::string>(utf8String);
 	auto iterator = input.begin();
@@ -115,7 +117,7 @@ std::wstring UTF8ToWide(const char* utf8String)
 	while (iterator != input.end())
 	{
 		unsigned char character = *iterator;
-		wchar_t codePoint = character; // Assume sizeof(wchar_t) = 4
+		wchar_t codePoint = character;
 		uint32_t continuationBytes = 0;
 
 		if (character >= 0x7F) // Code point is not ASCII
