@@ -150,6 +150,9 @@ TEST_F(CcpTempFileUtilityTest, CanOpenFile)
 	ASSERT_TRUE(tempFile.good());
 	ASSERT_GE(CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READONLY, CCP_SM_READSHARING), 0);
 	ASSERT_GE(CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READONLY, CCP_SM_READSHARING), 0);
+	tempFile.flush();
+	tempFile.close();
+
 }
 
 TEST_F(CcpTempFileUtilityTest, CanOpenFile_Failure)
