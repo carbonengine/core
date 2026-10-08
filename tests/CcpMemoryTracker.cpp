@@ -2,6 +2,9 @@
 
 #include "gtest/gtest.h"
 #include <cstdint>
+#include <set>
+#include <string>
+#include <vector>
 #include "CcpCore.h"
 
 #include "TempFile.h"
@@ -215,4 +218,96 @@ TEST_F( CCPMemoryTracker, TextSummaryReportContainsAllocatedInformation )
 
 	ASSERT_FALSE( line2.empty() );
 	EXPECT_NE( std::string::npos, line2.find( "195" ) );
+}
+
+// The memory tracker keeps allocation names in an internal StringTable: a
+// contiguous array of (id, string) entries that is documented to be sorted by
+// ascending id and searched with a binary search. The binary report dumps that
+// array verbatim, so it is the public view of the table's invariants.
+// This test checks that every entry's id is the FNV-1 hash of its string, that
+// entries are strictly ascending by id (no duplicates), and that every name
+// added through the tracker is present.
+TEST_F( CCPMemoryTracker, BinaryReportStringTableIsSortedByIdAndConsistent )
+{
+	MemoryTrackerInitialize();
+
+	static const int kCount = 64;
+	static char blocks[kCount];
+	std::vector<std::string> names;
+	for( int i = 0; i < kCount; ++i )
+	{
+		names.push_back( "stringTableEntry-" + std::to_string( i ) );
+	}
+	for( int i = 0; i < kCount; ++i )
+	{
+		MemoryTrackerAdd( &blocks[i], 1, names[i].c_str(), "StringTableTest.cpp", i );
+	}
+	// Adding the same names again must only bump reference counts.
+	for( int i = 0; i < kCount; ++i )
+	{
+		MemoryTrackerRemove( &blocks[i] );
+		MemoryTrackerAdd( &blocks[i], 1, names[i].c_str(), "StringTableTest.cpp", i );
+	}
+
+	char filename[64];
+	sprintf_s( filename, "ccpcoretest_st_%" CCP_SIZET_FORMAT, size_t( CcpGetCurrentProcessId() ) );
+	MemoryTrackerDumpReportAsBinary( filename );
+	ON_BLOCK_EXIT( [&] {
+#if _WIN32
+		_unlink( filename );
+#else
+		unlink( filename );
+#endif
+	} );
+
+	for( int i = 0; i < kCount; ++i )
+	{
+		MemoryTrackerRemove( &blocks[i] );
+	}
+
+	// Layout written by CcpMemoryTracker::ReportBinary:
+	// size_t mapSize, unsigned int numStrings,
+	// then numStrings x { unsigned int id, size_t len, char[len] }.
+	FILE* f;
+	ASSERT_EQ( 0, fopen_s( &f, filename, "rb" ) );
+	std::vector<unsigned int> ids;
+	std::vector<std::string> strings;
+	size_t mapSize = 0;
+	unsigned int numStrings = 0;
+	bool readOk = fread( &mapSize, sizeof( size_t ), 1, f ) == 1 &&
+				  fread( &numStrings, sizeof( unsigned int ), 1, f ) == 1;
+	for( unsigned int i = 0; readOk && i < numStrings; ++i )
+	{
+		unsigned int id = 0;
+		size_t len = 0;
+		readOk = fread( &id, sizeof( unsigned int ), 1, f ) == 1 &&
+				 fread( &len, sizeof( size_t ), 1, f ) == 1 && len < 4096;
+		std::string s( len, '\0' );
+		if( readOk && len > 0 )
+		{
+			readOk = fread( &s[0], len, 1, f ) == 1;
+		}
+		ids.push_back( id );
+		strings.push_back( s );
+	}
+	fclose( f );
+	ASSERT_TRUE( readOk );
+
+	// kCount names + "module" + the file name, plus whatever else the tracker saw.
+	ASSERT_GE( numStrings, unsigned( kCount + 2 ) );
+
+	std::set<std::string> seen;
+	for( unsigned int i = 0; i < numStrings; ++i )
+	{
+		EXPECT_EQ( CcpHashFNV1( strings[i].c_str(), strings[i].size() ), ids[i] ) << "entry " << i << " '" << strings[i] << "'";
+		if( i > 0 )
+		{
+			EXPECT_LT( ids[i - 1], ids[i] ) << "string table not strictly ascending by id at entry " << i;
+		}
+		EXPECT_TRUE( seen.insert( strings[i] ).second ) << "duplicate entry '" << strings[i] << "'";
+	}
+	for( const std::string& name : names )
+	{
+		EXPECT_EQ( 1u, seen.count( name ) ) << "missing '" << name << "'";
+	}
 }
