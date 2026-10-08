@@ -148,36 +148,56 @@ TEST_F(CcpTempFileUtilityTest, CanOpenFile)
 	std::ofstream tempFile(tempFilePath);
 
 	ASSERT_TRUE(tempFile.good());
-	ASSERT_GE(CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READONLY, CCP_SM_READSHARING), 0);
-	ASSERT_GE(CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READONLY, CCP_SM_READSHARING), 0);
 	tempFile.flush();
 	tempFile.close();
 
+	const auto fd1 = CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READONLY, CCP_SM_READSHARING);
+	ASSERT_GT(fd1, 0);
+
+	const auto fd2 = CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READONLY, CCP_SM_READSHARING);
+	ASSERT_GT(fd2, 0);
+
+	ASSERT_FALSE(close(fd1));
+	ASSERT_FALSE(close(fd2));
 }
 
 TEST_F(CcpTempFileUtilityTest, CanOpenFile_Failure)
 {
-	ASSERT_EQ(CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READONLY, CCP_SM_READSHARING), -1);
+	const auto fd = CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READONLY, CCP_SM_READSHARING);
+
+	ASSERT_LE(fd, 0);
 }
 
 TEST_F(CcpTempFileUtilityTest, CanOpenFileForWriting)
 {
-	ASSERT_GE(CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READWRITE, CCP_SM_READSHARING), 0);
+	const auto fd = CcpOpenFile(tempFilePath.wstring().c_str(), CCP_OM_READWRITE, CCP_SM_READSHARING);
+
+	ASSERT_GT(fd, 0);
 	ASSERT_TRUE(std::filesystem::exists(tempFilePath));
+
+	ASSERT_FALSE(close(fd));
 }
 
 TEST_F(CcpTempFileUtilityTest, CanCreateFile)
 {
-	ASSERT_GE(CcpCreateFile(tempFilePath.wstring().c_str(), CCP_SM_NOSHARING), 0);
+	const auto fd = CcpCreateFile(tempFilePath.wstring().c_str(), CCP_SM_NOSHARING);
+
+	ASSERT_GT(fd, 0);
 	ASSERT_TRUE(std::filesystem::exists(tempFilePath));
+
+	ASSERT_FALSE(close(fd));
 }
 
 TEST_F(CcpTempFileUtilityTest, CanCreateFile_Failure)
 {
-	ASSERT_GE(CcpCreateFile(tempFilePath.wstring().c_str(), CCP_SM_NOSHARING), 0);
+	const auto fd = CcpCreateFile(tempFilePath.wstring().c_str(), CCP_SM_NOSHARING);
+
+	ASSERT_GT(fd, 0);
 	ASSERT_TRUE(std::filesystem::exists(tempFilePath));
 
 	ASSERT_EQ(CcpCreateFile(tempFilePath.wstring().c_str(), CCP_SM_NOSHARING), -1);
+
+	ASSERT_FALSE(close(fd));
 }
 
 TEST(CcpFileUtils, CanGetExecutablePath)
