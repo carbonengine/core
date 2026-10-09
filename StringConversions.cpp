@@ -106,66 +106,37 @@ void BlueConvertAsciiToWide::Init( const char* src )
 #endif
 
 #if __linux__
+#include <iconv.h>
+
 std::wstring UTF8ToWide(const char* utf8String)
 {
-	static_assert(sizeof(wchar_t) == 4);
-
 	std::wstring result;
-	const std::string input = std::forward<std::string>(utf8String);
-	auto iterator = input.begin();
 
-	while (iterator != input.end())
+	const auto conversion = iconv_open("WCHAR_T", "UTF-8");
+	if (conversion == reinterpret_cast<iconv_t>(-1))
 	{
-		unsigned char character = *iterator;
-		wchar_t codePoint = character;
-		uint32_t continuationBytes = 0;
-
-		if (character >= 0x7F) // Code point is not ASCII
-		{
-			if ((character & 0xE0) == 0xC0)
-			{
-				codePoint = character & 0x1F; // First five bits represent code point
-				continuationBytes = 1;
-			}
-			else if ((character & 0xF0) == 0xE0)
-			{
-				codePoint = character & 0x0F; // First four bits represent code point
-				continuationBytes = 2;
-			}
-			else if ((character & 0xF8) == 0xF0)
-			{
-				codePoint = character & 0x07; // First three bits represent code point
-				continuationBytes = 3;
-			}
-			else
-			{
-				// Malformed byte
-				codePoint = 0xFFFD;
-			}
-		}
-
-		++iterator;
-
-		if (continuationBytes)
-		{
-			for (int i = 0; i < continuationBytes; i++)
-			{
-				character = *iterator;
-				if ((character & 0xC0) != 0x80)
-				{
-					// Malformed byte
-					codePoint = 0xFFFD;
-					break;
-				}
-
-				character &= 0x3F; // First six bits represent code point
-				codePoint = (codePoint << 6) | character;
-				++iterator;
-			}
-		}
-
-		result.push_back(codePoint);
+		CCP_LOGERR("Failed to create conversion algorithm from UTF-8 to WCHAR_T");
+		return result;
 	}
+
+	std::string input = utf8String;
+	auto inputSize= input.size();
+	auto inputBuffer = input.data();
+
+	std::vector<wchar_t> conversionBuffer(inputSize + 1);
+	auto outputBuffer = reinterpret_cast<char*>(conversionBuffer.data());
+	auto outputSize = conversionBuffer.size() * sizeof(wchar_t);
+
+	if (const auto numConverted = iconv(conversion, &inputBuffer , &inputSize, &outputBuffer,&outputSize); numConverted == static_cast<size_t>(-1))
+	{
+		CCP_LOGERR("Failed to convert string from UTF-8 to WCHAR_T: [%s]", utf8String);
+		iconv_close(conversion);
+		return result;
+	}
+
+	result = conversionBuffer.data();
+
+	iconv_close(conversion);
 
 	return result;
 }
@@ -173,34 +144,32 @@ std::wstring UTF8ToWide(const char* utf8String)
 std::string WideToUTF8( const wchar_t* wideString )
 {
 	std::string result;
-	const std::wstring input = std::forward<std::wstring>( wideString );
 
-	// A unicode code point encoded in UTF-8 consists of one to four bytes, depending on the code point range
-	for (const auto& character : input)
+	const auto conversion = iconv_open("UTF-8", "WCHAR_T");
+	if (conversion == reinterpret_cast<iconv_t>(-1))
 	{
-		if (character < 0x80) // U+0000-U+007F range (1-byte)
-		{
-			result.push_back( static_cast<char>(character));
-		}
-		else if (character < 0x800) // U+0080–U+07FF range (2-byte)
-		{
-			result.push_back( static_cast<char>(0xC0 | (character >> 6 )));
-			result.push_back( static_cast<char>(0x80 | (character & 0x3F)));
-		}
-		else if (character < 0x10000) // U+0800–U+FFFF range (3-byte)
-		{
-			result.push_back( static_cast<char>(0xE0 | (character >> 12)));
-			result.push_back( static_cast<char>(0x80 | ((character >> 6) & 0x3F)));
-			result.push_back( static_cast<char>(0x80 | (character & 0x3F)));
-		}
-		else // U+10000–U+10FFFF range (4-byte)
-		{
-			result.push_back( static_cast<char>(0xF0 | (character >> 18)));
-			result.push_back( static_cast<char>(0x80 | ((character >> 12) & 0x3F)));
-			result.push_back( static_cast<char>(0x80 | ((character >> 6) & 0x3F)));
-			result.push_back( static_cast<char>(0x80 | (character & 0x3F)));
-		}
+		CCP_LOGERR("Failed to create conversion algorithm from UTF-8 to WCHAR_T");
+		return result;
 	}
+
+	std::wstring input = wideString;
+	auto inputSize= input.size() * sizeof(wchar_t);
+	auto inputBuffer = reinterpret_cast<char*>(input.data());
+
+	std::vector<char> conversionBuffer(inputSize + 1);
+	auto outputBuffer = conversionBuffer.data();
+	auto outputSize = conversionBuffer.size();
+
+	if (const auto numConverted = iconv(conversion, &inputBuffer , &inputSize, &outputBuffer,&outputSize); numConverted == static_cast<size_t>(-1))
+	{
+		CCP_LOGERR("Failed to convert string from WCHAR_T to UTF-8: [%ls]", wideString);
+		iconv_close(conversion);
+		return result;
+	}
+
+	result = conversionBuffer.data();
+
+	iconv_close(conversion);
 
 	return result;
 }
