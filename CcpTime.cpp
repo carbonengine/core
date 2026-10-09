@@ -5,6 +5,10 @@
 #include <cfloat>
 #include <cmath>
 
+#if __unix__
+#include <sys/time.h>
+#endif
+
 #ifdef _WIN32
 
 #include <windows.h>
@@ -68,8 +72,6 @@ CcpTime TimeNow()
 #elif defined(__APPLE__)
 
 #include <mach/mach_time.h>
-#include <time.h>
-#include <sys/time.h>
 
 uint64_t CcpGetTimestamp()
 {
@@ -111,8 +113,6 @@ uint64_t CcpGetTickCount()
 }
 
 #else
-
-#include <time.h>
 
 uint64_t CcpGetTimestamp()
 {

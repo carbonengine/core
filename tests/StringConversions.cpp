@@ -34,19 +34,19 @@ std::vector<std::pair<std::wstring, std::string>> validUnicodeStrings{
 
 TEST( StringConversion, CanConvertUTF8ToUnicodeWStrings )
 {
-	for( auto [wstr, utf8] : validUnicodeStrings )
+	for( const auto& [wstr, utf8] : validUnicodeStrings )
 		EXPECT_EQ( UTF8ToWide( utf8 ), wstr );
 }
 
 TEST( StringConversion, CanConvertUnicodeWStringsToUTF8 )
 {
-	for( auto [wstr, utf8] : validUnicodeStrings )
+	for( const auto& [wstr, utf8] : validUnicodeStrings )
 		EXPECT_EQ( WideToUTF8( wstr ), utf8 );
 }
 
 TEST( StringConversion, ConvertingStringsTwiceLeavesThemUnchanged )
 {
-	for( auto [wstr, utf8] : validUnicodeStrings )
+	for( const auto& [wstr, utf8] : validUnicodeStrings )
 	{
 		EXPECT_EQ( WideToUTF8( UTF8ToWide( utf8 ) ), utf8 );
 		EXPECT_EQ( UTF8ToWide( WideToUTF8( wstr ) ), wstr );

@@ -96,8 +96,8 @@ off_t CcpTell( int fd )
 	return _tell( fd );
 }
 
-#else
-
+#elif __unix__
+#if __APPLE__
 int ConvertShareMode( CcpShareMode shareMode )
 {
 	int shflag = 0;
@@ -119,6 +119,28 @@ int ConvertShareMode( CcpShareMode shareMode )
 #endif
 	return shflag;
 }
+#endif
+
+#if __linux__
+#include <sys/file.h>
+
+inline int AcquireLock(const int fd, CcpShareMode mode)
+{
+	if (mode == CCP_SM_RWSHARING)
+	{
+		return fd;
+	}
+
+	const auto flag = mode == CCP_SM_NOSHARING ? LOCK_EX : LOCK_SH;
+	if (flock(fd, flag) != 0)
+	{
+		close(fd);
+		return -1;
+	}
+
+	return fd;
+}
+#endif
 
 int ConvertOpenMode( CcpOpenMode mode )
 {
@@ -141,11 +163,20 @@ int ConvertOpenMode( CcpOpenMode mode )
 
 int CcpOpenFile( const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMode )
 {
-	int oflag = ConvertOpenMode( mode );
-	int shflag = ConvertShareMode( shareMode );
-	int fd = open( CW2A( filename ), oflag | shflag, S_IRUSR | S_IWUSR );
+	auto flags = ConvertOpenMode( mode ) | S_IRUSR | S_IWUSR;
+#if __APPLE__
+	flags =| ConvertShareMode( shareMode );
+#endif
+	const auto fd = open( CW2A( filename ), flags);
 
+#if __linux__
+	return AcquireLock(fd, shareMode);
+#elif __APPLE__
 	return fd;
+#else
+	#error "CcpOpenFile is not implemented"
+#endif
+
 }
 
 int CcpCreateFile( const wchar_t* filename )
@@ -157,10 +188,19 @@ int CcpCreateFile( const wchar_t* filename )
 
 int CcpCreateFile( const wchar_t* filename, CcpShareMode shareMode )
 {
-	int shflag = ConvertShareMode( shareMode );
-	int fd = open( CW2A( filename ), O_CREAT | O_TRUNC | O_RDWR | shflag, S_IRUSR | S_IWUSR );
+	auto flags = O_CREAT | O_TRUNC | O_RDWR | S_IRUSR | S_IWUSR;
+#if __APPLE__
+	flags =| ConvertShareMode( shareMode );
+#endif
+	const auto fd = open( CW2A( filename ), flags);
 
+#if __linux__
+	return AcquireLock(fd, shareMode);
+#elif __APPLE__
 	return fd;
+#else
+	#error "CcpCreateFile is not implemented"
+#endif
 }
 
 void CcpCloseFile( int fd )
@@ -726,6 +766,8 @@ void CcpRemoveFile( const std::wstring& filename )
 
 std::wstring CcpExecutablePath()
 {
+	std::wstring result;
+
 #ifdef __APPLE__
     std::vector<char> tmp(CCP_MAX_PATH);
     uint32_t size = uint32_t( tmp.size() );
@@ -737,10 +779,19 @@ std::wstring CcpExecutablePath()
     
     char actualpath [PATH_MAX];
     char* path = realpath(&tmp[0], actualpath);
-    return std::wstring( CA2W( actualpath ) );
+    result = CA2W( actualpath );
+#elif __linux__
+	char buffer[PATH_MAX];
+	if(const auto length = readlink("/proc/self/exe", buffer, sizeof( buffer ) - 1 ); length > 0)
+	{
+		result = CA2W(buffer);
+	}
+
 #else
-    static_assert( false, "CcpExecutablePath is not implemented" );
+    #error "CcpExecutablePath is not implemented"
 #endif
+
+	return result;
 }
 
 

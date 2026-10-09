@@ -2,8 +2,13 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
+#include <cstring>
 #include <stddef.h>
+#include <cstdint>
+#include <climits>
+#include <cmath>
+#include <atomic>
+#include <ctime>
 
 #ifdef _WIN32
 	#include <windows.h>

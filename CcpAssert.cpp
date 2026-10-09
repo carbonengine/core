@@ -15,6 +15,10 @@
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
+#if __linux__
+#include <filesystem>
+#include <fstream>
+#endif
 
 #define ASSERT_USE_THREAD 0
 
@@ -200,5 +204,30 @@ bool CcpIsDebuggerPresent()
     return IsDebuggerPresent() != 0;
 }
 
+#elif __linux__
+bool CcpIsDebuggerPresent()
+{
+	// Debugger is attached if TracerPid in /proc/self/status is set to a non-zero value
+	// /proc/self/status needs to be read with each call since a debugger may attach/detach at any moment
+	std::filesystem::path path = "/proc/self/status";
+	std::ifstream stream(path, std::ios::in | std::ios::binary);
+	if (!stream.good())
+	{
+		return false;
+	}
+
+	constexpr auto lookupString = "TracerPid:";
+	std::string line(256, '\0');
+	while (getline(stream, line)) // getline clears previous line contents via str.erase()
+	{
+		if (line.find(lookupString) != std::string::npos)
+		{
+			break;
+		}
+	}
+
+	const auto position = line.data() + strlen(lookupString) + 1; // Assume value is separated by a single ASCII character
+	return std::stoi(position) != 0;
+}
 #endif
 
