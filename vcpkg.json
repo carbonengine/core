@@ -36,8 +36,18 @@
             "no-callstack",
             "no-crash-handler",
             "on-demand",
-            "cli-tools",
-            "gui-tools"
+            {
+              "name": "cli-tools",
+              "platform": "!linux"
+            },
+            {
+              "name": "gui-tools",
+              "platform": "!linux"
+            },
+            {
+              "name": "timer-fallback",
+              "platform": "linux"
+            }
           ]
         }
       ]
