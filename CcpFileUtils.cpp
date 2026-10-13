@@ -131,7 +131,7 @@ inline int AcquireLock(const int fd, CcpShareMode mode)
 		return fd;
 	}
 
-	const auto flag = mode == CCP_SM_NOSHARING ? LOCK_EX : LOCK_SH;
+	const auto flag = mode == CCP_SM_NOSHARING ? LOCK_EX | LOCK_NB: LOCK_SH;
 	if (flock(fd, flag) != 0)
 	{
 		close(fd);
