@@ -188,11 +188,11 @@ int CcpCreateFile( const wchar_t* filename )
 
 int CcpCreateFile( const wchar_t* filename, CcpShareMode shareMode )
 {
-	auto flags = O_CREAT | O_TRUNC | O_RDWR | S_IRUSR | S_IWUSR;
+	auto flags = O_CREAT | O_TRUNC | O_RDWR;
 #if __APPLE__
 	flags =| ConvertShareMode( shareMode );
 #endif
-	const auto fd = open( CW2A( filename ), flags);
+	const auto fd = open( CW2A( filename ), flags, S_IRUSR | S_IWUSR );
 
 #if __linux__
 	return AcquireLock(fd, shareMode);
