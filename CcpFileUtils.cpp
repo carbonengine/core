@@ -163,11 +163,11 @@ int ConvertOpenMode( CcpOpenMode mode )
 
 int CcpOpenFile( const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMode )
 {
-	auto flags = ConvertOpenMode( mode ) | S_IRUSR | S_IWUSR;
+	auto flags = ConvertOpenMode( mode );
 #if __APPLE__
 	flags =| ConvertShareMode( shareMode );
 #endif
-	const auto fd = open( CW2A( filename ), flags);
+	const auto fd = open( CW2A( filename ), flags, S_IRUSR | S_IWUSR);
 
 #if __linux__
 	return AcquireLock(fd, shareMode);
