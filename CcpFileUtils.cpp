@@ -144,7 +144,8 @@ int CcpOpenFile(const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMod
 
 #elif _WIN32
 	constexpr auto permissionFlags = _S_IREAD | _S_IWRITE;
-	_wsopen_s(&fd, filename, openFlags | _O_BINARY, shareFlags, permissionFlags);
+	openflags |= _O_BINARY;
+	_wsopen_s(&fd, filename, openFlags, shareFlags, permissionFlags);
 #else
 	#error "CcpOpenFile is not implemented"
 #endif
