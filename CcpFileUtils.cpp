@@ -119,13 +119,14 @@ int CcpOpenFile(const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMod
 {
 	int fd;
 
-	const auto openFlags = ConvertOpenMode(mode);
+	auto openFlags = ConvertOpenMode(mode);
 #if !__linux__
 	const auto shareFlags = ConvertShareMode(shareMode);
 #endif
 
 #if UNIX
 	constexpr auto permissionFlags = S_IRUSR | S_IWUSR;
+	openFlags |= O_NONBLOCK;
 #if __APPLE__
 	fd = open( CW2A( filename ), openFlags | shareFlags, permissionFlags);
 #else
@@ -163,7 +164,7 @@ int CcpCreateFile(const wchar_t* filename, CcpShareMode shareMode)
 
 #if UNIX
 	constexpr auto permissionFlags = S_IRUSR | S_IWUSR;
-	constexpr auto openFlags = O_CREAT | O_TRUNC | O_RDWR;
+	constexpr auto openFlags = O_CREAT | O_TRUNC | O_RDWR | O_NONBLOCK;
 #if __APPLE__
 	fd = open(CW2A( filename ), openFlags | shareFlags, permissionFlags);
 #else
