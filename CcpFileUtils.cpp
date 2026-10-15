@@ -7,70 +7,211 @@
 
 #include <stdlib.h>
 
-#ifdef _WIN32
-
-int ConvertShareMode( CcpShareMode shareMode )
+int ConvertOpenMode(const CcpOpenMode mode)
 {
-	int shflag = 0;
+	int flags = 0;
 
-	switch( shareMode )
-	{
-	case CCP_SM_NOSHARING:
-		shflag = _SH_DENYRW;
-		break;
-
-	case CCP_SM_READSHARING:
-		shflag = _SH_DENYWR;
-		break;
-
-	case CCP_SM_RWSHARING:
-		shflag = _SH_DENYNO;
-		break;
-	}
-
-	return shflag;
-}
-
-
-int ConvertOpenMode( CcpOpenMode mode )
-{
-	int oflag = 0;
-
+#if __unix__
 	switch( mode )
 	{
 	case CCP_OM_READONLY:
-		oflag = _O_RDONLY;
+		flags = O_RDONLY;
 		break;
 
 	case CCP_OM_READWRITE:
-		oflag = _O_CREAT | _O_RDWR;
+		flags = O_CREAT | O_RDWR;
 		break;
 	}
+#elif _WIN32
+	switch(mode)
+	{
+	case CCP_OM_READONLY:
+		flags = _O_RDONLY;
+		break;
 
-	return oflag;
+	case CCP_OM_READWRITE:
+		flags = _O_CREAT | _O_RDWR;
+		break;
+	}
+#else
+	#error "ConvertOpenMode is not implemented"
+#endif
+
+	return flags;
 }
 
-int CcpOpenFile( const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMode )
+#if !__linux__
+int ConvertShareMode(const CcpShareMode shareMode)
 {
-	int oflag = ConvertOpenMode( mode );
-	int shflag = ConvertShareMode( shareMode );
+	int flags = 0;
 
+#if __APPLE__
+	switch( shareMode )
+	{
+	case CCP_SM_NOSHARING:
+		flags = O_EXLOCK;
+		break;
+
+	case CCP_SM_READSHARING:
+		flags = O_SHLOCK;
+		break;
+
+	case CCP_SM_RWSHARING:
+		flags = 0;
+		break;
+	}
+#elif _WIN32
+	switch( shareMode )
+	{
+	case CCP_SM_NOSHARING:
+		flags = _SH_DENYRW;
+		break;
+
+	case CCP_SM_READSHARING:
+		flags = _SH_DENYWR;
+		break;
+
+	case CCP_SM_RWSHARING:
+		flags = _SH_DENYNO;
+		break;
+	}
+#else
+	#error "ConvertShareMode is not implemented"
+#endif
+
+	return flags;
+}
+#else
+#include <sys/file.h>
+
+inline int AcquireLock(const int fd, const CcpShareMode mode)
+{
+	if (mode == CCP_SM_RWSHARING)
+	{
+		return fd;
+	}
+
+	const auto flag = mode == CCP_SM_NOSHARING ? LOCK_EX | LOCK_NB : LOCK_SH;
+	if (flock(fd, flag) != 0)
+	{
+		close(fd);
+		return -1;
+	}
+
+	return fd;
+}
+#endif
+
+
+int CcpOpenFile(const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMode)
+{
 	int fd;
-	_wsopen_s( &fd, filename, oflag | _O_BINARY, shflag, _S_IREAD | _S_IWRITE );
+
+	const auto openFlags = ConvertOpenMode(mode);
+#if !__linux__
+	const auto shareFlags = ConvertShareMode(shareMode);
+#endif
+
+#if __unix__
+	constexpr auto permissionFlags = S_IRUSR | S_IWUSR;
+#if __APPLE__
+	fd = open( CW2A( filename ), openFlags | shareFlags, permissionFlags);
+#else
+	fd = open( CW2A( filename ), openFlags, permissionFlags);
+#endif
+
+#if __linux__
+	if (AcquireLock(fd, shareMode) == -1)
+	{
+		return -1;
+	};
+#endif
+
+#elif _WIN32
+	constexpr auto permissionFlags = _S_IREAD | _S_IWRITE;
+	_wsopen_s(&fd, filename, openFlags | _O_BINARY, shareFlags, permissionFlags);
+#else
+	#error "CcpOpenFile is not implemented"
+#endif
 
 	return fd;
 }
 
-int CcpCreateFile( const wchar_t* filename, CcpShareMode shareMode )
+int CcpCreateFile(const wchar_t* filename, CcpShareMode shareMode)
 {
 	int fd;
 
-	int shflag = ConvertShareMode( shareMode );
-	_wsopen_s( &fd, filename, _O_CREAT | _O_TRUNC | O_RDWR | _O_BINARY, shflag, _S_IREAD | _S_IWRITE );
+#if !__linux__
+	const int shareFlags = ConvertShareMode(shareMode);
+#endif
+
+#if UNIX
+	constexpr auto permissionFlags = S_IRUSR | S_IWUSR;
+	constexpr auto openFlags = O_CREAT | O_TRUNC | O_RDWR;
+#if __APPLE__
+	fd = open(CW2A( filename ), openFlags | shareFlags, permissionFlags);
+#else
+	fd = open(CW2A( filename ), openFlags, permissionFlags);
+#endif
+
+#if __linux__
+	if (AcquireLock(fd, shareMode) == -1)
+	{
+		return -1;
+	}
+#endif
+
+#elif _WIN32
+	constexpr auto openFlags = _O_CREAT | _O_TRUNC | O_RDWR | _O_BINARY;
+	constexpr auto permissionFlags = _S_IREAD | _S_IWRITE;
+
+	_wsopen_s(&fd, filename, openFlags, shareFlags, permissionFlags);
+#else
+	#error "CcpCreateFile is not implemented"
+#endif
 
 	return fd;
 }
 
+std::wstring CcpExecutablePath()
+{
+	std::wstring result;
+	result.reserve(CCP_MAX_PATH);
+
+#if __APPLE__
+	std::vector<char> tmp(CCP_MAX_PATH);
+	uint32_t size = uint32_t(tmp.size());
+	if(_NSGetExecutablePath( &tmp[0], &size ) < 0)
+	{
+		tmp.resize(size);
+		_NSGetExecutablePath(&tmp[0], &size);
+	}
+
+	char actualpath [PATH_MAX];
+	char* path = realpath(&tmp[0], actualpath);
+	result = CA2W( actualpath );
+#elif __linux__
+	char buffer[PATH_MAX];
+	if(const auto length = readlink("/proc/self/exe", buffer, sizeof( buffer ) - 1 ); length > 0)
+	{
+		result = CA2W(buffer);
+	}
+#elif _WIN32
+	std::vector<wchar_t> tmp(CCP_MAX_PATH);
+	while(GetModuleFileNameW(nullptr, &tmp[0], static_cast<DWORD>(tmp.size())) == tmp.size())
+	{
+		tmp.resize(tmp.size()*2);
+	}
+
+	result = tmp.data();
+#else
+	#error "CcpExecutablePath is not implemented"
+#endif
+
+	return result;
+}
+
+#ifdef _WIN32
 void CcpCloseFile( int fd )
 {
 	_close( fd );
@@ -97,108 +238,11 @@ off_t CcpTell( int fd )
 }
 
 #elif __unix__
-#if __APPLE__
-int ConvertShareMode( CcpShareMode shareMode )
-{
-	int shflag = 0;
-	switch( shareMode )
-	{
-	case CCP_SM_NOSHARING:
-		shflag = O_EXLOCK;
-		break;
-
-	case CCP_SM_READSHARING:
-		shflag = O_SHLOCK;
-		break;
-
-	case CCP_SM_RWSHARING:
-		shflag = 0;
-		break;
-	}
-	return shflag;
-}
-#endif
-
-#if __linux__
-#include <sys/file.h>
-
-inline int AcquireLock(const int fd, CcpShareMode mode)
-{
-	if (mode == CCP_SM_RWSHARING)
-	{
-		return fd;
-	}
-
-	const auto flag = mode == CCP_SM_NOSHARING ? LOCK_EX | LOCK_NB: LOCK_SH;
-	if (flock(fd, flag) != 0)
-	{
-		close(fd);
-		return -1;
-	}
-
-	return fd;
-}
-#endif
-
-int ConvertOpenMode( CcpOpenMode mode )
-{
-	int oflag = 0;
-
-	switch( mode )
-	{
-	case CCP_OM_READONLY:
-		oflag = O_RDONLY;
-		break;
-
-	case CCP_OM_READWRITE:
-		oflag = O_CREAT | O_RDWR;
-		break;
-	}
-
-	return oflag;
-}
-
-
-int CcpOpenFile( const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMode )
-{
-	auto flags = ConvertOpenMode( mode );
-#if __APPLE__
-	flags =| ConvertShareMode( shareMode );
-#endif
-	const auto fd = open( CW2A( filename ), flags, S_IRUSR | S_IWUSR);
-
-#if __linux__
-	return AcquireLock(fd, shareMode);
-#elif __APPLE__
-	return fd;
-#else
-	#error "CcpOpenFile is not implemented"
-#endif
-
-}
-
 int CcpCreateFile( const wchar_t* filename )
 {
 	int fd = open( CW2A( filename ), O_CREAT | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR );
 
 	return fd;
-}
-
-int CcpCreateFile( const wchar_t* filename, CcpShareMode shareMode )
-{
-	auto flags = O_CREAT | O_TRUNC | O_RDWR;
-#if __APPLE__
-	flags =| ConvertShareMode( shareMode );
-#endif
-	const auto fd = open( CW2A( filename ), flags, S_IRUSR | S_IWUSR );
-
-#if __linux__
-	return AcquireLock(fd, shareMode);
-#elif __APPLE__
-	return fd;
-#else
-	#error "CcpCreateFile is not implemented"
-#endif
 }
 
 void CcpCloseFile( int fd )
@@ -379,17 +423,6 @@ void CcpRemoveFile( const std::wstring& filename )
 		CCP_LOGERR("Couldn't delete file %S - %d", filename.c_str(), GetLastError());
 	}
 }
-
-std::wstring CcpExecutablePath()
-{
-    std::vector<wchar_t> tmp(CCP_MAX_PATH);
-    while( GetModuleFileNameW(NULL, &tmp[0], (DWORD)tmp.size()) == tmp.size() )
-    {
-        tmp.resize(tmp.size()*2);
-    }
-    return &tmp[0];
-}
-
 #else
 
 namespace
@@ -761,36 +794,4 @@ void CcpRemoveFile( const std::wstring& filename )
 	std::string name = (const char*)CW2A( filename.c_str() );
 	remove( name.c_str() );
 }
-
-std::wstring CcpExecutablePath()
-{
-	std::wstring result;
-
-#ifdef __APPLE__
-    std::vector<char> tmp(CCP_MAX_PATH);
-    uint32_t size = uint32_t( tmp.size() );
-    if( _NSGetExecutablePath( &tmp[0], &size ) < 0 )
-    {
-        tmp.resize( size );
-        _NSGetExecutablePath( &tmp[0], &size );
-    }
-    
-    char actualpath [PATH_MAX];
-    char* path = realpath(&tmp[0], actualpath);
-    result = CA2W( actualpath );
-#elif __linux__
-	char buffer[PATH_MAX];
-	if(const auto length = readlink("/proc/self/exe", buffer, sizeof( buffer ) - 1 ); length > 0)
-	{
-		result = CA2W(buffer);
-	}
-
-#else
-    #error "CcpExecutablePath is not implemented"
-#endif
-
-	return result;
-}
-
-
 #endif
