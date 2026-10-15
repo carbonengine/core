@@ -131,7 +131,10 @@ int CcpOpenFile(const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMod
 #else
 	fd = open( CW2A( filename ), openFlags, permissionFlags);
 #endif
-
+	if (fd == -1)
+	{
+		return -1;
+	}
 #if __linux__
 	if (AcquireLock(fd, shareMode) == -1)
 	{
@@ -165,7 +168,10 @@ int CcpCreateFile(const wchar_t* filename, CcpShareMode shareMode)
 #else
 	fd = open(CW2A( filename ), openFlags, permissionFlags);
 #endif
-
+	if (fd == -1)
+	{
+		return -1;
+	}
 #if __linux__
 	if (AcquireLock(fd, shareMode) == -1)
 	{
