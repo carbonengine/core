@@ -4,6 +4,7 @@
 #include "include/CcpFileUtils.h"
 #include "include/StringConversions.h"
 #include "include/CcpSecureCrt.h"
+#include <CcpMacros.h>
 
 #include <stdlib.h>
 
@@ -23,7 +24,7 @@ int ConvertOpenMode(const CcpOpenMode mode)
 {
 	int flags = 0;
 
-#if UNIX
+#if CCP_UNIX
 	switch( mode )
 	{
 	case CCP_OM_READONLY:
@@ -124,7 +125,7 @@ int CcpOpenFile(const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMod
 	const auto shareFlags = ConvertShareMode(shareMode);
 #endif
 
-#if UNIX
+#if CCP_UNIX
 	constexpr auto permissionFlags = S_IRUSR | S_IWUSR;
 	openFlags |= O_NONBLOCK;
 #if __APPLE__
@@ -162,7 +163,7 @@ int CcpCreateFile(const wchar_t* filename, CcpShareMode shareMode)
 	const int shareFlags = ConvertShareMode(shareMode);
 #endif
 
-#if UNIX
+#if CCP_UNIX
 	constexpr auto permissionFlags = S_IRUSR | S_IWUSR;
 	constexpr auto openFlags = O_CREAT | O_TRUNC | O_RDWR | O_NONBLOCK;
 #if __APPLE__

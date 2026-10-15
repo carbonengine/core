@@ -1,6 +1,7 @@
 // Copyright © 2013 CCP ehf.
 
 #include <CcpLog.h>
+#include <CcpMacros.h>
 
 #include "include/CcpThread.h"
 #include "include/CcpMemory.h"
@@ -110,7 +111,7 @@ bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
     return GetThreadTimes( GetCurrentThread(), &dummy, &dummy, (LPFILETIME)&kernelTime, (LPFILETIME)&userTime ) != 0;
 }
 
-#elif UNIX
+#elif CCP_UNIX
 #include <sys/time.h>
 
 namespace

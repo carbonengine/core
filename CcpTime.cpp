@@ -2,10 +2,11 @@
 
 #include "include/CcpTime.h"
 #include "include/CcpAssert.h"
+#include <CcpMacros.h>
 #include <cfloat>
 #include <cmath>
 
-#if UNIX
+#if CCP_UNIX
 #include <sys/time.h>
 #endif
 
