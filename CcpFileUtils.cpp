@@ -7,6 +7,18 @@
 
 #include <stdlib.h>
 
+#if _WIN32
+#else
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <unistd.h>
+#include <errno.h>
+#if __APPLE__
+#include <mach-o/dyld.h>
+#endif
+#endif
+
 int ConvertOpenMode(const CcpOpenMode mode)
 {
 	int flags = 0;
@@ -291,18 +303,6 @@ bool CcpRenameFile( const std::wstring& src, const std::wstring& dst )
 #endif
 	return true;
 }
-
-#if defined(_WIN32)
-#else
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <unistd.h>
-#include <errno.h>
-#ifdef __APPLE__
-#include <mach-o/dyld.h>
-#endif
-#endif
 
 #ifdef _WIN32
 std::wstring CcpGetAbsolutePath( const std::wstring& name )
