@@ -4,6 +4,7 @@
 #define _CCPCRASH_H
 
 #include <CcpLog.h>
+#include <CcpMacros.h>
 
 #if _MSC_VER
 #define NOINLINE __declspec(noinline)
@@ -20,7 +21,7 @@ static NOINLINE void CcpCrashOnPurpose()
 	CCP_LOGERR( "About to throw an exception that will kill the current process." );
 #ifndef __clang_analyzer__
 
-#if __APPLE__
+#if CCP_UNIX
 	volatile int *i = nullptr;
 	CCP_LOG( "This is how *0 looks like: %i", *i );
 #else
