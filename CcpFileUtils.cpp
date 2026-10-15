@@ -11,7 +11,7 @@ int ConvertOpenMode(const CcpOpenMode mode)
 {
 	int flags = 0;
 
-#if __unix__
+#if UNIX
 	switch( mode )
 	{
 	case CCP_OM_READONLY:
@@ -112,7 +112,7 @@ int CcpOpenFile(const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMod
 	const auto shareFlags = ConvertShareMode(shareMode);
 #endif
 
-#if __unix__
+#if UNIX
 	constexpr auto permissionFlags = S_IRUSR | S_IWUSR;
 #if __APPLE__
 	fd = open( CW2A( filename ), openFlags | shareFlags, permissionFlags);

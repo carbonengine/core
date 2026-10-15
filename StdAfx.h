@@ -22,3 +22,5 @@
 #include <algorithm>
 
 #include <CcpLog.h>
+
+#define UNIX !_WIN32 && (__unix__ || __unix || __APPLE__ && __MACH__)

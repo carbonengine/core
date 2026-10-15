@@ -110,7 +110,7 @@ bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
     return GetThreadTimes( GetCurrentThread(), &dummy, &dummy, (LPFILETIME)&kernelTime, (LPFILETIME)&userTime ) != 0;
 }
 
-#elif __unix__
+#elif UNIX
 #include <sys/time.h>
 
 namespace

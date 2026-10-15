@@ -5,7 +5,7 @@
 #include <cfloat>
 #include <cmath>
 
-#if __unix__
+#if UNIX
 #include <sys/time.h>
 #endif
 
