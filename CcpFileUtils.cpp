@@ -225,6 +225,7 @@ std::wstring CcpExecutablePath()
 	char buffer[PATH_MAX];
 	if(const auto length = readlink("/proc/self/exe", buffer, sizeof( buffer ) - 1 ); length > 0)
 	{
+		buffer[length] = '\0';
 		result = CA2W(buffer);
 	}
 #elif _WIN32
