@@ -101,7 +101,6 @@ off_t CcpTell( int fd )
 int ConvertShareMode( CcpShareMode shareMode )
 {
 	int shflag = 0;
-#ifndef __ANDROID__
 	switch( shareMode )
 	{
 	case CCP_SM_NOSHARING:
@@ -116,7 +115,6 @@ int ConvertShareMode( CcpShareMode shareMode )
 		shflag = 0;
 		break;
 	}
-#endif
 	return shflag;
 }
 #endif
