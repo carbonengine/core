@@ -336,7 +336,7 @@ CcpThreadId_t CcpGetThreadId( CcpThreadHandle_t handle )
 bool CcpGetThreadTimes( int64_t& kernelTime, int64_t& userTime )
 {
 	rusage usage{};
-	if (getrusage(RUSAGE_SELF, &usage) != 0)
+	if (getrusage(RUSAGE_THREAD, &usage) != 0)
 	{
 		return false;
 	}
