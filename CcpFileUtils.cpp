@@ -140,7 +140,6 @@ int CcpOpenFile(const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMod
 #if __linux__
 	if (AcquireLock(fd, shareMode) == -1)
 	{
-		close(fd);
 		return -1;
 	};
 #endif
@@ -180,7 +179,6 @@ int CcpCreateFile(const wchar_t* filename, CcpShareMode shareMode)
 #if __linux__
 	if (AcquireLock(fd, shareMode) == -1)
 	{
-		close(fd);
 		return -1;
 	}
 
