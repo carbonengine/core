@@ -200,6 +200,30 @@ TEST_F(CcpTempFileUtilityTest, CanCreateFile_Failure)
 	ASSERT_FALSE(close(fd));
 }
 
+TEST_F(CcpTempFileUtilityTest, FileCreationDoesNotTruncateWithoutLock)
+{
+	const auto fd = CcpCreateFile(tempFilePath.wstring().c_str(), CCP_SM_NOSHARING);
+	ASSERT_GT(fd, 0);
+
+	// Insert text into file
+	constexpr std::string_view input = "input";
+	ASSERT_EQ(write(fd, input.data(), input.length()), input.length());
+
+	// Ensure text exists
+	constexpr auto bufferSize = input.length() + 1; // adjust for null termination
+	char buffer[bufferSize];
+	lseek(fd , 0, SEEK_SET);
+	ASSERT_EQ(read(fd, buffer, bufferSize), input.length());
+	buffer[bufferSize - 1] = '\0';
+
+	// Ensure text exists after failing to acquire lock
+	ASSERT_EQ(CcpCreateFile(tempFilePath.wstring().c_str(), CCP_SM_NOSHARING), -1);
+	lseek(fd , 0, SEEK_SET);
+	ASSERT_EQ(read(fd, buffer, bufferSize), input.length());
+
+	ASSERT_FALSE(close(fd));
+}
+
 TEST(CcpFileUtils, CanGetExecutablePath)
 {
 	auto path = CcpExecutablePath();

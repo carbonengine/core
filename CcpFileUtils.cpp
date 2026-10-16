@@ -140,6 +140,7 @@ int CcpOpenFile(const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMod
 #if __linux__
 	if (AcquireLock(fd, shareMode) == -1)
 	{
+		close(fd);
 		return -1;
 	};
 #endif
@@ -165,10 +166,11 @@ int CcpCreateFile(const wchar_t* filename, CcpShareMode shareMode)
 
 #if CCP_UNIX
 	constexpr auto permissionFlags = S_IRUSR | S_IWUSR;
-	constexpr auto openFlags = O_CREAT | O_TRUNC | O_RDWR | O_NONBLOCK;
 #if __APPLE__
+	constexpr auto openFlags = O_CREAT | O_TRUNC | O_RDWR | O_NONBLOCK;
 	fd = open(CW2A( filename ), openFlags | shareFlags, permissionFlags);
 #else
+	constexpr auto openFlags = O_CREAT | O_RDWR | O_NONBLOCK;
 	fd = open(CW2A( filename ), openFlags, permissionFlags);
 #endif
 	if (fd == -1)
@@ -178,6 +180,14 @@ int CcpCreateFile(const wchar_t* filename, CcpShareMode shareMode)
 #if __linux__
 	if (AcquireLock(fd, shareMode) == -1)
 	{
+		close(fd);
+		return -1;
+	}
+
+	// Postpone file truncation after lock is acquired to match behavior on other platforms
+	if (ftruncate(fd, 0) == -1)
+	{
+		close(fd);
 		return -1;
 	}
 #endif
