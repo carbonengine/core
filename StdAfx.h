@@ -12,6 +12,10 @@
 
 #ifdef _WIN32
 	#include <windows.h>
+#else
+	#if (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
+		#include <unistd.h>
+	#endif
 #endif
 
 #ifdef _MSC_VER

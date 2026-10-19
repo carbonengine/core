@@ -161,7 +161,6 @@ CCPAssertResult CCPAssertHelper::Handle( const char* pMsg, const char* pFile, in
 #ifdef __APPLE__
 
 #include <sys/types.h>
-#include <unistd.h>
 #include <sys/sysctl.h>
 
 // From https://developer.apple.com/library/mac/qa/qa1361/_index.html

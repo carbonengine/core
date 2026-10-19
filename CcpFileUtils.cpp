@@ -13,7 +13,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <unistd.h>
 #include <errno.h>
 #if __APPLE__
 #include <mach-o/dyld.h>
