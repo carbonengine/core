@@ -208,7 +208,7 @@ bool CcpIsDebuggerPresent()
 {
 	// Debugger is attached if TracerPid in /proc/self/status is set to a non-zero value
 	// /proc/self/status needs to be read with each call since a debugger may attach/detach at any moment
-	std::filesystem::path path = "/proc/self/status";
+	constexpr auto path = "/proc/self/status";
 	std::ifstream stream(path, std::ios::in | std::ios::binary);
 	if (!stream.good())
 	{
