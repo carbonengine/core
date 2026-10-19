@@ -15,6 +15,8 @@
 #else
 	#if (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
 		#include <unistd.h>
+	#else
+		#error "Unsupported platform"
 	#endif
 #endif
 
