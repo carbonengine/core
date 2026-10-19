@@ -9,13 +9,17 @@
 
 #if _WIN32
 #else
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <dirent.h>
 #include <errno.h>
 #if __APPLE__
 #include <mach-o/dyld.h>
 #endif
+#endif
+
+#if __USE_POSIX
+	#include <sys/file.h>
+	#include <sys/types.h>
+	#include <sys/stat.h>
 #endif
 
 int ConvertOpenMode(const CcpOpenMode mode)
@@ -93,8 +97,6 @@ int ConvertShareMode(const CcpShareMode shareMode)
 	return flags;
 }
 #else
-#include <sys/file.h>
-
 inline int AcquireLock(const int fd, const CcpShareMode mode)
 {
 	if (mode == CCP_SM_RWSHARING)
