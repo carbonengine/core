@@ -62,6 +62,4 @@
 #define CCP_INT64_FORMAT "lld"
 #endif
 
-#define CCP_UNIX !_WIN32 && (__unix__ || __unix || __APPLE__ && __MACH__)
-
 #endif

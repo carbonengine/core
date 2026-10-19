@@ -54,7 +54,7 @@ CARBON_CORE_API bool CcpIsDebuggerPresent();
 	#define CCP_DEBUG_BREAK() __debugbreak()
 #else
 	#include <signal.h>
-    #if CCP_UNIX
+    #if __USE_POSIX
         #define CCP_DEBUG_BREAK() { if( CcpIsDebuggerPresent() ) raise(SIGTRAP); }
 	#elif defined(SIGTRAP)
 		#define CCP_DEBUG_BREAK() raise(SIGTRAP)
