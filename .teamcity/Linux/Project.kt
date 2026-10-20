@@ -22,6 +22,11 @@ import jetbrains.buildServer.configs.kotlin.triggers.vcs
 import jetbrains.buildServer.configs.kotlin.vcs.GitVcsRoot
 import jetbrains.buildServer.configs.kotlin.buildFeatures.provideAwsCredentials
 
+val arm64_Debug = CarbonBuildLinux("Debug Linux arm64", "Debug", "arm64-linux-debug", "aarch64")
+val arm64_Internal = CarbonBuildLinux("Internal Linux arm64", "Internal", "arm64-linux-internal", "aarch64")
+val arm64_TrinityDev = CarbonBuildLinux("TrinityDev Linux arm64", "TrinityDev", "arm64-linux-trinitydev", "aarch64")
+val arm64_Release = CarbonBuildLinux("Release Linux amd64", "arm64", "arm64-linux-release", "aarch64")
+
 val x64_Debug = CarbonBuildLinux("Debug Linux x64", "Debug", "x64-linux-debug", "amd64")
 val x64_Internal = CarbonBuildLinux("Internal Linux x64", "Internal", "x64-linux-internal", "amd64")
 val x64_TrinityDev = CarbonBuildLinux("TrinityDev Linux x64", "TrinityDev", "x64-linux-trinitydev", "amd64")
@@ -35,6 +40,11 @@ object Project : Project({
     buildType(x64_Internal)
     buildType(x64_TrinityDev)
     buildType(x64_Release)
+
+    buildType(arm64_Debug)
+    buildType(arm64_Internal)
+    buildType(arm64_TrinityDev)
+    buildType(arm64_Release)
 })
 
 class CarbonBuildLinux(buildName: String, configType: String, preset: String, agentArchitecture: String) : BuildType({
