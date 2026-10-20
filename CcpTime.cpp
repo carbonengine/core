@@ -6,7 +6,7 @@
 #include <cfloat>
 #include <cmath>
 
-#if __USE_POSIX
+#if _POSIX_VERSION
 #include <sys/time.h>
 #endif
 

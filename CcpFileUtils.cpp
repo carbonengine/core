@@ -16,7 +16,7 @@
 #endif
 #endif
 
-#if __USE_POSIX
+#if _POSIX_VERSION
 	#include <sys/file.h>
 	#include <sys/types.h>
 	#include <sys/stat.h>
@@ -26,7 +26,7 @@ int ConvertOpenMode(const CcpOpenMode mode)
 {
 	int flags = 0;
 
-#if __USE_POSIX
+#if _POSIX_VERSION
 	switch( mode )
 	{
 	case CCP_OM_READONLY:
@@ -125,7 +125,7 @@ int CcpOpenFile(const wchar_t* filename, CcpOpenMode mode, CcpShareMode shareMod
 	const auto shareFlags = ConvertShareMode(shareMode);
 #endif
 
-#if __USE_POSIX
+#if _POSIX_VERSION
 	constexpr auto permissionFlags = S_IRUSR | S_IWUSR;
 	openFlags |= O_NONBLOCK;
 #if __APPLE__
@@ -163,7 +163,7 @@ int CcpCreateFile(const wchar_t* filename, CcpShareMode shareMode)
 	const int shareFlags = ConvertShareMode(shareMode);
 #endif
 
-#if __USE_POSIX
+#if _POSIX_VERSION
 	constexpr auto permissionFlags = S_IRUSR | S_IWUSR;
 #if __APPLE__
 	constexpr auto openFlags = O_CREAT | O_TRUNC | O_RDWR | O_NONBLOCK;
@@ -267,7 +267,7 @@ off_t CcpTell( int fd )
 	return _tell( fd );
 }
 
-#elif __USE_POSIX
+#elif _POSIX_VERSION
 int CcpCreateFile( const wchar_t* filename )
 {
 	int fd = open( CW2A( filename ), O_CREAT | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR );

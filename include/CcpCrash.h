@@ -21,7 +21,7 @@ static NOINLINE void CcpCrashOnPurpose()
 	CCP_LOGERR( "About to throw an exception that will kill the current process." );
 #ifndef __clang_analyzer__
 
-#if __USE_POSIX
+#if _POSIX_VERSION
 	volatile int *i = nullptr;
 	CCP_LOG( "This is how *0 looks like: %i", *i );
 #else
