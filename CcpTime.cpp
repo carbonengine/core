@@ -2,7 +2,6 @@
 
 #include "include/CcpTime.h"
 #include "include/CcpAssert.h"
-#include <CcpMacros.h>
 #include <cfloat>
 #include <cmath>
 

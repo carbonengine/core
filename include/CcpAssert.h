@@ -4,7 +4,6 @@
 #define _CCPASSERT_H_
 
 #include "carbon_core_export.h"
-#include <CcpMacros.h>
 
 // Helpers for implementing CCP_ASSERT. These helpers need to be available in Blue regardless
 // the setting of CCP_ASSERT_ENABLED in Blue itself, as other modules linking against Blue

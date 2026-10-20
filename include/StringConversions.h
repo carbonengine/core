@@ -19,7 +19,6 @@ CARBON_CORE_API std::string WideToUTF8( const std::wstring& wideString );
 #include <atlbase.h>
 #else
 
-#include "CcpMacros.h"
 #include <stdint.h>
 
 class CARBON_CORE_API BlueConvertWideToAscii

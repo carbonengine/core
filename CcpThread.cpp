@@ -1,7 +1,6 @@
 // Copyright © 2013 CCP ehf.
 
 #include <CcpLog.h>
-#include <CcpMacros.h>
 
 #include "include/CcpThread.h"
 #include "include/CcpMemory.h"
