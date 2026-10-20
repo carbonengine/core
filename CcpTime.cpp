@@ -12,7 +12,6 @@
 
 #ifdef _WIN32
 
-#include <windows.h>
 uint64_t CcpGetTimestamp()
 {
 	static LARGE_INTEGER last = {0};

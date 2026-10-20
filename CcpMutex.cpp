@@ -15,7 +15,6 @@ namespace
 {
 	// Platform independent alias for the underlying lock object used by CcpMutex
 #ifdef _WIN32
-	#include <windows.h>
 	using NativeMutex = CRITICAL_SECTION;
 #else
 	#include <pthread.h>
