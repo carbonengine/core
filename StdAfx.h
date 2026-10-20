@@ -12,12 +12,10 @@
 
 #ifdef _WIN32
 	#include <windows.h>
+#elif (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
+	#include <unistd.h>
 #else
-	#if (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
-		#include <unistd.h>
-	#else
-		#error "Unsupported platform"
-	#endif
+	#error "Unsupported platform"
 #endif
 
 #ifdef _MSC_VER
