@@ -119,9 +119,9 @@ std::wstring UTF8ToWide(const char* utf8String)
 		return result;
 	}
 
-	std::string input = utf8String;
+	const std::string_view input = utf8String;
 	auto inputSize= input.size();
-	auto inputBuffer = input.data();
+	auto inputBuffer = const_cast<char*>(input.data()); // iconv will increment buffer
 
 	std::vector<wchar_t> conversionBuffer(inputSize + 1);
 	auto outputBuffer = reinterpret_cast<char*>(conversionBuffer.data());
@@ -152,9 +152,9 @@ std::string WideToUTF8( const wchar_t* wideString )
 		return result;
 	}
 
-	std::wstring input = wideString;
+	const std::wstring_view input = wideString;
 	auto inputSize= input.size() * sizeof(wchar_t);
-	auto inputBuffer = reinterpret_cast<char*>(input.data());
+	auto inputBuffer = const_cast<char*>(reinterpret_cast<const char*>(input.data())); // iconv will increment buffer
 
 	std::vector<char> conversionBuffer(inputSize + 1);
 	auto outputBuffer = conversionBuffer.data();
