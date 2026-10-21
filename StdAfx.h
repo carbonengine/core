@@ -12,14 +12,14 @@
 
 #ifdef _WIN32
 	#include <windows.h>
-#elif __has_include(<unistd.h>)
-	#include <unistd.h>
-#else
-	#error "Unsupported platform"
 #endif
 
 #ifdef _MSC_VER
 	#include <atlbase.h>
+#endif
+
+#if __has_include(<unistd.h>)
+	#include <unistd.h>
 #endif
 
 #include <vector>
