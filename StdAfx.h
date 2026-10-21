@@ -12,7 +12,7 @@
 
 #ifdef _WIN32
 	#include <windows.h>
-#elif (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
+#elif __has_include(<unistd.h>)
 	#include <unistd.h>
 #else
 	#error "Unsupported platform"
