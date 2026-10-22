@@ -115,7 +115,7 @@ std::wstring UTF8ToWide(const char* utf8String)
 	const auto conversion = iconv_open("WCHAR_T", "UTF-8");
 	if (conversion == reinterpret_cast<iconv_t>(-1))
 	{
-		CCP_LOGERR("Failed to create conversion algorithm from UTF-8 to WCHAR_T");
+		CCP_LOGERR("Failed to create conversion algorithm from UTF-8 to WCHAR_T: [errno: %d]", errno);
 		return result;
 	}
 
@@ -127,8 +127,12 @@ std::wstring UTF8ToWide(const char* utf8String)
 	result.resize(outputBufferSize);
 	auto outputBuffer = reinterpret_cast<char*>(result.data()); // Calculate buffer position in case backing buffer is reallocated
 	auto outputBufferRemainingByteCount = outputBufferSize;
-	iconv(conversion, &inputBuffer , &inputBufferRemainingByteCount, &outputBuffer, &outputBufferRemainingByteCount);
-
+	if (iconv(conversion, &inputBuffer , &inputBufferRemainingByteCount, &outputBuffer,&outputBufferRemainingByteCount) == static_cast<size_t>(-1))
+	{
+		CCP_LOGERR("Failed to convert from WCHAR_T to UTF-8: [errno: %d, inBytesLeft: %lu, outBytesLeft: %lu, outputBufferSize: %lu]", errno, inputBufferRemainingByteCount, outputBufferRemainingByteCount, outputBufferSize);
+		iconv_close(conversion);
+		return result;
+	}
 	iconv_close(conversion);
 
 	return result;
@@ -141,7 +145,7 @@ std::string WideToUTF8( const wchar_t* wideString )
 	const auto conversion = iconv_open("UTF-8", "WCHAR_T");
 	if (conversion == reinterpret_cast<iconv_t>(-1))
 	{
-		CCP_LOGERR("Failed to create conversion algorithm from UTF-8 to WCHAR_T");
+		CCP_LOGERR("Failed to create conversion algorithm from UTF-8 to WCHAR_T: [errno: %d]", errno);
 		return result;
 	}
 
@@ -154,7 +158,13 @@ std::string WideToUTF8( const wchar_t* wideString )
 	result.resize(outputBufferSize);
 	auto outputBuffer = result.data(); // Calculate buffer position in case backing buffer is reallocated
 	auto outputBufferRemainingByteCount = outputBufferSize;
-	iconv(conversion, &inputBuffer , &inputBufferRemainingByteCount, &outputBuffer,&outputBufferRemainingByteCount);
+	if (iconv(conversion, &inputBuffer , &inputBufferRemainingByteCount, &outputBuffer,&outputBufferRemainingByteCount) == static_cast<size_t>(-1))
+	{
+		CCP_LOGERR("Failed to convert from UTF-8 to WCHAR_T: [errno: %d, inBytesLeft: %lu, outBytesLeft: %lu, outputBufferSize: %lu]", errno, inputBufferRemainingByteCount, outputBufferRemainingByteCount, outputBufferSize);
+		iconv_close(conversion);
+		return result;
+	}
+
 	const auto bytesRead = outputBufferSize - outputBufferRemainingByteCount;
 
 	iconv_close(conversion);
