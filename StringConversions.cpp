@@ -149,25 +149,16 @@ std::string WideToUTF8( const wchar_t* wideString )
 	auto inputBufferRemainingByteCount = input.size() * sizeof(wchar_t);
 	auto inputBuffer = const_cast<char*>(reinterpret_cast<const char*>(input.data())); // iconv will increment buffer
 
-	// We cannot correctly infer the size of the of the output buffer because UTF8 code points require a variable number of characters/bytes
-	// The output buffer must therefore scale in size whenever encoding fails with insufficient space in the output buffer
-	auto outputBufferSize = input.size(); // Size is in bytes
-	size_t conversionResult = 0;
-	uint32_t bytesRead = 0;
-	do
-	{
-		result.resize(outputBufferSize);
-		auto outputBuffer = result.data() + bytesRead; // Calculate buffer position in case backing buffer is reallocated
-		auto outputBufferRemainingByteCount = outputBufferSize - bytesRead;
-		conversionResult = iconv(conversion, &inputBuffer , &inputBufferRemainingByteCount, &outputBuffer,&outputBufferRemainingByteCount);
-		bytesRead = outputBufferSize - outputBufferRemainingByteCount;
-		outputBufferSize *= 2;
-	}
-	while (conversionResult == static_cast<size_t>(-1) && errno == E2BIG);
+	// UTF8 code points require four bytes at most
+	auto outputBufferSize = input.size() * 4; // Size is in bytes
+	result.resize(outputBufferSize);
+	auto outputBuffer = result.data(); // Calculate buffer position in case backing buffer is reallocated
+	auto outputBufferRemainingByteCount = outputBufferSize;
+	iconv(conversion, &inputBuffer , &inputBufferRemainingByteCount, &outputBuffer,&outputBufferRemainingByteCount);
+	const auto bytesRead = outputBufferSize - outputBufferRemainingByteCount;
 
 	iconv_close(conversion);
 
-	// Size of string is doubled with each iteration,
 	// The result must be truncated to the number of character elements read into the output buffer
 	result.resize(bytesRead);
 
