@@ -119,22 +119,15 @@ std::wstring UTF8ToWide(const char* utf8String)
 		return result;
 	}
 
-	const std::string_view input = utf8String;
-	auto inputSize= input.size();
+	std::string_view input = utf8String;
+	auto inputBufferRemainingByteCount = input.size();
 	auto inputBuffer = const_cast<char*>(input.data()); // iconv will increment buffer
 
-	std::vector<wchar_t> conversionBuffer(inputSize + 1);
-	auto outputBuffer = reinterpret_cast<char*>(conversionBuffer.data());
-	auto outputSize = conversionBuffer.size() * sizeof(wchar_t);
-
-	if (const auto numConverted = iconv(conversion, &inputBuffer , &inputSize, &outputBuffer,&outputSize); numConverted == static_cast<size_t>(-1))
-	{
-		CCP_LOGERR("Failed to convert string from UTF-8 to WCHAR_T: [%s]", utf8String);
-		iconv_close(conversion);
-		return result;
-	}
-
-	result = conversionBuffer.data();
+	auto outputBufferSize = input.size() * sizeof(wchar_t); // Size is in bytes
+	result.resize(outputBufferSize);
+	auto outputBuffer = reinterpret_cast<char*>(result.data()); // Calculate buffer position in case backing buffer is reallocated
+	auto outputBufferRemainingByteCount = outputBufferSize;
+	iconv(conversion, &inputBuffer , &inputBufferRemainingByteCount, &outputBuffer, &outputBufferRemainingByteCount);
 
 	iconv_close(conversion);
 
@@ -153,23 +146,30 @@ std::string WideToUTF8( const wchar_t* wideString )
 	}
 
 	const std::wstring_view input = wideString;
-	auto inputSize= input.size() * sizeof(wchar_t);
+	auto inputBufferRemainingByteCount = input.size() * sizeof(wchar_t);
 	auto inputBuffer = const_cast<char*>(reinterpret_cast<const char*>(input.data())); // iconv will increment buffer
 
-	std::vector<char> conversionBuffer(inputSize + 1);
-	auto outputBuffer = conversionBuffer.data();
-	auto outputSize = conversionBuffer.size();
-
-	if (const auto numConverted = iconv(conversion, &inputBuffer , &inputSize, &outputBuffer,&outputSize); numConverted == static_cast<size_t>(-1))
+	// We cannot correctly infer the size of the of the output buffer because UTF8 code points require a variable number of characters/bytes
+	// The output buffer must therefore scale in size whenever encoding fails with insufficient space in the output buffer
+	auto outputBufferSize = input.size(); // Size is in bytes
+	size_t conversionResult = 0;
+	uint32_t bytesRead = 0;
+	do
 	{
-		CCP_LOGERR("Failed to convert string from WCHAR_T to UTF-8: [%ls]", wideString);
-		iconv_close(conversion);
-		return result;
+		result.resize(outputBufferSize);
+		auto outputBuffer = result.data() + bytesRead; // Calculate buffer position in case backing buffer is reallocated
+		auto outputBufferRemainingByteCount = outputBufferSize - bytesRead;
+		conversionResult = iconv(conversion, &inputBuffer , &inputBufferRemainingByteCount, &outputBuffer,&outputBufferRemainingByteCount);
+		bytesRead = outputBufferSize - outputBufferRemainingByteCount;
+		outputBufferSize *= 2;
 	}
-
-	result = conversionBuffer.data();
+	while (conversionResult == static_cast<size_t>(-1) && errno == E2BIG);
 
 	iconv_close(conversion);
+
+	// Size of string is doubled with each iteration,
+	// The result must be truncated to the number of character elements read into the output buffer
+	result.resize(bytesRead);
 
 	return result;
 }
