@@ -219,14 +219,14 @@ bool CcpIsDebuggerPresent()
 	std::string line(256, '\0');
 	while (getline(stream, line)) // getline clears previous line contents via str.erase()
 	{
-		if (line.find(lookupString) != std::string::npos)
+		if (const auto position = line.find(lookupString); position != std::string::npos)
 		{
-			break;
+			const auto offsetToTracer = line.data() + position + strlen(lookupString) + 1; // Assume value is separated by a single ASCII character
+			return std::stoi(offsetToTracer) != 0;
 		}
 	}
 
-	const auto position = line.data() + strlen(lookupString) + 1; // Assume value is separated by a single ASCII character
-	return std::stoi(position) != 0;
+	return false;
 }
 #endif
 
