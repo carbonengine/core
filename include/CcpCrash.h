@@ -11,7 +11,6 @@
 #define NOINLINE __attribute__((noinline))
 #endif
 
-[[deprecated("Deprecated in favor of std::abort")]]
 static NOINLINE void CcpCrashOnPurpose()
 #ifdef __clang__
 	__attribute__( ( __analyzer_noreturn__ ) )
