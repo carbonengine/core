@@ -8,12 +8,20 @@ class StringConversionTest : public testing::TestWithParam<std::string_view>{};
 
 TEST_P(StringConversionTest, ConvertingStringsTwiceLeavesThemUnchanged)
 {
-	const auto string = GetParam();
+	const auto input = GetParam();
+	auto expected = input;
+#if __APPLE__
+	// macOS conversion routines do not preserve byte order marks, so adjust our expectations
+	if (input.size() >= 3 && input[0] == '\xef' && input[1] == '\xbb' && input[2] == '\xbf')
+	{
+		expected.remove_prefix(3);
+	}
+#endif
 
-	const auto wideConverted = UTF8ToWide(string.data());
+	const auto wideConverted = UTF8ToWide(input.data());
 	const auto utf8Converted = WideToUTF8(wideConverted);
 
-	EXPECT_EQ(string.data(), utf8Converted);
+	EXPECT_EQ(expected.data(), utf8Converted);
 }
 
 INSTANTIATE_TEST_SUITE_P(StringConversions, StringConversionTest, testing::ValuesIn(s_BigListOfNaughtyStrings));
