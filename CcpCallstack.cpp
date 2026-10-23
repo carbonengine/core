@@ -394,7 +394,7 @@ void CCPCallstack::Enumerate( void ( *callback )( size_t codePointer, const char
     {
         std::string record = lines[i];
         const char* plus = strchr( lines[i], '+' );
-        if( *plus )
+        if( plus && *plus )
         {
             std::string name;
             GetLastWord( lines[i], plus - 1, name );
