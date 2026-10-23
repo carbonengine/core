@@ -104,3 +104,73 @@ void BlueConvertAsciiToWide::Init( const char* src )
 }
 
 #endif
+
+#if __linux__
+#include <iconv.h>
+
+std::wstring UTF8ToWide(const char* utf8String)
+{
+	std::wstring result;
+
+	const auto descriptor = iconv_open("WCHAR_T", "UTF-8");
+	if (descriptor == reinterpret_cast<iconv_t>(-1))
+	{
+		CCP_LOGERR("Failed to create code conversion descriptor from UTF-8 to WCHAR_T: [errno: %d]", errno);
+		return result;
+	}
+
+	std::string_view input = utf8String;
+	auto inBytesLeft = input.size();
+	auto inputBuffer = const_cast<char*>(input.data()); // iconv will increment buffer
+
+	auto outputBufferSize = input.size() * sizeof(wchar_t); // Size is in bytes
+	result.resize(outputBufferSize);
+	auto outputBuffer = reinterpret_cast<char*>(result.data()); // Calculate buffer position in case backing buffer is reallocated
+	auto outBytesLeft = outputBufferSize;
+	if (iconv(descriptor, &inputBuffer , &inBytesLeft, &outputBuffer, &outBytesLeft) == static_cast<size_t>(-1))
+	{
+		CCP_LOGERR("Failed to convert from WCHAR_T to UTF-8: [errno: %d, inBytesLeft: %lu, outBytesLeft: %lu, outputBufferSize: %lu]", errno, inBytesLeft, outBytesLeft, outputBufferSize);
+		iconv_close(descriptor);
+		return result;
+	}
+
+	iconv_close(descriptor);
+
+	return result;
+}
+
+std::string WideToUTF8( const wchar_t* wideString )
+{
+	std::string result;
+
+	const auto descriptor = iconv_open("UTF-8", "WCHAR_T");
+	if (descriptor == reinterpret_cast<iconv_t>(-1))
+	{
+		CCP_LOGERR("Failed to create code conversion descriptor from UTF-8 to WCHAR_T: [errno: %d]", errno);
+		return result;
+	}
+
+	const std::wstring_view input = wideString;
+	auto inBytesLeft = input.size() * sizeof(wchar_t);
+	auto inputBuffer = const_cast<char*>(reinterpret_cast<const char*>(input.data())); // iconv will increment buffer
+
+	// UTF8 code points require four bytes at most
+	auto outputBufferSize = input.size() * 4; // Size is in bytes
+	result.resize(outputBufferSize);
+	auto outputBuffer = result.data(); // Calculate buffer position in case backing buffer is reallocated
+	auto outBytesLeft = outputBufferSize;
+	if (iconv(descriptor, &inputBuffer , &inBytesLeft, &outputBuffer, &outBytesLeft) == static_cast<size_t>(-1))
+	{
+		CCP_LOGERR("Failed to convert from UTF-8 to WCHAR_T: [errno: %d, inBytesLeft: %lu, outBytesLeft: %lu, outputBufferSize: %lu]", errno, inBytesLeft, outBytesLeft, outputBufferSize);
+		iconv_close(descriptor);
+		return result;
+	}
+
+	iconv_close(descriptor);
+
+	// The result must be truncated to the number of character elements read into the output buffer
+	result.resize(outputBufferSize - outBytesLeft);
+
+	return result;
+}
+#endif

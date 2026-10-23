@@ -68,6 +68,15 @@ class Publish(perforce_publish_path: String) : BuildType({
                         "${MacOS.x64_Internal.depParamRefs["env.GIT_TAG_HASH"]}",
                         "${MacOS.x64_TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}",
 
+                        "${Linux.arm64_Release.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Linux.arm64_Debug.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Linux.arm64_Internal.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Linux.arm64_TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Linux.x64_Release.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Linux.x64_Debug.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Linux.x64_Internal.depParamRefs["env.GIT_TAG_HASH"]}",
+                        "${Linux.x64_TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}",
+
                         "${Windows.Release.depParamRefs["env.GIT_TAG_HASH"]}",
                         "${Windows.Debug.depParamRefs["env.GIT_TAG_HASH"]}",
                         "${Windows.Internal.depParamRefs["env.GIT_TAG_HASH"]}",
@@ -247,6 +256,78 @@ class Publish(perforce_publish_path: String) : BuildType({
 
             artifacts {
                 artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Windows.TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Linux.x64_Debug) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Linux.x64_Debug.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Linux.x64_Internal) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Linux.x64_Internal.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Linux.x64_Release) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Linux.x64_Release.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Linux.x64_TrinityDev) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Linux.x64_TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Linux.arm64_Debug) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Linux.arm64_Debug.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Linux.arm64_Internal) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Linux.arm64_Internal.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Linux.arm64_Release) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Linux.arm64_Release.depParamRefs["env.GIT_TAG_HASH"]}"
+            }
+        }
+        dependency(Linux.arm64_TrinityDev) {
+            snapshot {
+                onDependencyFailure = FailureAction.FAIL_TO_START
+            }
+
+            artifacts {
+                artifactRules = "artifact.zip!**=>%perforce_path_to_publish_into%/${Linux.arm64_TrinityDev.depParamRefs["env.GIT_TAG_HASH"]}"
             }
         }
         artifacts(AbsoluteId("Infrastructure_MetaTeamCity_Tools_TeamcityChanges")) {
