@@ -46,7 +46,8 @@
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Linux"
-      }
+      },
+      "hidden": true
     },
     {
       "name": "x64-windows-v145",
