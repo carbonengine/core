@@ -1,6 +1,6 @@
 # Copyright © 2025 CCP ehf.
 
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.25)
 
 option(WITH_TELEMETRY "Enable profiler integration" ON)
 option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
@@ -182,7 +182,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
         if(WIN32)
             set(PYTHONPATH_ENV_SPHINX "$<TARGET_FILE_DIR:CcpCore>\;${CMAKE_SOURCE_DIR}/python")
-        elseif(APPLE)
+        elseif(APPLE OR LINUX)
             set(PYTHONPATH_ENV_SPHINX "$<TARGET_FILE_DIR:CcpCore>:${CMAKE_SOURCE_DIR}/python")
         endif()
 

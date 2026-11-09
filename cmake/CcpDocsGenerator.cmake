@@ -14,7 +14,7 @@ function(_create_venv_and_install_packages)
 
     if(WIN32)
         set(PIP_EXE ${CMAKE_CURRENT_BINARY_DIR}/${arg_VENV_NAME}/Scripts/pip)
-    elseif(APPLE)
+    elseif(APPLE OR LINUX)
         set(PIP_EXE ${CMAKE_CURRENT_BINARY_DIR}/${arg_VENV_NAME}/bin/pip)
     endif()
 
@@ -63,7 +63,7 @@ function(create_carbon_docs_sphinx_target)
 
     if (WIN32)
         set(SPHINX_COMMAND Scripts/sphinx-build -E -b html -D breathe_projects.doxygen=${CMAKE_CURRENT_BINARY_DIR}/doc/xml -c ${arg_SPHINX_SOURCE} ${arg_SPHINX_SOURCE} ${arg_SPHINX_BUILD})
-    elseif(APPLE)
+    elseif(APPLE OR LINUX)
         set(SPHINX_COMMAND bin/sphinx-build -E -b html -D breathe_projects.doxygen=${CMAKE_CURRENT_BINARY_DIR}/doc/xml -c ${arg_SPHINX_SOURCE} ${arg_SPHINX_SOURCE} ${arg_SPHINX_BUILD})
     endif()
 
