@@ -1,6 +1,6 @@
 # Copyright © 2025 CCP ehf.
 
-cmake_minimum_required(VERSION 3.19)
+cmake_minimum_required(VERSION 3.25)
 
 option(WITH_TELEMETRY "Enable profiler integration" ON)
 option(BUILD_TESTING "Build and run tests. Enabled by default." ON)
@@ -182,7 +182,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
 
         if(WIN32)
             set(PYTHONPATH_ENV_SPHINX "$<TARGET_FILE_DIR:CcpCore>\;${CMAKE_SOURCE_DIR}/python")
-        elseif(APPLE)
+        elseif(APPLE OR LINUX)
             set(PYTHONPATH_ENV_SPHINX "$<TARGET_FILE_DIR:CcpCore>:${CMAKE_SOURCE_DIR}/python")
         endif()
 
@@ -244,23 +244,6 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
                 EXPORT_DLL
         )
         install(FILES ${CMAKE_CURRENT_BINARY_DIR}/CcpCoreConfig.cmake DESTINATION .)
-
-        # Install the CLI and GUI tools (and their dependent dlls) for Tracy
-        # Only do so for top-level MONOLITH builds/installs.
-        # Exclude *.pdb files on Windows, but copy everything on macOS
-        if(WITH_TELEMETRY)
-            if(WIN32)
-                set(TRACY_TOOLS_FILTER FILES_MATCHING PATTERN "*.exe" PATTERN "*.dll")
-            else()
-                set(TRACY_TOOLS_FILTER)
-            endif()
-            install(
-                    DIRECTORY "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/tools/tracy/"
-                    DESTINATION bin/${CCP_PLATFORM}/${CCP_ARCHITECTURE}/${CCP_TOOLSET}/tools/tracy
-                    ${TRACY_TOOLS_FILTER}
-            )
-        endif()
-
     else() # VCPKG installation mode
         # Install rule to ensure that our runtime and linker files are in the vcpkg structure
         install(
