@@ -325,7 +325,7 @@ TEST( CcpMemory, CanGetProcessMemoryInfo )
 {
 	CcpProcessMemoryInfo info;
 	ASSERT_TRUE( CcpGetProcessMemoryInfo( info ) );
-	EXPECT_GE(info.pageFile, 0)
+	EXPECT_GE(info.pageFileUsage, 0)
 	EXPECT_GT(info.workingSetSize, 0)
 	EXPECT_GT(info.pageFaultCount, 0)
 	
