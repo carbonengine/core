@@ -15,7 +15,7 @@
 			#define BLUEIMPORT __declspec(dllimport)
 		#endif
 	#endif
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) || defined(__linux__)
 #ifdef BLUEBUILD_STATIC
 #define BLUEIMPORT
 #else
