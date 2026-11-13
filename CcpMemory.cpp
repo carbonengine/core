@@ -17,6 +17,13 @@
 #include <malloc.h>
 #endif
 
+#if __linux__
+#include <sys/sysinfo.h>
+#include <sys/resource.h>
+#include <fstream>
+#include <sstream>
+#endif
+
 // We need to initialize the memory system before any other static initializers are executed.
 #ifdef _WIN32
 #pragma warning(suppress:4073)
@@ -792,6 +799,46 @@ bool CcpGetProcessMemoryInfo( CcpProcessMemoryInfo& result )
 		result.pageFaultCount = size_t( vmEvents.faults );
 		return true;
 	}
+#elif defined(__linux__)
+	std::ifstream statmFile("/proc/self/statm");
+
+	std::string residentStr;
+	
+	if (!statmFile.is_open())
+	{
+		return false;
+	}
+
+	std::string entry;
+	std::getline(statmFile, entry);
+	statmFile.close();
+
+	std::stringstream ss;
+	ss << entry;
+	std::string sizeStr;
+	ss >> sizeStr;
+	ss >> residentStr;
+	
+	result.workingSetSize = atoi(residentStr.c_str()) * uint64_t(sysconf(_SC_PAGESIZE));
+
+	struct sysinfo info{};
+	if(sysinfo(&info))
+	{
+		return false;
+	}
+	result.pageFileUsage = (info.totalswap - info.freeswap) * uint64_t(info.mem_unit);
+
+	struct rusage usage;
+	if(getrusage(RUSAGE_SELF, &usage))
+	{
+		return false;
+	}
+
+	// Page fault count = major faults + minor faults
+	result.pageFaultCount = usage.ru_majflt + usage.ru_minflt;
+
+	return true;
+
 #endif
     return false;
 }
