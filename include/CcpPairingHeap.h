@@ -307,7 +307,7 @@ T PairingHeap<T>::remove(nodeptr_t node)
 {
 	CCP_ASSERT(node);
 	CCP_ASSERT(!is_empty());
-	node->Unlink;
+	node->Unlink();
 	nodeptr_t children = DetachChildren(node);
 	if (node != root)
 		root = CompareLink(root, children);
