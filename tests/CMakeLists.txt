@@ -8,6 +8,7 @@ add_executable(CcpCoreTest
     CcpCoreTest.cpp
     CcpCrash.cpp
     CcpHash.cpp
+    CcpPairingHeap.cpp
     CcpFileUtils.cpp
     CcpMemory.cpp
     CcpMemoryTracker.cpp
